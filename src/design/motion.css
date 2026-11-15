@@ -1,0 +1,72 @@
+/* Circuit trace animation */
+@keyframes drawTrace {
+  0% {
+    stroke-dashoffset: 1000;
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.9;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(45, 197, 233, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(45, 197, 233, 0.85));
+  }
+}
+
+@keyframes floatSoft {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(0.5deg);
+  }
+}
+
+.anim-trace {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawTrace 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.anim-pulse {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.anim-float {
+  animation: floatSoft 5s ease-in-out infinite;
+}
+
+.anim-float-slow {
+  animation: floatSlow 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .anim-trace {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+}

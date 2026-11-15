@@ -8,7 +8,9 @@ import {
   GitCompare,
   Wrench,
   ChevronLeft,
-  Check
+  Check,
+  AlertCircle,
+  FolderKanban
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -30,6 +32,7 @@ export function StudioToolbar({
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project?.title || '');
+  const [pendingNavUrl, setPendingNavUrl] = useState(null);
   const navigate = useNavigate();
 
   const handleTitleSubmit = () => {
@@ -39,32 +42,43 @@ export function StudioToolbar({
     }
   };
 
+  const handleNav = (url) => {
+    if (!isSaved) {
+      setPendingNavUrl(url);
+    } else {
+      navigate(url);
+    }
+  };
+
   const hasErrors = validation?.checks?.some(c => c.status === 'FAILED');
 
   return (
     <TracewiseBubbleArea theme="light">
       <header
         style={{
-          height: '58px',
+          minHeight: '58px',
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--tw-border)',
           display: 'flex',
+          flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 16px',
+          padding: '8px 16px',
           zIndex: 50,
           gap: '12px'
         }}
       >
-        {/* Left: Back & Project Identity */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Left: Prominent Breadcrumb Navigation (← Dashboard / Projects / Title) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <TracewiseBubbleButton
-            to="/app"
+            onClick={() => handleNav('/app')}
             variant="ghost"
             size="sm"
+            title="Return to Dashboard"
             style={{
               color: 'var(--tw-text-secondary)',
               fontSize: '0.82rem',
+              padding: '4px 10px',
               gap: '4px'
             }}
           >
@@ -72,7 +86,27 @@ export function StudioToolbar({
             <span>Dashboard</span>
           </TracewiseBubbleButton>
 
-          {/* Project Title */}
+          <span style={{ color: 'var(--tw-border)', fontWeight: 300 }}>/</span>
+
+          <TracewiseBubbleButton
+            onClick={() => handleNav('/projects')}
+            variant="ghost"
+            size="sm"
+            title="Browse Projects Catalog"
+            style={{
+              color: 'var(--tw-text-secondary)',
+              fontSize: '0.82rem',
+              padding: '4px 10px',
+              gap: '4px'
+            }}
+          >
+            <FolderKanban size={14} />
+            <span>Projects</span>
+          </TracewiseBubbleButton>
+
+          <span style={{ color: 'var(--tw-border)', fontWeight: 300 }}>/</span>
+
+          {/* Project Title & Version */}
           {editingTitle ? (
             <input
               type="text"
@@ -82,7 +116,7 @@ export function StudioToolbar({
               onKeyDown={(e) => e.key === 'Enter' && handleTitleSubmit()}
               autoFocus
               style={{
-                fontSize: '0.95rem',
+                fontSize: '0.92rem',
                 fontWeight: 700,
                 padding: '4px 8px',
                 borderRadius: '6px',
@@ -105,12 +139,12 @@ export function StudioToolbar({
               }}
               title="Click to rename"
             >
-              <h1 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
+              <h1 style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)', margin: 0 }}>
                 {project?.title || 'Untitled Project'}
               </h1>
               <span
                 style={{
-                  fontSize: '0.72rem',
+                  fontSize: '0.7rem',
                   fontWeight: 600,
                   color: 'var(--tw-brand)',
                   backgroundColor: 'var(--tw-brand-soft)',
@@ -125,7 +159,7 @@ export function StudioToolbar({
         </div>
 
         {/* Center: Undo / Redo & Save status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <TracewiseBubbleIconButton
             onClick={onUndo}
             disabled={!canUndo}
@@ -152,11 +186,11 @@ export function StudioToolbar({
           <span
             style={{
               fontSize: '0.75rem',
-              color: isSaved ? 'var(--tw-success)' : 'var(--tw-warning)',
+              color: isSaved ? 'var(--tw-success)' : '#d97706',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              marginLeft: '8px',
+              marginLeft: '6px',
               fontWeight: 500
             }}
           >
@@ -166,7 +200,7 @@ export function StudioToolbar({
         </div>
 
         {/* Right: Actions (Save, Fork, Compare, Build) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <TracewiseBubbleButton
             onClick={onSave}
             title="Save Project"
@@ -215,6 +249,103 @@ export function StudioToolbar({
           </TracewiseBubbleButton>
         </div>
       </header>
+
+      {/* Unsaved Edits Confirmation Dialog */}
+      {pendingNavUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(7, 24, 49, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              padding: '28px',
+              maxWidth: '460px',
+              width: '100%',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              border: '1px solid var(--tw-border)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: '12px',
+                  backgroundColor: '#fef3c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <AlertCircle size={24} color="#d97706" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.18rem', fontWeight: 700, margin: 0, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
+                  Unsaved Changes
+                </h3>
+                <p style={{ fontSize: '0.84rem', color: 'var(--tw-text-muted)', margin: '2px 0 0' }}>
+                  Project: {project?.title || 'Current Project'}
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              You have unsaved changes in your circuit or code. Would you like to save your work before navigating away?
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <TracewiseBubbleButton
+                onClick={() => setPendingNavUrl(null)}
+                variant="ghost"
+                size="sm"
+              >
+                Keep Editing
+              </TracewiseBubbleButton>
+
+              <TracewiseBubbleButton
+                onClick={() => {
+                  const target = pendingNavUrl;
+                  setPendingNavUrl(null);
+                  navigate(target);
+                }}
+                variant="secondary"
+                size="sm"
+                style={{ color: 'var(--tw-error)' }}
+              >
+                Discard
+              </TracewiseBubbleButton>
+
+              <TracewiseBubbleButton
+                onClick={() => {
+                  const target = pendingNavUrl;
+                  onSave();
+                  setPendingNavUrl(null);
+                  navigate(target);
+                }}
+                variant="primary"
+                size="sm"
+              >
+                Save & Exit
+              </TracewiseBubbleButton>
+            </div>
+          </div>
+        </div>
+      )}
     </TracewiseBubbleArea>
   );
 }

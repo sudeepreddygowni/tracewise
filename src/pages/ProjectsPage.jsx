@@ -31,18 +31,13 @@ export function ProjectsPage() {
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      {/* Hero Showcase with Green Valley Landscape */}
+      {/* Hero Showcase with Modern Technical Gradient */}
       <section
         style={{
           position: 'relative',
           paddingTop: '120px',
           paddingBottom: '80px',
-          backgroundImage: `
-            linear-gradient(180deg, rgba(7, 24, 49, 0.45) 0%, rgba(245, 249, 253, 0.95) 100%),
-            url('/assets/backgrounds/green-valley.webp')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: 'linear-gradient(180deg, #071831 0%, #0b2348 45%, #1e3fd8 80%, var(--tw-bg) 100%)',
           overflow: 'hidden'
         }}
       >

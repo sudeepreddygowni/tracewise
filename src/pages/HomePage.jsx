@@ -76,7 +76,7 @@ export function HomePage() {
       <Navbar />
 
       {/* =========================================================================
-          SECTION 1: HIMALAYAN HERO WITH SKYBOUND ATMOSPHERE
+          SECTION 1: HERO WITH REACT BITS GRADIENTASCII FULL-BLEED BACKGROUND
       ========================================================================= */}
       <section
         style={{
@@ -87,17 +87,46 @@ export function HomePage() {
           justifyContent: 'center',
           paddingTop: '130px',
           paddingBottom: '140px',
-          backgroundImage: `
-            linear-gradient(90deg, rgba(7, 24, 49, 0.72) 0%, rgba(7, 24, 49, 0.38) 52%, rgba(7, 24, 49, 0.08) 100%),
-            url('/assets/backgrounds/himalayan-hero.webp')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center 25%',
+          backgroundColor: '#071831',
           overflow: 'hidden'
         }}
       >
+        {/* Full-Bleed Animated React Bits GradientASCII Canvas */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            zIndex: 1,
+            pointerEvents: 'auto'
+          }}
+          aria-hidden="true"
+        >
+          <GradientASCII
+            colors={['#1e3fd8', '#f6f8ff', '#a5d8ff', '#38bdf8']}
+            shape="horizon"
+            characters=" =+xX0S8#@"
+            cellSize={18}
+            density={0.8}
+          />
+        </div>
+
+        {/* Ambient Contrast Veil (Ensures readable text while keeping ASCII vivid) */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at 40% 45%, rgba(7, 24, 49, 0.42) 0%, rgba(7, 24, 49, 0.78) 70%, #071831 100%)',
+            pointerEvents: 'none',
+            zIndex: 2
+          }}
+          aria-hidden="true"
+        />
+
         <div className="container-tw" style={{ position: 'relative', zIndex: 10 }}>
-          <div style={{ maxWidth: '780px' }}>
+          <div style={{ maxWidth: '820px' }}>
             
             {/* Tag Pill */}
             <AnimatedContent trigger="mount" distance={25} duration={0.6}>
@@ -106,12 +135,13 @@ export function HomePage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: 'rgba(255, 255, 255, 0.18)',
-                  border: '1px solid rgba(255, 255, 255, 0.4)',
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.28)',
                   padding: '6px 16px',
                   borderRadius: 'var(--tw-radius-pill)',
-                  backdropFilter: 'blur(12px)',
-                  marginBottom: '20px'
+                  backdropFilter: 'blur(16px)',
+                  marginBottom: '20px',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)'
                 }}
               >
                 <Cpu size={15} color="#2DC5E9" />
@@ -125,12 +155,12 @@ export function HomePage() {
             <AnimatedContent trigger="mount" distance={35} delay={0.1} duration={0.8}>
               <h1
                 style={{
-                  fontSize: 'clamp(3rem, 5.5vw, 5.2rem)',
+                  fontSize: 'clamp(2.8rem, 5.2vw, 4.8rem)',
                   fontWeight: 700,
                   color: '#ffffff',
                   letterSpacing: '-0.045em',
                   lineHeight: 1.08,
-                  textShadow: '0 4px 24px rgba(7, 24, 49, 0.5)'
+                  textShadow: '0 4px 28px rgba(7, 24, 49, 0.7)'
                 }}
               >
                 Make the circuit. Understand every change.
@@ -144,9 +174,9 @@ export function HomePage() {
                   fontSize: 'clamp(1.05rem, 1.8vw, 1.25rem)',
                   color: '#e2e8f0',
                   marginTop: '18px',
-                  maxWidth: '640px',
+                  maxWidth: '680px',
                   lineHeight: 1.55,
-                  textShadow: '0 2px 12px rgba(7, 24, 49, 0.6)'
+                  textShadow: '0 2px 14px rgba(7, 24, 49, 0.8)'
                 }}
               >
                 Start with an Arduino project, experiment with its wiring and code, and see exactly what changed. Tracewise helps you learn by building, testing, and improving your projects.
@@ -160,9 +190,9 @@ export function HomePage() {
                   className="glass-card"
                   style={{
                     padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.92)',
+                    background: 'rgba(255, 255, 255, 0.94)',
                     borderRadius: '24px',
-                    boxShadow: '0 20px 48px rgba(7, 24, 49, 0.35)'
+                    boxShadow: '0 20px 48px rgba(7, 24, 49, 0.45)'
                   }}
                 >
                   <form
@@ -244,9 +274,9 @@ export function HomePage() {
                   variant="secondary"
                   size="lg"
                   style={{
-                    background: 'rgba(255, 255, 255, 0.25)',
+                    background: 'rgba(255, 255, 255, 0.22)',
                     color: '#ffffff',
-                    borderColor: 'rgba(255, 255, 255, 0.5)'
+                    borderColor: 'rgba(255, 255, 255, 0.45)'
                   }}
                 >
                   <Play size={16} />
@@ -257,83 +287,8 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Floating Reference Glass Cards Preview Overlay */}
-        <div
-          style={{
-            position: 'absolute',
-            right: '4vw',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            maxWidth: '380px',
-            zIndex: 10
-          }}
-          className="hero-floating-cards"
-        >
-          {/* Card 1: Arduino Uno Pin Spec */}
-          <div
-            className="glass-card anim-float"
-            style={{
-              padding: '16px 20px',
-              background: 'rgba(255, 255, 255, 0.9)',
-              border: '1px solid rgba(255, 255, 255, 0.95)',
-              boxShadow: '0 20px 40px rgba(7, 24, 49, 0.22)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--tw-brand)' }}>
-                ARDUINO UNO R3
-              </span>
-              <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <CheckCircle2 size={12} /> Connected
-              </span>
-            </div>
-            <div style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--tw-text)' }}>
-              14 Digital GPIO • 6 PWM • ATmega328P
-            </div>
-            <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-              <span style={{ fontSize: '0.72rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-code)' }}>D2: RED</span>
-              <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-code)' }}>D3: YEL</span>
-              <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-code)' }}>D4: GRN</span>
-            </div>
-          </div>
-
-          {/* Card 2: Live Code Preview */}
-          <div
-            className="glass-dark anim-float-slow"
-            style={{
-              padding: '16px 20px',
-              borderRadius: 'var(--tw-radius-lg)',
-              fontFamily: 'var(--font-code)',
-              fontSize: '0.76rem',
-              lineHeight: 1.5,
-              border: '1px solid rgba(74, 167, 242, 0.35)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.7rem', marginBottom: '4px' }}>
-              <span>traffic_light.ino</span>
-              <span style={{ color: '#2dc5e9' }}>Arduino C++</span>
-            </div>
-            <div style={{ color: '#93c5fd' }}>void loop() &#123;</div>
-            <div style={{ paddingLeft: '12px', color: '#cbd5e1' }}>digitalWrite(RED_PIN, HIGH);</div>
-            <div style={{ paddingLeft: '12px', color: '#cbd5e1' }}>delay(3000);</div>
-            <div style={{ paddingLeft: '12px', color: '#cbd5e1' }}>digitalWrite(GREEN_PIN, HIGH);</div>
-            <div style={{ color: '#93c5fd' }}>&#125;</div>
-          </div>
-        </div>
-
         {/* Seamless Hero to Sky Transition Mask (220px) */}
         <div className="trans-hero-bottom" />
-
-        <style>{`
-          @media (max-width: 1100px) {
-            .hero-floating-cards {
-              display: none !important;
-            }
-          }
-        `}</style>
       </section>
 
       {/* =========================================================================
@@ -544,8 +499,8 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Navy to Green Valley Landscape (200px) */}
-      <div className="trans-navy-to-valley" />
+      {/* Seamless Transition: Navy to Technical Showcase (140px) */}
+      <div className="trans-navy-to-showcase" />
 
       {/* =========================================================================
           SECTION 4: PROJECT SHOWCASE WITH REACTDROPS FAN GALLERY
@@ -556,12 +511,7 @@ export function HomePage() {
           position: 'relative',
           paddingTop: '60px',
           paddingBottom: '120px',
-          backgroundImage: `
-            linear-gradient(180deg, rgba(7, 24, 49, 0.45) 0%, rgba(7, 24, 49, 0.1) 40%, rgba(7, 24, 49, 0.5) 100%),
-            url('/assets/backgrounds/green-valley.webp')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: 'linear-gradient(180deg, #071831 0%, #0B2348 45%, #0E2A58 75%, #071831 100%)',
           overflow: 'hidden'
         }}
         id="projects"
@@ -575,9 +525,10 @@ export function HomePage() {
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  color: '#ffffff',
-                  background: 'rgba(7, 24, 49, 0.65)',
-                  padding: '4px 14px',
+                  color: 'var(--tw-cyan)',
+                  background: 'rgba(11, 35, 72, 0.75)',
+                  border: '1px solid rgba(45, 197, 233, 0.25)',
+                  padding: '5px 16px',
                   borderRadius: '16px',
                   display: 'inline-block',
                   marginBottom: '10px'
@@ -595,7 +546,7 @@ export function HomePage() {
               >
                 Good projects are meant to be explored.
               </h2>
-              <p style={{ fontSize: '1.05rem', color: '#f1f5f9', marginTop: '6px', textShadow: '0 2px 10px rgba(7, 24, 49, 0.6)' }}>
+              <p style={{ fontSize: '1.05rem', color: '#cbd5e1', marginTop: '6px' }}>
                 Open any starter circuit, test its logic, and make an independent remix without altering the original baseline.
               </p>
             </div>
@@ -606,8 +557,8 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Green Valley back into Dark Technical Atmosphere (240px) */}
-      <div className="trans-valley-to-navy" />
+      {/* Seamless Transition: Showcase back to Dark Technical Atmosphere (140px) */}
+      <div className="trans-showcase-to-navy" />
 
       {/* =========================================================================
           SECTION 5: PHYSICAL BUILDING
@@ -629,49 +580,62 @@ export function HomePage() {
             </div>
           </AnimatedContent>
 
-          {/* Technical Transition ASCII Panel */}
+          {/* Technical Hardware Diagnostic & Pin Mapping Visual Card (Single WebGL canvas preserved for Hero) */}
           <div
             style={{
               width: '100%',
-              height: '240px',
+              minHeight: '180px',
               position: 'relative',
               borderRadius: '20px',
               overflow: 'hidden',
+              background: 'linear-gradient(135deg, rgba(11, 35, 72, 0.7) 0%, rgba(7, 24, 49, 0.95) 100%)',
               border: '1px solid rgba(74, 167, 242, 0.25)',
-              marginBottom: '32px'
+              marginBottom: '32px',
+              padding: '28px 32px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '24px'
             }}
           >
-            <GradientASCII
-              colors={['#1e3fd8', '#f6f8ff', '#a5d8ff', '#38bdf8']}
-              shape="horizon"
-              characters=" =+xX0S8#@"
-              cellSize={18}
-              density={0.8}
-            />
+            <div style={{ maxWidth: '520px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--tw-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#22c55e', boxShadow: '0 0 10px #22c55e' }} />
+                Deterministic Static Rule Checks
+              </span>
+              <h3 style={{ fontSize: '1.45rem', fontWeight: 700, marginTop: '6px', color: '#ffffff' }}>
+                Structural checks you can rely on.
+              </h3>
+              <p style={{ fontSize: '0.92rem', color: '#94a3b8', marginTop: '6px', lineHeight: 1.6 }}>
+                Every pin definition in your Arduino C++ code is parsed against your canvas wiring. We check power rails, current limiting, and pin collisions before you plug in physical hardware.
+              </p>
+            </div>
 
             <div
               style={{
-                position: 'absolute',
-                inset: 0,
                 display: 'flex',
-                flexDirection: 'column',
+                gap: '12px',
                 alignItems: 'center',
-                justifyContent: 'center',
-                background: 'radial-gradient(circle, rgba(7,24,49,0.7) 0%, rgba(7,24,49,0.92) 80%)',
-                color: '#ffffff',
-                textAlign: 'center',
-                padding: '20px'
+                background: 'rgba(7, 24, 49, 0.85)',
+                padding: '16px 20px',
+                borderRadius: '14px',
+                border: '1px solid rgba(74, 167, 242, 0.2)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.85rem'
               }}
             >
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Deterministic Static Rule Checks
-              </span>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '4px' }}>
-                Structural checks you can rely on.
-              </h3>
-              <p style={{ fontSize: '0.88rem', color: '#cbd5e1', maxWidth: '520px', marginTop: '6px' }}>
-                We inspect pin references and circuit connections directly against hardware definitions.
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8' }}>
+                  <span style={{ opacity: 0.6 }}>MCU</span> PIN_13 (D13) ──→ LED_ANODE
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#22c55e' }}>
+                  <span style={{ opacity: 0.6 }}>RES</span> 220Ω (R1) ──→ LED_CATHODE
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#cbd5e1' }}>
+                  <span style={{ opacity: 0.6 }}>PWR</span> ARDUINO_GND ──→ R1_PIN2
+                </div>
+              </div>
             </div>
           </div>
         </div>

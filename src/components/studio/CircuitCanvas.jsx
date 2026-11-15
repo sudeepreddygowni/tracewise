@@ -6,7 +6,17 @@ import { ResistorSvg } from './svg/ResistorSvg';
 import { PushButtonSvg } from './svg/PushButtonSvg';
 import { WireSvg } from './svg/WireSvg';
 import { getComponentDefinition, WIRE_COLORS } from '../../data/componentCatalog';
-import { ZoomIn, ZoomOut, RotateCcw, Trash2, Palette, Grid, Move, CheckCircle2 } from 'lucide-react';
+import {
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Trash2,
+  Palette,
+  Grid,
+  Move,
+  CheckCircle2,
+  Maximize2
+} from 'lucide-react';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleIconButton,
@@ -19,10 +29,15 @@ export function CircuitCanvas({
   onSelectComponent,
   onMoveComponent,
   onAddConnection,
-  onRemoveConnection
+  onRemoveConnection,
+  onCommitHistory
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+
   const [draggingCompId, setDraggingCompId] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [hoveredPin, setHoveredPin] = useState(null);
@@ -33,8 +48,35 @@ export function CircuitCanvas({
   const [showGrid, setShowGrid] = useState(true);
 
   const containerRef = useRef(null);
+  const touchStateRef = useRef({
+    initialDistance: 0,
+    initialZoom: 1,
+    initialMidpoint: { x: 0, y: 0 },
+    initialPan: { x: 0, y: 0 },
+    isTouching: false
+  });
 
-  // Compute absolute coordinate for any pin on the canvas
+  // Track space bar state for pan cursor & drag
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        setIsSpacePressed(true);
+      }
+    };
+    const handleKeyUp = (e) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // Compute absolute coordinate for any pin on the canvas in world space
   const getPinCanvasCoords = useCallback((componentId, pinId) => {
     const comp = (project.components || []).find(c => c.id === componentId);
     if (!comp) return { x: 0, y: 0 };
@@ -48,10 +90,65 @@ export function CircuitCanvas({
     };
   }, [project.components]);
 
-  // Handle canvas mouse move for dragging component or wire rubberband
-  const handleMouseMove = (e) => {
+  // Trackpad 2-finger pan & pinch zoom (ctrlKey) centered on cursor
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+      const rect = container.getBoundingClientRect();
+
+      if (e.ctrlKey) {
+        // Pinch-to-zoom centered on mouse position
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const worldX = (mouseX - pan.x) / zoom;
+        const worldY = (mouseY - pan.y) / zoom;
+
+        const factor = Math.pow(0.992, e.deltaY);
+        const newZoom = Math.min(Math.max(zoom * factor, 0.4), 2.5);
+
+        setZoom(newZoom);
+        setPan({
+          x: mouseX - worldX * newZoom,
+          y: mouseY - worldY * newZoom
+        });
+      } else {
+        // 2-finger trackpad panning
+        setPan(prev => ({
+          x: prev.x - e.deltaX,
+          y: prev.y - e.deltaY
+        }));
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [zoom, pan]);
+
+  // Handle pointer down on background (mouse or touch)
+  const handlePointerDown = (e) => {
+    // If middle click (button === 1), or Space held, or clicking empty canvas background:
+    if (e.button === 1 || isSpacePressed || e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true') {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  // Handle pointer move for panning, dragging component, or wire rubberband
+  const handlePointerMove = (e) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
+
+    if (isPanning) {
+      setPan({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y
+      });
+      return;
+    }
+
     const curX = (e.clientX - rect.left - pan.x) / zoom;
     const curY = (e.clientY - rect.top - pan.y) / zoom;
 
@@ -64,13 +161,85 @@ export function CircuitCanvas({
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
+    if (isPanning) {
+      setIsPanning(false);
+    }
     if (draggingCompId) {
       setDraggingCompId(null);
+      if (onCommitHistory) {
+        onCommitHistory();
+      }
     }
   };
 
-  // Keyboard shortcut to delete selected wire
+  // Touch gesture handling (1-finger pan on empty canvas, 2-finger pinch/pan)
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      if (e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true') {
+        setIsPanning(true);
+        setPanStart({
+          x: e.touches[0].clientX - pan.x,
+          y: e.touches[0].clientY - pan.y
+        });
+      }
+    } else if (e.touches.length === 2) {
+      setIsPanning(false);
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      const midX = (touch1.clientX + touch2.clientX) / 2;
+      const midY = (touch1.clientY + touch2.clientY) / 2;
+
+      touchStateRef.current = {
+        initialDistance: dist,
+        initialZoom: zoom,
+        initialMidpoint: { x: midX, y: midY },
+        initialPan: { ...pan },
+        isTouching: true
+      };
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 1 && isPanning) {
+      setPan({
+        x: e.touches[0].clientX - panStart.x,
+        y: e.touches[0].clientY - panStart.y
+      });
+    } else if (e.touches.length === 2 && touchStateRef.current.isTouching) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+      const midX = (touch1.clientX + touch2.clientX) / 2;
+      const midY = (touch1.clientY + touch2.clientY) / 2;
+
+      const scale = dist / touchStateRef.current.initialDistance;
+      const newZoom = Math.min(Math.max(touchStateRef.current.initialZoom * scale, 0.4), 2.5);
+
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const worldMidX = (touchStateRef.current.initialMidpoint.x - rect.left - touchStateRef.current.initialPan.x) / touchStateRef.current.initialZoom;
+      const worldMidY = (touchStateRef.current.initialMidpoint.y - rect.top - touchStateRef.current.initialPan.y) / touchStateRef.current.initialZoom;
+
+      setZoom(newZoom);
+      setPan({
+        x: midX - rect.left - worldMidX * newZoom,
+        y: midY - rect.top - worldMidY * newZoom
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+    touchStateRef.current.isTouching = false;
+    if (draggingCompId) {
+      setDraggingCompId(null);
+      if (onCommitHistory) onCommitHistory();
+    }
+  };
+
+  // Keyboard shortcut to delete selected wire or cancel rubberband
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -100,7 +269,7 @@ export function CircuitCanvas({
       });
       setSelectedWireId(null);
     } else {
-      // Finish wire if different component
+      // Finish wire if different component or pin
       if (pendingWireStart.componentId !== comp.id || pendingWireStart.pinId !== pin.id) {
         onAddConnection(
           { componentId: pendingWireStart.componentId, pinId: pendingWireStart.pinId },
@@ -132,28 +301,94 @@ export function CircuitCanvas({
     });
   };
 
+  // Fit Circuit to View calculation
+  const handleFitToView = () => {
+    const comps = project.components || [];
+    if (comps.length === 0) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+
+    if (!containerRef.current) return;
+    const { clientWidth, clientHeight } = containerRef.current;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    comps.forEach(c => {
+      const def = getComponentDefinition(c.type);
+      const w = def?.width || 180;
+      const h = def?.height || 140;
+      if (c.x < minX) minX = c.x;
+      if (c.y < minY) minY = c.y;
+      if (c.x + w > maxX) maxX = c.x + w;
+      if (c.y + h > maxY) maxY = c.y + h;
+    });
+
+    const circuitWidth = Math.max(maxX - minX, 100);
+    const circuitHeight = Math.max(maxY - minY, 100);
+
+    const padding = 70;
+    const availableWidth = Math.max(clientWidth - padding * 2, 200);
+    const availableHeight = Math.max(clientHeight - padding * 2, 200);
+
+    const fitZoom = Math.min(
+      Math.max(Math.min(availableWidth / circuitWidth, availableHeight / circuitHeight), 0.45),
+      1.5
+    );
+
+    const centerX = minX + circuitWidth / 2;
+    const centerY = minY + circuitHeight / 2;
+
+    const targetPanX = clientWidth / 2 - centerX * fitZoom;
+    const targetPanY = clientHeight / 2 - centerY * fitZoom;
+
+    setZoom(fitZoom);
+    setPan({ x: targetPanX, y: targetPanY });
+  };
+
+  const getCursor = () => {
+    if (draggingCompId) return 'grabbing';
+    if (isPanning) return 'grabbing';
+    if (isSpacePressed) return 'grab';
+    if (pendingWireStart) return 'crosshair';
+    return 'default';
+  };
+
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onClick={() => {
-        setPendingWireStart(null);
-        setSelectedWireId(null);
-        onSelectComponent(null);
+      onMouseDown={handlePointerDown}
+      onMouseMove={handlePointerMove}
+      onMouseUp={handlePointerUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onClick={(e) => {
+        if (e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true') {
+          setPendingWireStart(null);
+          setSelectedWireId(null);
+          onSelectComponent(null);
+        }
       }}
+      data-canvas-bg="true"
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
         backgroundColor: '#f8fafc',
         backgroundImage: showGrid
-          ? 'radial-gradient(circle, #cbd5e1 1.2px, transparent 1.2px)'
+          ? `radial-gradient(circle, #cbd5e1 ${Math.max(1, 1.2 * zoom)}px, transparent ${Math.max(1, 1.2 * zoom)}px)`
           : 'none',
-        backgroundSize: '24px 24px',
+        backgroundPosition: `${pan.x}px ${pan.y}px`,
+        backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
         overflow: 'hidden',
-        cursor: draggingCompId ? 'grabbing' : pendingWireStart ? 'crosshair' : 'default',
-        userSelect: 'none'
+        cursor: getCursor(),
+        userSelect: 'none',
+        touchAction: 'none'
       }}
     >
       {/* Top Floating Canvas Toolbar */}
@@ -188,7 +423,7 @@ export function CircuitCanvas({
           </span>
 
           <TracewiseBubbleIconButton
-            onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z - 0.15, 0.5)); }}
+            onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z - 0.15, 0.4)); }}
             title="Zoom Out"
             variant="ghost"
             size="sm"
@@ -198,11 +433,20 @@ export function CircuitCanvas({
 
           <TracewiseBubbleIconButton
             onClick={(e) => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
-            title="Reset View"
+            title="Reset View (100%)"
             variant="ghost"
             size="sm"
           >
             <RotateCcw size={14} />
+          </TracewiseBubbleIconButton>
+
+          <TracewiseBubbleIconButton
+            onClick={(e) => { e.stopPropagation(); handleFitToView(); }}
+            title="Fit Circuit to View"
+            variant="ghost"
+            size="sm"
+          >
+            <Maximize2 size={14} />
           </TracewiseBubbleIconButton>
 
           <TracewiseBubbleIconButton
@@ -308,6 +552,7 @@ export function CircuitCanvas({
 
       {/* Main SVG Scaled Coordinate Space */}
       <div
+        data-canvas-bg="true"
         style={{
           width: '100%',
           height: '100%',
@@ -319,12 +564,13 @@ export function CircuitCanvas({
         }}
       >
         <svg
+          data-canvas-bg="true"
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
-            width: '2400px',
-            height: '1800px',
+            width: '4000px',
+            height: '3000px',
             pointerEvents: 'none'
           }}
         >

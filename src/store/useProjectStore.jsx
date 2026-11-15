@@ -92,6 +92,14 @@ export function ProjectProvider({ children }) {
     }
   }, []);
 
+  const commitHistory = useCallback(() => {
+    setActiveProject(prev => {
+      if (!prev) return prev;
+      pushHistory(prev);
+      return prev;
+    });
+  }, []);
+
   const saveCurrent = useCallback(() => {
     if (!activeProject) return null;
     const saved = storageSaveProject(activeProject);
@@ -257,6 +265,7 @@ export function ProjectProvider({ children }) {
         updateFirmware,
         undo,
         redo,
+        commitHistory,
         setPreferences: setPreferencesConfig
       }}
     >

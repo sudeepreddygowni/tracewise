@@ -98,19 +98,16 @@ a {
   margin-top: -1px;
 }
 
-.trans-navy-to-valley {
-  height: 200px;
-  background: var(--tw-trans-navy-to-valley);
+.trans-navy-to-showcase {
+  height: 180px;
+  background: var(--tw-trans-navy-to-showcase);
   margin-bottom: -1px;
 }
 
-.trans-valley-to-navy {
-  height: 240px;
-  background: var(--tw-trans-valley-to-navy);
-  margin-top: -240px;
-  position: relative;
-  z-index: 2;
-  pointer-events: none;
+.trans-showcase-to-navy {
+  height: 180px;
+  background: var(--tw-trans-showcase-to-navy);
+  margin-top: -1px;
 }
 
 .trans-navy-to-ice {

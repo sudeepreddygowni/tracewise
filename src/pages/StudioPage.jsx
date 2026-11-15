@@ -34,12 +34,13 @@ export function StudioPage() {
     addConnection,
     removeConnection,
     updateFirmware,
-    updateActiveProject
+    updateActiveProject,
+    commitHistory
   } = useProject();
 
   const [selectedCompId, setSelectedCompId] = useState(null);
   const [rightTab, setRightTab] = useState('code'); // 'code' | 'inspector' | 'assistant'
-  const [mobileTab, setMobileTab] = useState('canvas'); // 'canvas' | 'components' | 'code' | 'inspector'
+  const [isValidationOpen, setIsValidationOpen] = useState(false);
 
   useEffect(() => {
     if (projectId && (!activeProject || activeProject.id !== projectId)) {
@@ -69,21 +70,76 @@ export function StudioPage() {
     }
   };
 
+  // Honest, precise engineering fix applicator
   const handleApplyAssistantFix = (fix) => {
     if (fix.code) {
       updateFirmware(fix.code);
     }
-    if (fix.addResistorForLed) {
-      const led = (activeProject.components || []).find(c => c.id === fix.addResistorForLed);
-      if (led) {
-        addComponent(
-          { type: 'resistor', name: '220Ω Resistor' },
-          led.x + 90,
-          led.y
-        );
-      }
+
+    if (fix.type === 'insert_resistor_series') {
+      updateActiveProject(prev => {
+        const comps = [...(prev.components || [])];
+        const led = comps.find(c => c.id === fix.ledId);
+        if (!led) return prev;
+
+        // 1. Remove direct cathode wire
+        let wires = [...(prev.connections || [])];
+        if (fix.removeWireId) {
+          wires = wires.filter(w => w.id !== fix.removeWireId);
+        } else {
+          wires = wires.filter(w => !(
+            (w.from?.componentId === led.id && w.from?.pinId === 'cathode') ||
+            (w.to?.componentId === led.id && w.to?.pinId === 'cathode')
+          ));
+        }
+
+        // 2. Add 220Ω resistor component next to LED
+        const resistorId = `resistor-${Math.random().toString(36).slice(-4)}`;
+        const newResistor = {
+          id: resistorId,
+          type: 'resistor',
+          name: '220Ω Resistor',
+          x: led.x + 90,
+          y: led.y + 30,
+          props: { resistance: '220Ω' }
+        };
+        comps.push(newResistor);
+
+        // 3. Connect LED Cathode -> Resistor Pin 1
+        const wireToResistor = {
+          id: `wire-${Math.random().toString(36).slice(-5)}`,
+          from: { componentId: led.id, pinId: 'cathode' },
+          to: { componentId: resistorId, pinId: 'pin1' },
+          color: '#2DC5E9',
+          label: 'LED Cathode Wire'
+        };
+        wires.push(wireToResistor);
+
+        // 4. Connect Resistor Pin 2 -> Ground Target
+        const gTarget = fix.groundTarget || { componentId: 'uno-1', pinId: 'gnd-1' };
+        const wireToGround = {
+          id: `wire-${Math.random().toString(36).slice(-5)}`,
+          from: { componentId: resistorId, pinId: 'pin2' },
+          to: gTarget,
+          color: '#0B2348',
+          label: 'GND Return Wire'
+        };
+        wires.push(wireToGround);
+
+        return {
+          ...prev,
+          components: comps,
+          connections: wires
+        };
+      });
     }
+
     saveCurrent();
+  };
+
+  const handleValidateCode = () => {
+    saveCurrent();
+    setIsValidationOpen(true);
   };
 
   return (
@@ -125,6 +181,7 @@ export function StudioPage() {
             onMoveComponent={moveComponent}
             onAddConnection={addConnection}
             onRemoveConnection={removeConnection}
+            onCommitHistory={commitHistory}
           />
         </div>
 
@@ -205,7 +262,7 @@ export function StudioPage() {
               <CodeEditor
                 code={activeProject.firmware?.files?.[0]?.content || ''}
                 onChange={updateFirmware}
-                onRunCheck={saveCurrent}
+                onRunCheck={handleValidateCode}
                 validationResults={validation.checks}
               />
             )}
@@ -243,7 +300,12 @@ export function StudioPage() {
       </div>
 
       {/* Bottom Structural Validation Drawer */}
-      <ValidationDrawer validation={validation} />
+      <ValidationDrawer
+        validation={validation}
+        isOpen={isValidationOpen}
+        onToggle={() => setIsValidationOpen(prev => !prev)}
+        onOpenAssistant={() => setRightTab('assistant')}
+      />
 
       <style>{`
         @media (max-width: 1024px) {

@@ -80,48 +80,6 @@ a {
   box-shadow: 0 16px 38px rgba(30, 63, 216, 0.12);
 }
 
-/* Smooth Blended Transition Blocks */
-.trans-hero-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 220px;
-  background: var(--tw-trans-hero-to-sky);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.trans-sky-to-navy {
-  height: 220px;
-  background: var(--tw-trans-sky-to-navy);
-  margin-top: -1px;
-}
-
-.trans-navy-to-showcase {
-  height: 180px;
-  background: var(--tw-trans-navy-to-showcase);
-  margin-bottom: -1px;
-}
-
-.trans-showcase-to-navy {
-  height: 180px;
-  background: var(--tw-trans-showcase-to-navy);
-  margin-top: -1px;
-}
-
-.trans-navy-to-ice {
-  height: 200px;
-  background: var(--tw-trans-navy-to-ice);
-  margin-top: -1px;
-}
-
-.trans-ice-to-cta {
-  height: 220px;
-  background: var(--tw-trans-ice-to-cta);
-  margin-top: -1px;
-}
-
 /* Container widths */
 .container-tw {
   width: 100%;

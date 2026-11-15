@@ -87,10 +87,26 @@ export function HomePage() {
           justifyContent: 'center',
           paddingTop: '130px',
           paddingBottom: '140px',
-          backgroundColor: '#071831',
+          background: 'radial-gradient(ellipse 100% 75% at 50% 30%, #17387e 0%, #0d2656 45%, #071831 82%, #0a1f40 100%)',
           overflow: 'hidden'
         }}
       >
+        {/* Luminous Ambient Radial Glow behind the WebGL Canvas */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '12%',
+            left: '12%',
+            width: '76%',
+            height: '68%',
+            background: 'radial-gradient(ellipse at center, rgba(30, 63, 216, 0.42) 0%, rgba(45, 197, 233, 0.2) 45%, transparent 75%)',
+            filter: 'blur(70px)',
+            pointerEvents: 'none',
+            zIndex: 0
+          }}
+          aria-hidden="true"
+        />
+
         {/* Full-Bleed Animated React Bits GradientASCII Canvas */}
         <div
           style={{
@@ -110,15 +126,22 @@ export function HomePage() {
             characters=" =+xX0S8#@"
             cellSize={18}
             density={0.8}
+            glow={0.35}
+            gradientOpacity={1.0}
+            glyphOpacity={0.92}
+            softness={0.4}
           />
         </div>
 
-        {/* Ambient Contrast Veil (Ensures readable text while keeping ASCII vivid) */}
+        {/* Localized Subtle Readability Backing (Preserves white typography without darkening the ASCII wave) */}
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(circle at 40% 45%, rgba(7, 24, 49, 0.42) 0%, rgba(7, 24, 49, 0.78) 70%, #071831 100%)',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            background: 'radial-gradient(ellipse 70% 55% at 35% 45%, rgba(7, 24, 49, 0.32) 0%, rgba(7, 24, 49, 0.1) 50%, transparent 80%)',
             pointerEvents: 'none',
             zIndex: 2
           }}
@@ -286,9 +309,6 @@ export function HomePage() {
             </AnimatedContent>
           </div>
         </div>
-
-        {/* Seamless Hero to Sky Transition Mask (220px) */}
-        <div className="trans-hero-bottom" />
       </section>
 
       {/* =========================================================================
@@ -298,22 +318,52 @@ export function HomePage() {
       <section
         style={{
           position: 'relative',
-          paddingTop: '60px',
-          paddingBottom: '80px',
-          backgroundColor: '#F5F9FD'
+          paddingTop: '80px',
+          paddingBottom: '120px',
+          background: 'linear-gradient(180deg, #0a1f40 0%, #153570 12%, #224d94 24%, #4f87d4 38%, #ebf6ff 52%, #f5f9fd 66%, #ebf6ff 80%, #60a5fa 90%, #1e3fd8 96%, #0b2348 99%, #071831 100%)'
         }}
         id="workspace"
       >
         <div className="container-tw">
           <AnimatedContent trigger="scroll" distance={35} duration={0.8}>
             <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto 48px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  color: 'var(--tw-cyan)',
+                  background: 'rgba(45, 197, 233, 0.14)',
+                  border: '1px solid rgba(45, 197, 233, 0.3)',
+                  padding: '4px 14px',
+                  borderRadius: '16px',
+                  display: 'inline-block',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: '10px'
+                }}
+              >
                 How You Begin
               </span>
-              <h2 style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--tw-text)', marginTop: '6px' }}>
+              <h2
+                style={{
+                  fontSize: '2.4rem',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  marginTop: '6px',
+                  textShadow: '0 2px 14px rgba(7, 24, 49, 0.4)'
+                }}
+              >
                 Start with an idea. Or something that already works.
               </h2>
-              <p style={{ fontSize: '1.02rem', color: 'var(--tw-text-secondary)', marginTop: '8px' }}>
+              <p
+                style={{
+                  fontSize: '1.02rem',
+                  color: '#e2e8f0',
+                  marginTop: '8px',
+                  lineHeight: 1.6,
+                  textShadow: '0 1px 8px rgba(7, 24, 49, 0.3)'
+                }}
+              >
                 Begin with verified circuits you can test right away, or build your own from scratch. Tracewise guides you through component choices and pin connections.
               </p>
             </div>
@@ -400,14 +450,19 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Sky/Ice to Deep Technical Navy (220px) */}
-      <div className="trans-sky-to-navy" />
-
       {/* =========================================================================
           SECTION 3: REMIX & DEBUGGING
           Heading: "Something stopped working? See what changed."
       ========================================================================= */}
-      <section style={{ position: 'relative', padding: '60px 0 80px', backgroundColor: '#071831', color: '#ffffff' }} id="how-it-works">
+      <section
+        style={{
+          position: 'relative',
+          padding: '80px 0 90px',
+          background: 'linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%)',
+          color: '#ffffff'
+        }}
+        id="how-it-works"
+      >
         <div className="container-tw">
           <AnimatedContent trigger="scroll" distance={35} duration={0.8}>
             <div style={{ textAlign: 'center', maxWidth: '720px', margin: '0 auto 52px' }}>
@@ -499,9 +554,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Navy to Technical Showcase (140px) */}
-      <div className="trans-navy-to-showcase" />
-
       {/* =========================================================================
           SECTION 4: PROJECT SHOWCASE WITH REACTDROPS FAN GALLERY
           Heading: "Good projects are meant to be explored."
@@ -557,14 +609,18 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Showcase back to Dark Technical Atmosphere (140px) */}
-      <div className="trans-showcase-to-navy" />
-
       {/* =========================================================================
           SECTION 5: PHYSICAL BUILDING
           Heading: "From your screen to your breadboard."
       ========================================================================= */}
-      <section style={{ padding: '80px 0 60px', backgroundColor: '#071831', color: '#ffffff' }}>
+      <section
+        style={{
+          padding: '80px 0 100px',
+          background: 'linear-gradient(180deg, #071831 0%, #0b2348 35%, #183e8a 62%, #3b82f6 82%, #93c5fd 92%, #ebf6ff 97%, #F5F9FD 100%)',
+          color: '#ffffff',
+          position: 'relative'
+        }}
+      >
         <div className="container-tw">
           <AnimatedContent trigger="scroll" distance={35} duration={0.8}>
             <div style={{ textAlign: 'center', maxWidth: '680px', margin: '0 auto 48px' }}>
@@ -641,13 +697,17 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Navy back to Soft Ice/Sky (200px) */}
-      <div className="trans-navy-to-ice" />
-
       {/* =========================================================================
           SECTION 6: FREQUENTLY ASKED QUESTIONS
       ========================================================================= */}
-      <section style={{ padding: '60px 0 80px', backgroundColor: '#F5F9FD' }} id="faq">
+      <section
+        style={{
+          padding: '80px 0 110px',
+          background: 'linear-gradient(180deg, #F5F9FD 0%, #F5F9FD 50%, #ebf6ff 72%, #93c5fd 86%, #2563eb 94%, #0b2348 98%, #071831 100%)',
+          position: 'relative'
+        }}
+        id="faq"
+      >
         <div className="container-tw" style={{ maxWidth: '840px' }}>
           <AnimatedContent trigger="scroll" distance={30} duration={0.8}>
             <div style={{ textAlign: 'center', marginBottom: '44px' }}>
@@ -709,17 +769,14 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Seamless Transition: Soft Ice to Closing CTA Midnight (220px) */}
-      <div className="trans-ice-to-cta" />
-
       {/* =========================================================================
           SECTION 7: CLOSING CALL TO ACTION
           Heading: "Ready to try your first circuit?"
       ========================================================================= */}
       <section
         style={{
-          padding: '80px 0 100px',
-          backgroundColor: '#071831',
+          padding: '90px 0 110px',
+          background: 'linear-gradient(180deg, #071831 0%, #0B2348 45%, #071831 100%)',
           color: '#ffffff',
           position: 'relative',
           overflow: 'hidden'

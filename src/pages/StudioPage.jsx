@@ -133,8 +133,6 @@ export function StudioPage() {
         };
       });
     }
-
-    saveCurrent();
   };
 
   const handleValidateCode = () => {

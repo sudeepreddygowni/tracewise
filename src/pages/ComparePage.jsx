@@ -16,6 +16,10 @@ import {
   Info
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import {
+  TracewiseBubbleButton,
+  TracewiseBubbleArea
+} from '../components/ui/BubbleActions';
 
 export function ComparePage() {
   const { projectId } = useParams();
@@ -60,132 +64,132 @@ export function ComparePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Navbar */}
-      <header
-        style={{
-          height: '60px',
-          backgroundColor: '#ffffff',
-          borderBottom: '1px solid var(--tw-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            onClick={() => navigate(`/app/studio/${current.id}`)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'var(--tw-text-secondary)',
-              fontSize: '0.86rem',
-              fontWeight: 500
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>Return to Studio</span>
-          </button>
-
-          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--tw-border)' }} />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <GitCompare size={18} color="var(--tw-brand)" />
-            <h1 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)' }}>
-              Change-Aware Debugger & Diff
-            </h1>
-          </div>
-        </div>
-
-        {/* Version Pickers */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
-            <span style={{ color: 'var(--tw-text-muted)' }}>Baseline:</span>
-            <select
-              value={baselineId}
-              onChange={(e) => setBaselineId(e.target.value)}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '8px',
-                border: '1px solid var(--tw-border)',
-                backgroundColor: 'var(--tw-bg)',
-                fontSize: '0.82rem'
-              }}
-            >
-              {allProjects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title} ({p.version?.label || 'Baseline'})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <span style={{ color: 'var(--tw-text-muted)' }}>vs</span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
-            <span style={{ color: 'var(--tw-text-muted)' }}>Current Fork:</span>
-            <span style={{ fontWeight: 600, color: 'var(--tw-brand)' }}>
-              {current?.title}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main style={{ maxWidth: '1180px', margin: '0 auto', width: '100%', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
-        {/* Core Question Callout */}
-        <div
-          className="glass-card"
+    <TracewiseBubbleArea theme="light">
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
+        {/* Top Navbar */}
+        <header
           style={{
-            padding: '24px 28px',
-            background: 'linear-gradient(135deg, rgba(30,63,216,0.06) 0%, rgba(45,197,233,0.08) 100%)',
-            border: '1px solid rgba(74, 167, 242, 0.4)',
-            borderRadius: 'var(--tw-radius-lg)',
+            height: '60px',
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid var(--tw-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '20px'
+            padding: '0 24px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 40
           }}
         >
-          <div>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              The Signature Tracewise Insight
-            </span>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--tw-text)', marginTop: '4px' }}>
-              "My project was working before. What did I change that caused the problem?"
-            </h2>
-            <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', marginTop: '4px' }}>
-              Comparing <b>{baseline?.title}</b> with <b>{current?.title}</b>. We isolate the exact components, wires, and code lines you modified.
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <TracewiseBubbleButton
+              to={`/app/studio/${current.id}`}
+              variant="ghost"
+              size="sm"
+              style={{
+                fontSize: '0.84rem',
+                gap: '6px',
+                color: 'var(--tw-text-secondary)'
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Return to Studio</span>
+            </TracewiseBubbleButton>
+
+            <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--tw-border)' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <GitCompare size={18} color="var(--tw-brand)" />
+              <h1 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
+                Compare & Debug • See What Changed
+              </h1>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <div style={{ textAlign: 'center', background: '#ffffff', padding: '10px 18px', borderRadius: '12px', border: '1px solid var(--tw-border)' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--tw-brand)' }}>
-                {diff?.summary?.addedComponentsCount + diff?.summary?.removedComponentsCount}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)' }}>Parts Changed</div>
+          {/* Version Pickers */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
+              <span style={{ color: 'var(--tw-text-muted)' }}>Baseline:</span>
+              <select
+                value={baselineId}
+                onChange={(e) => setBaselineId(e.target.value)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--tw-border)',
+                  backgroundColor: 'var(--tw-bg)',
+                  fontSize: '0.82rem'
+                }}
+              >
+                {allProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} ({p.version?.label || 'Baseline'})
+                  </option>
+                ))}
+              </select>
             </div>
-            <div style={{ textAlign: 'center', background: '#ffffff', padding: '10px 18px', borderRadius: '12px', border: '1px solid var(--tw-border)' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--tw-sky)' }}>
-                {diff?.summary?.addedWiresCount + diff?.summary?.removedWiresCount}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)' }}>Wires Changed</div>
-            </div>
-            <div style={{ textAlign: 'center', background: '#ffffff', padding: '10px 18px', borderRadius: '12px', border: '1px solid var(--tw-border)' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--tw-cyan)' }}>
-                {diff?.summary?.codeLinesChanged}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)' }}>Code Lines Diff</div>
+
+            <span style={{ color: 'var(--tw-text-muted)' }}>vs</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem' }}>
+              <span style={{ color: 'var(--tw-text-muted)' }}>Current Fork:</span>
+              <span style={{ fontWeight: 600, color: 'var(--tw-brand)' }}>
+                {current?.title}
+              </span>
             </div>
           </div>
-        </div>
+        </header>
+
+        {/* Main Content */}
+        <main style={{ maxWidth: '1180px', margin: '0 auto', width: '100%', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Core Question Callout */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '28px 32px',
+              background: 'linear-gradient(135deg, rgba(30,63,216,0.06) 0%, rgba(45,197,233,0.08) 100%)',
+              border: '1px solid rgba(74, 167, 242, 0.4)',
+              borderRadius: 'var(--tw-radius-lg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '20px'
+            }}
+          >
+            <div>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Change-Aware Engineering
+              </span>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '4px', fontFamily: 'var(--font-heading)' }}>
+                Something stopped working? See what changed.
+              </h2>
+              <p style={{ fontSize: '0.94rem', color: 'var(--tw-text-secondary)', marginTop: '6px', maxWidth: '640px', lineHeight: 1.5 }}>
+                Comparing the working <b>{baseline?.title}</b> with your modified <b>{current?.title}</b>. We isolate the exact connections, components, and code lines you changed so you can fix the problem.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ textAlign: 'center', background: '#ffffff', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--tw-border)' }}>
+                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--tw-brand)', fontFamily: 'var(--font-heading)' }}>
+                  {diff?.summary?.addedComponentsCount + diff?.summary?.removedComponentsCount}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)' }}>Parts Changed</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#ffffff', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--tw-border)' }}>
+                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--tw-sky)', fontFamily: 'var(--font-heading)' }}>
+                  {diff?.summary?.addedWiresCount + diff?.summary?.removedWiresCount}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)' }}>Wires Changed</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#ffffff', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--tw-border)' }}>
+                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--tw-cyan)', fontFamily: 'var(--font-heading)' }}>
+                  {diff?.summary?.codeLinesChanged}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)' }}>Code Lines Diff</div>
+              </div>
+            </div>
+          </div>
 
         {/* Diagnosis & Suggested Fix Box */}
         {diff?.validation?.newErrors?.length > 0 && (
@@ -221,19 +225,20 @@ export function ComparePage() {
                 <b>Recommended Fix:</b> {diff.validation.newErrors[0].suggestedFix}
               </div>
 
-              <button
+              <TracewiseBubbleButton
                 onClick={handleApplyFix}
                 disabled={fixApplied}
-                className="btn-primary"
+                variant={fixApplied ? 'secondary' : 'primary'}
+                size="md"
                 style={{
-                  backgroundColor: fixApplied ? 'var(--tw-success)' : 'var(--tw-brand)',
                   padding: '9px 20px',
-                  fontSize: '0.88rem'
+                  fontSize: '0.88rem',
+                  gap: '8px'
                 }}
               >
                 {fixApplied ? <Check size={16} /> : <Wrench size={16} />}
                 <span>{fixApplied ? 'Fix Applied Successfully!' : 'Apply One-Click Fix'}</span>
-              </button>
+              </TracewiseBubbleButton>
             </div>
           </div>
         )}
@@ -380,5 +385,6 @@ export function ComparePage() {
         </div>
       </main>
     </div>
+  </TracewiseBubbleArea>
   );
 }

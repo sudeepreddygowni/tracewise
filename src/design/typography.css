@@ -1,14 +1,23 @@
-@import '@fontsource/montserrat/400.css';
-@import '@fontsource/montserrat/600.css';
-@import '@fontsource/montserrat/700.css';
-@import '@fontsource/montserrat/800.css';
+/* Space Grotesk: Display Headlines & Major Titles */
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/600.css';
+@import '@fontsource/space-grotesk/700.css';
+
+/* Manrope: Interface, Navigation, Body, Buttons, Controls */
+@import '@fontsource/manrope/400.css';
+@import '@fontsource/manrope/500.css';
+@import '@fontsource/manrope/600.css';
+@import '@fontsource/manrope/700.css';
+@import '@fontsource/manrope/800.css';
+
+/* JetBrains Mono: Arduino C++, Pin Labels, Diagnostics */
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/500.css';
 @import '@fontsource/jetbrains-mono/600.css';
 
 :root {
-  --font-display: 'Montserrat', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-ui: 'Google Sans Flex', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-ui: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-code: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
@@ -20,17 +29,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, .font-display {
+h1, h2, h3, h4, .font-display, .display-heading {
   font-family: var(--font-display);
   letter-spacing: -0.035em;
   font-weight: 700;
+  line-height: 1.15;
 }
 
 h1 {
-  letter-spacing: -0.055em;
-  line-height: 1.1;
+  letter-spacing: -0.045em;
+  font-weight: 700;
 }
 
-code, pre, .font-code, .pin-badge, .code-editor {
+button, input, select, textarea, .font-ui {
+  font-family: var(--font-ui);
+}
+
+code, pre, .font-code, .pin-badge, .code-editor, .diagnostic-log {
   font-family: var(--font-code);
 }

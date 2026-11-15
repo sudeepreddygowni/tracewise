@@ -13,6 +13,10 @@ import {
   Layers,
   Info
 } from 'lucide-react';
+import {
+  TracewiseBubbleButton,
+  TracewiseBubbleArea
+} from '../components/ui/BubbleActions';
 
 export function BuildGuidePage() {
   const { projectId } = useParams();
@@ -95,60 +99,74 @@ export function BuildGuidePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <header
-        style={{
-          height: '60px',
-          backgroundColor: '#ffffff',
-          borderBottom: '1px solid var(--tw-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 40
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            onClick={() => navigate(`/app/studio/${project.id}`)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'var(--tw-text-secondary)',
-              fontSize: '0.86rem',
-              fontWeight: 500
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>Return to Studio</span>
-          </button>
-
-          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--tw-border)' }} />
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Wrench size={18} color="var(--tw-brand)" />
-            <h1 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)' }}>
-              Physical Build Guide • {project?.title}
-            </h1>
-          </div>
-        </div>
-
-        <button
-          onClick={handlePrint}
-          className="btn-secondary"
-          style={{ padding: '7px 16px', fontSize: '0.82rem' }}
+    <TracewiseBubbleArea theme="light">
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <header
+          style={{
+            height: '60px',
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid var(--tw-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 24px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 40
+          }}
         >
-          <Printer size={15} />
-          <span>Print Assembly Guide</span>
-        </button>
-      </header>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <TracewiseBubbleButton
+              to={`/app/studio/${project.id}`}
+              variant="ghost"
+              size="sm"
+              style={{
+                fontSize: '0.84rem',
+                gap: '6px',
+                color: 'var(--tw-text-secondary)'
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>Return to Studio</span>
+            </TracewiseBubbleButton>
 
-      {/* Main Container */}
-      <main style={{ maxWidth: '1080px', margin: '0 auto', width: '100%', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+            <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--tw-border)' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Wrench size={18} color="var(--tw-brand)" />
+              <h1 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
+                Physical Build Guide • {project?.title}
+              </h1>
+            </div>
+          </div>
+
+          <TracewiseBubbleButton
+            onClick={handlePrint}
+            variant="secondary"
+            size="sm"
+            style={{ fontSize: '0.82rem', gap: '6px' }}
+          >
+            <Printer size={15} />
+            <span>Print Assembly Guide</span>
+          </TracewiseBubbleButton>
+        </header>
+
+        {/* Main Container */}
+        <main style={{ maxWidth: '1080px', margin: '0 auto', width: '100%', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          
+          {/* Header Banner */}
+          <div>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Physical Assembly
+            </span>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '4px', fontFamily: 'var(--font-heading)' }}>
+              From your screen to your breadboard.
+            </h2>
+            <p style={{ fontSize: '0.94rem', color: 'var(--tw-text-secondary)', marginTop: '4px' }}>
+              Follow the verified component bill of materials, step-by-step assembly guide, and jumper wire pin map before powering on your circuit.
+            </p>
+          </div>
         
         {/* Safety & Honest Limitations Notice */}
         <div
@@ -292,5 +310,6 @@ export function BuildGuidePage() {
         </section>
       </main>
     </div>
+  </TracewiseBubbleArea>
   );
 }

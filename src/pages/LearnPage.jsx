@@ -4,6 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
 import { BookOpen, CheckCircle2, ArrowRight, Play, Sparkles, HelpCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import {
+  TracewiseBubbleButton,
+  TracewiseBubbleArea
+} from '../components/ui/BubbleActions';
 
 export function LearnPage() {
   const navigate = useNavigate();
@@ -76,21 +80,22 @@ export function LearnPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-      <Navbar />
+    <TracewiseBubbleArea theme="light">
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
+        <Navbar />
 
-      <main style={{ maxWidth: '960px', margin: '0 auto', width: '100%', padding: '120px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        <div>
-          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Interactive Practice Lab
-          </span>
-          <h1 style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '4px' }}>
-            Learn through modification.
-          </h1>
-          <p style={{ fontSize: '1rem', color: 'var(--tw-text-secondary)', marginTop: '6px' }}>
-            Solve hands-on electronics challenges, understand circuit behaviors, and jump into real circuits to test your understanding.
-          </p>
-        </div>
+        <main style={{ maxWidth: '960px', margin: '0 auto', width: '100%', padding: '120px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          <div>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Interactive Practice Lab
+            </span>
+            <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '4px', fontFamily: 'var(--font-heading)' }}>
+              Learn through modification.
+            </h1>
+            <p style={{ fontSize: '1rem', color: 'var(--tw-text-secondary)', marginTop: '6px' }}>
+              Solve hands-on electronics challenges, understand circuit behaviors, and jump into real circuits to test your understanding.
+            </p>
+          </div>
 
         {/* Progress Tracker */}
         <div
@@ -219,14 +224,15 @@ export function LearnPage() {
 
                 {/* Action button to open in studio */}
                 <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--tw-border)', display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
+                  <TracewiseBubbleButton
                     onClick={() => handleLaunchChallenge(ch.starterId)}
-                    className="btn-primary"
-                    style={{ padding: '8px 18px', fontSize: '0.84rem' }}
+                    variant="primary"
+                    size="sm"
+                    style={{ padding: '8px 18px', fontSize: '0.84rem', gap: '6px' }}
                   >
                     <Play size={14} />
                     <span>Open in Studio Canvas</span>
-                  </button>
+                  </TracewiseBubbleButton>
                 </div>
               </div>
             );
@@ -234,5 +240,6 @@ export function LearnPage() {
         </div>
       </main>
     </div>
+  </TracewiseBubbleArea>
   );
 }

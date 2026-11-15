@@ -16,10 +16,13 @@ import {
   Sparkles,
   ArrowRight,
   Clock,
-  CheckCircle2,
-  AlertTriangle
+  Play
 } from 'lucide-react';
-import { TracewiseBubbleArea, SoapBubbleButton } from '../components/ui/BubbleActions';
+import {
+  TracewiseBubbleArea,
+  TracewiseBubbleButton,
+  TracewiseBubbleIconButton
+} from '../components/ui/BubbleActions';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -106,16 +109,16 @@ export function DashboardPage() {
 
         {/* Global Navigation in Dashboard */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <Link to="/app" style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--tw-brand)' }}>
+          <Link to="/app" style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--tw-brand)' }}>
             My Projects
           </Link>
-          <Link to="/projects" style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--tw-text-secondary)' }}>
+          <Link to="/projects" style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--tw-text-secondary)' }}>
             Explore Starters
           </Link>
-          <Link to="/learn" style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--tw-text-secondary)' }}>
+          <Link to="/learn" style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--tw-text-secondary)' }}>
             Practice Lab
           </Link>
-          <Link to="/settings" style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--tw-text-secondary)' }}>
+          <Link to="/settings" style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--tw-text-secondary)' }}>
             Settings
           </Link>
         </div>
@@ -123,165 +126,183 @@ export function DashboardPage() {
         {/* Create Project Button with Soap Bubble UI */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <TracewiseBubbleArea theme="light">
-            <SoapBubbleButton onClick={handleCreateNew} style={{ padding: '8px 20px', fontSize: '0.88rem' }}>
-              + New Project
-            </SoapBubbleButton>
+            <TracewiseBubbleButton
+              onClick={handleCreateNew}
+              variant="primary"
+              size="sm"
+            >
+              <Plus size={15} />
+              <span>New Project</span>
+            </TracewiseBubbleButton>
           </TracewiseBubbleArea>
         </div>
       </header>
 
       {/* Main Container */}
-      <main style={{ maxWidth: '1240px', margin: '0 auto', width: '100%', padding: '36px 24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <main style={{ maxWidth: '1240px', margin: '0 auto', width: '100%', padding: '36px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
         
         {/* Title & Action Cluster */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Engineering Workspace
-            </span>
-            <h1 style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '2px' }}>
-              My Projects & Remixes
-            </h1>
-            <p style={{ fontSize: '0.94rem', color: 'var(--tw-text-secondary)', marginTop: '4px' }}>
-              Open your circuits, inspect version forks, and test modifications.
-            </p>
-          </div>
-
-          {/* Search & Import/Export */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--tw-text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search projects..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  padding: '8px 12px 8px 32px',
-                  borderRadius: 'var(--tw-radius-pill)',
-                  border: '1px solid var(--tw-border)',
-                  backgroundColor: '#ffffff',
-                  fontSize: '0.84rem',
-                  width: '200px'
-                }}
-              />
+        <TracewiseBubbleArea theme="light">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Engineering Studio
+              </span>
+              <h1 style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--tw-text)', marginTop: '2px', fontFamily: 'var(--font-display)' }}>
+                My Projects & Remixes
+              </h1>
+              <p style={{ fontSize: '0.96rem', color: 'var(--tw-text-secondary)', marginTop: '4px' }}>
+                Open your saved circuits, test your modifications, and compare versions.
+              </p>
             </div>
 
-            <button
-              onClick={handleExport}
-              title="Export all projects to JSON"
-              className="btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.82rem' }}
-            >
-              <Download size={14} />
-              <span>Export</span>
-            </button>
+            {/* Search & Import/Export with Bubble UI */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={15} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--tw-text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{
+                    padding: '8px 14px 8px 34px',
+                    borderRadius: 'var(--tw-radius-pill)',
+                    border: '1px solid var(--tw-border)',
+                    backgroundColor: '#ffffff',
+                    fontSize: '0.86rem',
+                    width: '210px',
+                    fontFamily: 'var(--font-ui)'
+                  }}
+                />
+              </div>
 
-            <label
-              className="btn-secondary"
-              style={{ padding: '8px 14px', fontSize: '0.82rem', cursor: 'pointer' }}
-              title="Import projects from JSON"
-            >
-              <Upload size={14} />
-              <span>Import</span>
-              <input type="file" accept=".json" onChange={handleImportFile} style={{ display: 'none' }} />
-            </label>
+              <TracewiseBubbleButton
+                onClick={handleExport}
+                title="Export all projects to JSON"
+                variant="secondary"
+                size="sm"
+              >
+                <Download size={14} />
+                <span>Export</span>
+              </TracewiseBubbleButton>
+
+              <label style={{ display: 'inline-flex' }}>
+                <input type="file" accept=".json" onChange={handleImportFile} style={{ display: 'none' }} />
+                <TracewiseBubbleButton
+                  as="span"
+                  variant="secondary"
+                  size="sm"
+                  title="Import projects from JSON"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <Upload size={14} />
+                  <span>Import</span>
+                </TracewiseBubbleButton>
+              </label>
+            </div>
           </div>
-        </div>
+        </TracewiseBubbleArea>
 
         {importError && (
-          <div style={{ padding: '10px 16px', background: '#fee2e2', color: '#dc2626', borderRadius: '8px', fontSize: '0.85rem' }}>
+          <div style={{ padding: '10px 16px', background: '#fee2e2', color: '#dc2626', borderRadius: '10px', fontSize: '0.86rem' }}>
             {importError}
           </div>
         )}
 
-        {/* Project Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-          {filteredProjects.map((proj) => (
-            <div
-              key={proj.id}
-              onClick={() => handleOpen(proj)}
-              className="glass-card"
-              style={{
-                padding: '20px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                minHeight: '190px'
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      color: 'var(--tw-brand)',
-                      backgroundColor: 'var(--tw-brand-soft)',
-                      padding: '3px 8px',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    {proj.version?.label || 'v1.0'}
-                  </span>
+        {/* Project Grid with Bubble UI buttons */}
+        <TracewiseBubbleArea theme="light">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+            {filteredProjects.map((proj) => (
+              <div
+                key={proj.id}
+                onClick={() => handleOpen(proj)}
+                className="glass-card"
+                style={{
+                  padding: '22px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '200px',
+                  borderRadius: '20px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <span
+                      style={{
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        color: 'var(--tw-brand)',
+                        backgroundColor: 'var(--tw-brand-soft)',
+                        padding: '3px 8px',
+                        borderRadius: '8px'
+                      }}
+                    >
+                      {proj.version?.label || 'v1.0'}
+                    </span>
 
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={(e) => handleFork(e, proj)}
-                      title="Fork an independent copy"
-                      style={{ padding: '5px', borderRadius: '6px', color: 'var(--tw-text-muted)' }}
-                    >
-                      <GitFork size={15} />
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(e, proj.id)}
-                      title="Delete project"
-                      style={{ padding: '5px', borderRadius: '6px', color: '#dc2626' }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                      <TracewiseBubbleIconButton
+                        onClick={(e) => handleFork(e, proj)}
+                        size="sm"
+                        variant="ghost"
+                        title="Fork an independent remix"
+                      >
+                        <GitFork size={14} />
+                      </TracewiseBubbleIconButton>
+
+                      <TracewiseBubbleIconButton
+                        onClick={(e) => handleDelete(e, proj.id)}
+                        size="sm"
+                        variant="danger"
+                        title="Delete project"
+                      >
+                        <Trash2 size={14} />
+                      </TracewiseBubbleIconButton>
+                    </div>
                   </div>
+
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px', fontFamily: 'var(--font-display)' }}>
+                    {proj.title}
+                  </h3>
+                  <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {proj.description || 'Custom Arduino circuit project.'}
+                  </p>
                 </div>
 
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
-                  {proj.title}
-                </h3>
-                <p style={{ fontSize: '0.82rem', color: 'var(--tw-text-secondary)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {proj.description || 'Custom Arduino circuit project.'}
-                </p>
-              </div>
+                {/* Card Footer with real metadata */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--tw-border)', marginTop: '12px' }}>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={13} />
+                    <span>
+                      {(proj.components || []).length} parts • {(proj.connections || []).length} wires
+                    </span>
+                  </div>
 
-              {/* Card Footer with real metadata */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--tw-border)', marginTop: '12px' }}>
-                <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Clock size={13} />
-                  <span>
-                    {(proj.components || []).length} parts • {(proj.connections || []).length} wires
+                  <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--tw-brand)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    Open Studio <ArrowRight size={14} />
                   </span>
                 </div>
-
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--tw-brand)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  Open Studio <ArrowRight size={14} />
-                </span>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </TracewiseBubbleArea>
 
-        {/* Curated Official Starters Section */}
+        {/* Curated Starters Section */}
         <section style={{ marginTop: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <div>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-display)' }}>
                 Curated Electronics Starters
               </h2>
-              <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-muted)' }}>
-                Pre-configured verified circuits ready for modification and experimentation.
+              <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-muted)' }}>
+                Tested circuits ready for experimentation, modification, and physical building.
               </p>
             </div>
-            <Link to="/projects" style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--tw-brand)' }}>
-              View in Fan Gallery →
+            <Link to="/projects" style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--tw-brand)' }}>
+              Explore All Starters →
             </Link>
           </div>
 
@@ -292,35 +313,36 @@ export function DashboardPage() {
                 onClick={() => handleOpen(starter)}
                 className="glass-card"
                 style={{
-                  padding: '16px',
+                  padding: '18px',
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '10px'
+                  gap: '10px',
+                  borderRadius: '16px'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--tw-brand)' }}>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--tw-brand)' }}>
                     {starter.category}
                   </span>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--tw-text-muted)' }}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
                     {starter.level}
                   </span>
                 </div>
 
-                <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                <h4 style={{ fontSize: '1.02rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-display)' }}>
                   {starter.title}
                 </h4>
 
-                <p style={{ fontSize: '0.78rem', color: 'var(--tw-text-secondary)', lineHeight: 1.4 }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--tw-text-secondary)', lineHeight: 1.45 }}>
                   {starter.description}
                 </p>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '8px' }}>
-                  <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--tw-border)' }}>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)' }}>
                     {starter.components.length} parts
                   </span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tw-brand)' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--tw-brand)' }}>
                     Launch →
                   </span>
                 </div>

@@ -7,6 +7,11 @@ import { PushButtonSvg } from './svg/PushButtonSvg';
 import { WireSvg } from './svg/WireSvg';
 import { getComponentDefinition, WIRE_COLORS } from '../../data/componentCatalog';
 import { ZoomIn, ZoomOut, RotateCcw, Trash2, Palette, Grid, Move, CheckCircle2 } from 'lucide-react';
+import {
+  TracewiseBubbleButton,
+  TracewiseBubbleIconButton,
+  TracewiseBubbleArea
+} from '../ui/BubbleActions';
 
 export function CircuitCanvas({
   project,
@@ -152,119 +157,128 @@ export function CircuitCanvas({
       }}
     >
       {/* Top Floating Canvas Toolbar */}
-      <div
-        className="glass-card"
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          zIndex: 40,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 12px',
-          borderRadius: 'var(--tw-radius-pill)',
-          background: 'rgba(255, 255, 255, 0.92)'
-        }}
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z + 0.15, 2.2)); }}
-          title="Zoom In"
-          style={{ padding: '6px', color: 'var(--tw-text)' }}
-        >
-          <ZoomIn size={16} />
-        </button>
-        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--tw-text-muted)', minWidth: '40px', textAlign: 'center' }}>
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z - 0.15, 0.5)); }}
-          title="Zoom Out"
-          style={{ padding: '6px', color: 'var(--tw-text)' }}
-        >
-          <ZoomOut size={16} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
-          title="Reset View"
-          style={{ padding: '6px', color: 'var(--tw-text)', borderLeft: '1px solid var(--tw-border)', paddingLeft: '8px' }}
-        >
-          <RotateCcw size={15} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowGrid(!showGrid); }}
-          title="Toggle Grid"
+      <TracewiseBubbleArea theme="light">
+        <div
+          className="glass-card"
           style={{
-            padding: '6px',
-            color: showGrid ? 'var(--tw-brand)' : 'var(--tw-text-muted)'
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            zIndex: 40,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '4px 8px',
+            borderRadius: 'var(--tw-radius-pill)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.06)'
           }}
         >
-          <Grid size={16} />
-        </button>
-      </div>
+          <TracewiseBubbleIconButton
+            onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(z + 0.15, 2.2)); }}
+            title="Zoom In"
+            variant="ghost"
+            size="sm"
+          >
+            <ZoomIn size={15} />
+          </TracewiseBubbleIconButton>
 
-      {/* Wire Color Palette Picker (Top Right) */}
-      <div
-        className="glass-card"
-        style={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          zIndex: 40,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 14px',
-          borderRadius: 'var(--tw-radius-pill)',
-          background: 'rgba(255, 255, 255, 0.92)'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--tw-text-muted)', marginRight: '4px' }}>
-          Wire Color:
-        </span>
-        {WIRE_COLORS.map((col) => (
-          <button
-            key={col.id}
-            onClick={() => setActiveWireColor(col.hex)}
-            title={col.name}
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: '50%',
-              backgroundColor: col.hex,
-              border: activeWireColor === col.hex ? '2.5px solid #071831' : '1px solid rgba(0,0,0,0.15)',
-              transform: activeWireColor === col.hex ? 'scale(1.2)' : 'scale(1)',
-              transition: 'all 0.15s ease'
-            }}
-          />
-        ))}
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tw-text-muted)', minWidth: '40px', textAlign: 'center' }}>
+            {Math.round(zoom * 100)}%
+          </span>
 
-        {selectedWireId && (
-          <button
-            onClick={() => {
-              onRemoveConnection(selectedWireId);
-              setSelectedWireId(null);
-            }}
-            title="Delete Selected Wire (Del)"
+          <TracewiseBubbleIconButton
+            onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(z - 0.15, 0.5)); }}
+            title="Zoom Out"
+            variant="ghost"
+            size="sm"
+          >
+            <ZoomOut size={15} />
+          </TracewiseBubbleIconButton>
+
+          <TracewiseBubbleIconButton
+            onClick={(e) => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
+            title="Reset View"
+            variant="ghost"
+            size="sm"
+          >
+            <RotateCcw size={14} />
+          </TracewiseBubbleIconButton>
+
+          <TracewiseBubbleIconButton
+            onClick={(e) => { e.stopPropagation(); setShowGrid(!showGrid); }}
+            title="Toggle Grid"
+            variant="ghost"
+            size="sm"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              marginLeft: '8px',
-              padding: '4px 10px',
-              borderRadius: '12px',
-              background: '#fee2e2',
-              color: '#dc2626',
-              fontSize: '0.78rem',
-              fontWeight: 600
+              color: showGrid ? 'var(--tw-brand)' : 'var(--tw-text-muted)'
             }}
           >
-            <Trash2 size={13} />
-            <span>Delete</span>
-          </button>
-        )}
-      </div>
+            <Grid size={15} />
+          </TracewiseBubbleIconButton>
+        </div>
+
+        {/* Wire Color Palette Picker (Top Right) */}
+        <div
+          className="glass-card"
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 40,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 14px',
+            borderRadius: 'var(--tw-radius-pill)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.06)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--tw-text-muted)', marginRight: '2px' }}>
+            Wire:
+          </span>
+          {WIRE_COLORS.map((col) => (
+            <button
+              key={col.id}
+              onClick={() => setActiveWireColor(col.hex)}
+              title={col.name}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                backgroundColor: col.hex,
+                border: activeWireColor === col.hex ? '2.5px solid #071831' : '1px solid rgba(0,0,0,0.15)',
+                transform: activeWireColor === col.hex ? 'scale(1.2)' : 'scale(1)',
+                transition: 'all 0.15s ease',
+                cursor: 'pointer'
+              }}
+            />
+          ))}
+
+          {selectedWireId && (
+            <TracewiseBubbleButton
+              onClick={() => {
+                onRemoveConnection(selectedWireId);
+                setSelectedWireId(null);
+              }}
+              title="Delete Selected Wire (Del)"
+              variant="danger"
+              size="sm"
+              style={{
+                marginLeft: '6px',
+                padding: '4px 10px',
+                fontSize: '0.75rem',
+                gap: '4px'
+              }}
+            >
+              <Trash2 size={12} />
+              <span>Delete Wire</span>
+            </TracewiseBubbleButton>
+          )}
+        </div>
+      </TracewiseBubbleArea>
 
       {/* Pending Wire Helper Prompt Bar */}
       {pendingWireStart && (

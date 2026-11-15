@@ -9,6 +9,10 @@ import { ComponentInspector } from '../components/studio/ComponentInspector';
 import { DemoAssistant } from '../components/studio/DemoAssistant';
 import { ValidationDrawer } from '../components/studio/ValidationDrawer';
 import { Code, Sliders, Sparkles, Layout, CheckCircle2 } from 'lucide-react';
+import {
+  TracewiseBubbleButton,
+  TracewiseBubbleArea
+} from '../components/ui/BubbleActions';
 
 export function StudioPage() {
   const { projectId } = useParams();
@@ -138,77 +142,62 @@ export function StudioPage() {
           }}
         >
           {/* Right Hub Tab Switcher */}
-          <div
-            style={{
-              display: 'flex',
-              backgroundColor: '#f1f5f9',
-              padding: '4px',
-              borderBottom: '1px solid var(--tw-border)'
-            }}
-          >
-            <button
-              onClick={() => setRightTab('code')}
+          <TracewiseBubbleArea theme="light">
+            <div
               style={{
-                flex: 1,
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '8px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                backgroundColor: rightTab === 'code' ? '#ffffff' : 'transparent',
-                color: rightTab === 'code' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
-                boxShadow: rightTab === 'code' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
+                gap: '4px',
+                backgroundColor: '#f1f5f9',
+                padding: '6px',
+                borderBottom: '1px solid var(--tw-border)'
               }}
             >
-              <Code size={14} />
-              <span>Arduino C++</span>
-            </button>
+              <TracewiseBubbleButton
+                onClick={() => setRightTab('code')}
+                variant={rightTab === 'code' ? 'primary' : 'ghost'}
+                size="sm"
+                style={{
+                  flex: 1,
+                  fontSize: '0.78rem',
+                  padding: '6px 8px',
+                  gap: '6px'
+                }}
+              >
+                <Code size={14} />
+                <span>Arduino C++</span>
+              </TracewiseBubbleButton>
 
-            <button
-              onClick={() => setRightTab('inspector')}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '8px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                backgroundColor: rightTab === 'inspector' ? '#ffffff' : 'transparent',
-                color: rightTab === 'inspector' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
-                boxShadow: rightTab === 'inspector' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
-              }}
-            >
-              <Sliders size={14} />
-              <span>Inspector</span>
-            </button>
+              <TracewiseBubbleButton
+                onClick={() => setRightTab('inspector')}
+                variant={rightTab === 'inspector' ? 'primary' : 'ghost'}
+                size="sm"
+                style={{
+                  flex: 1,
+                  fontSize: '0.78rem',
+                  padding: '6px 8px',
+                  gap: '6px'
+                }}
+              >
+                <Sliders size={14} />
+                <span>Inspector</span>
+              </TracewiseBubbleButton>
 
-            <button
-              onClick={() => setRightTab('assistant')}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                padding: '8px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                backgroundColor: rightTab === 'assistant' ? '#ffffff' : 'transparent',
-                color: rightTab === 'assistant' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
-                boxShadow: rightTab === 'assistant' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none'
-              }}
-            >
-              <Sparkles size={14} />
-              <span>Assistant</span>
-            </button>
-          </div>
+              <TracewiseBubbleButton
+                onClick={() => setRightTab('assistant')}
+                variant={rightTab === 'assistant' ? 'primary' : 'ghost'}
+                size="sm"
+                style={{
+                  flex: 1,
+                  fontSize: '0.78rem',
+                  padding: '6px 8px',
+                  gap: '6px'
+                }}
+              >
+                <Sparkles size={14} />
+                <span>Assistant</span>
+              </TracewiseBubbleButton>
+            </div>
+          </TracewiseBubbleArea>
 
           {/* Right Hub Content */}
           <div style={{ flex: 1, overflow: 'hidden' }}>

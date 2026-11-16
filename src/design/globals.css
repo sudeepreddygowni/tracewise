@@ -7,9 +7,18 @@
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html, body, #root {
   min-height: 100%;
   width: 100%;
+}
+
+/* Offset fixed glass navbar for in-page anchors */
+section[id], div[id], [id] {
+  scroll-margin-top: 100px;
 }
 
 body {

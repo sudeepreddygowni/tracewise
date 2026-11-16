@@ -7,30 +7,33 @@ export function ScrollManager() {
   const location = useLocation();
 
   useEffect(() => {
+    let active = true;
+
     // 1. Hash Navigation (e.g. /#workspace, /#how-it-works, /#faq)
     if (location.hash) {
       const targetId = location.hash.replace('#', '');
       const scrollToHashElement = () => {
+        if (!active) return false;
         const el = document.getElementById(targetId);
         if (el) {
-          const navHeight = 90; // Fixed navbar height + comfortable padding
-          const elPosition = el.getBoundingClientRect().top + window.pageYOffset;
-          const offsetPosition = elPosition - navHeight;
-
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: 'smooth'
-          });
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
           return true;
         }
         return false;
       };
 
-      // Try immediately, or retry once DOM settles
-      if (!scrollToHashElement()) {
-        const timeout = setTimeout(scrollToHashElement, 100);
-        return () => clearTimeout(timeout);
-      }
+      // Staggered attempts to account for route mounting, image loads, and GSAP layout shifts
+      scrollToHashElement();
+      const t1 = setTimeout(scrollToHashElement, 120);
+      const t2 = setTimeout(scrollToHashElement, 350);
+      const t3 = setTimeout(scrollToHashElement, 700);
+
+      return () => {
+        active = false;
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
     } else {
       // 2. Regular route navigation: restore to top cleanly
       window.scrollTo({

@@ -65,6 +65,16 @@ export function Navbar() {
     ? user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : 'TW';
 
+  const handleNavLinkClick = (to) => {
+    if (to.startsWith('/#')) {
+      const hash = to.replace('/#', '');
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   return (
     <>
       <header
@@ -129,6 +139,7 @@ export function Navbar() {
                 <Link
                   key={link.label}
                   to={link.to}
+                  onClick={() => handleNavLinkClick(link.to)}
                   style={{
                     fontSize: '0.9rem',
                     fontWeight: 600,
@@ -441,7 +452,10 @@ export function Navbar() {
               <Link
                 key={link.label}
                 to={link.to}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  handleNavLinkClick(link.to);
+                  setMobileMenuOpen(false);
+                }}
                 style={{
                   fontSize: '0.96rem',
                   fontWeight: 600,

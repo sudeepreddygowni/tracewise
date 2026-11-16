@@ -94,7 +94,7 @@ export function ProfilePage() {
     loadData();
   }, [handle, currentUser, isOwnProfile]);
 
-  if (loading) {
+  if (loading || !profileData) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
         <div style={{ color: 'var(--tw-text-muted)', fontSize: '0.94rem' }}>Loading student profile...</div>
@@ -151,17 +151,17 @@ export function ProfilePage() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0, fontFamily: 'var(--font-heading)' }}>
-                      {profileData.displayName}
+                      {profileData?.displayName || 'Student Maker'}
                     </h1>
                     <span style={{ fontSize: '0.92rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
-                      @{profileData.handle}
+                      @{profileData?.handle || 'student'}
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', fontSize: '0.82rem', color: 'var(--tw-text-muted)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <Calendar size={14} />
-                      Joined {profileData.joinedAt}
+                      Joined {profileData?.joinedAt || 'Recently'}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--tw-success)', fontWeight: 600 }}>
                       <Shield size={14} />
@@ -186,14 +186,14 @@ export function ProfilePage() {
             </div>
 
             {/* Bio */}
-            {profileData.bio && (
+            {profileData?.bio && (
               <p style={{ fontSize: '0.98rem', color: 'var(--tw-text-secondary)', lineHeight: 1.6, margin: 0, maxWidth: '720px' }}>
                 {profileData.bio}
               </p>
             )}
 
             {/* Skills & Focus Areas */}
-            {profileData.skills && profileData.skills.length > 0 && (
+            {profileData?.skills && profileData.skills.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '12px', borderTop: '1px solid var(--tw-border)' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--tw-text-muted)' }}>Skills & Focus:</span>
                 {profileData.skills.map((skill, idx) => (

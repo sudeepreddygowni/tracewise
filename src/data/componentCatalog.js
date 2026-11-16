@@ -22,6 +22,7 @@ export const COMPONENT_CATALOG = [
     description: 'ATmega328P based microcontroller board with 14 digital I/O pins and 6 analog inputs.',
     width: 300,
     height: 220,
+    viewBox: { x: 0, y: 0, width: 380, height: 280 },
     pins: [
       // Top header (Digital 8-13, GND, AREF)
       { id: 'AREF', label: 'AREF', role: 'analog-ref', x: 120, y: 14 },
@@ -67,6 +68,7 @@ export const COMPONENT_CATALOG = [
     description: '400 tie-point solderless breadboard with dual power rails.',
     width: 320,
     height: 180,
+    viewBox: { x: 0, y: 0, width: 320, height: 180 },
     pins: [
       // Top power rails (+, -)
       { id: 'rail-top-pos', label: 'Top + (5V)', role: 'power-rail', x: 40, y: 15 },
@@ -96,6 +98,7 @@ export const COMPONENT_CATALOG = [
     description: 'Light Emitting Diode with anode (+) and cathode (-). Requires current-limiting resistor.',
     width: 60,
     height: 70,
+    viewBox: { x: 0, y: 0, width: 60, height: 70 },
     defaultProps: { color: 'red' },
     pins: [
       { id: 'anode', label: 'Anode (+)', role: 'positive', x: 18, y: 60 },
@@ -110,6 +113,7 @@ export const COMPONENT_CATALOG = [
     description: 'Through-hole axial resistor for current limiting and voltage division.',
     width: 80,
     height: 35,
+    viewBox: { x: 0, y: 0, width: 80, height: 35 },
     defaultProps: { resistance: '220Ω', bands: ['red', 'red', 'brown', 'gold'] },
     pins: [
       { id: 'lead1', label: 'Lead 1', role: 'passive', x: 6, y: 18 },
@@ -124,6 +128,7 @@ export const COMPONENT_CATALOG = [
     description: 'Tactile momentary push button switch (normally open).',
     width: 65,
     height: 65,
+    viewBox: { x: 0, y: 0, width: 65, height: 65 },
     pins: [
       { id: '1a', label: 'Pin 1a', role: 'switch-contact', x: 12, y: 15 },
       { id: '1b', label: 'Pin 1b', role: 'switch-contact', x: 12, y: 50 },
@@ -139,6 +144,7 @@ export const COMPONENT_CATALOG = [
     description: 'Tri-color 5mm LED with separate Red, Green, and Blue anodes and a shared Common Cathode ground lead.',
     width: 70,
     height: 80,
+    viewBox: { x: 0, y: 0, width: 70, height: 80 },
     defaultProps: { red: 255, green: 0, blue: 128, mode: 'common-cathode' },
     pins: [
       { id: 'red', label: 'Red Anode', role: 'positive', x: 16, y: 70 },
@@ -155,6 +161,7 @@ export const COMPONENT_CATALOG = [
     description: 'Rotary variable resistor providing an adjustable analog voltage between 0V and 5V via the central wiper pin.',
     width: 70,
     height: 70,
+    viewBox: { x: 0, y: 0, width: 70, height: 70 },
     defaultProps: { resistance: '10kΩ', value: 512 },
     pins: [
       { id: 'pin1', label: 'Terminal 1 (5V)', role: 'power', x: 14, y: 62 },
@@ -170,6 +177,7 @@ export const COMPONENT_CATALOG = [
     description: 'Light-Dependent Resistor whose resistance drops with ambient light intensity. Used in voltage dividers for light sensing.',
     width: 60,
     height: 60,
+    viewBox: { x: 0, y: 0, width: 60, height: 60 },
     defaultProps: { lightLevel: 'medium' },
     pins: [
       { id: 'pin1', label: 'Lead 1', role: 'passive', x: 18, y: 52 },
@@ -184,6 +192,7 @@ export const COMPONENT_CATALOG = [
     description: 'Single-Pole Double-Throw miniature slide switch. Connects Common to Terminal 1 or Terminal 2.',
     width: 65,
     height: 45,
+    viewBox: { x: 0, y: 0, width: 65, height: 45 },
     defaultProps: { state: 'left' },
     pins: [
       { id: '1', label: 'Terminal 1', role: 'switch-contact', x: 14, y: 38 },
@@ -199,6 +208,7 @@ export const COMPONENT_CATALOG = [
     description: '5V Piezoelectric sound indicator that emits an audible 2.5kHz beep when driven HIGH.',
     width: 65,
     height: 65,
+    viewBox: { x: 0, y: 0, width: 65, height: 65 },
     defaultProps: { tone: '2.5kHz' },
     pins: [
       { id: 'anode', label: 'Positive (+)', role: 'positive', x: 20, y: 56 },
@@ -211,3 +221,57 @@ export const COMPONENT_CATALOG = [
 export function getComponentDefinition(type) {
   return COMPONENT_CATALOG.find(c => c.type === type) || null;
 }
+
+/**
+ * Compute the local rendered offset (in pixels from the top-left of the component element)
+ * for a pin defined in SVG viewBox coordinates.
+ *
+ * Implements the standard W3C SVG viewBox-to-viewport coordinate mapping (xMidYMid meet).
+ */
+export function getPinRelativeCoords(def, pin) {
+  if (!def || !pin) return { x: 0, y: 0 };
+
+  const compW = def.width || 100;
+  const compH = def.height || 100;
+  const vb = def.viewBox || { x: 0, y: 0, width: compW, height: compH };
+
+  const vbMinX = vb.x ?? 0;
+  const vbMinY = vb.y ?? 0;
+  const vbW = vb.width || compW;
+  const vbH = vb.height || compH;
+
+  // Standard SVG "xMidYMid meet" transformation
+  const scaleX = compW / vbW;
+  const scaleY = compH / vbH;
+  const scale = Math.min(scaleX, scaleY);
+
+  const renderedW = vbW * scale;
+  const renderedH = vbH * scale;
+
+  const alignX = (compW - renderedW) / 2;
+  const alignY = (compH - renderedH) / 2;
+
+  const localX = alignX + (pin.x - vbMinX) * scale;
+  const localY = alignY + (pin.y - vbMinY) * scale;
+
+  return { x: localX, y: localY };
+}
+
+/**
+ * Compute absolute world coordinates for a component pin on the canvas.
+ * Accounts for component position (x, y) and SVG viewBox-to-rendered scaling.
+ */
+export function getComponentPinCanvasCoords(comp, pinId, catalog = COMPONENT_CATALOG) {
+  if (!comp) return { x: 0, y: 0 };
+  const def = catalog.find(c => c.type === comp.type);
+  if (!def) return { x: comp.x || 0, y: comp.y || 0 };
+  const pin = def.pins?.find(p => p.id === pinId);
+  if (!pin) return { x: comp.x || 0, y: comp.y || 0 };
+
+  const rel = getPinRelativeCoords(def, pin);
+  return {
+    x: (comp.x || 0) + rel.x,
+    y: (comp.y || 0) + rel.y
+  };
+}
+

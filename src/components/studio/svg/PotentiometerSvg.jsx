@@ -18,6 +18,7 @@ export function PotentiometerSvg({
       width={width}
       height={height}
       viewBox="0 0 70 70"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

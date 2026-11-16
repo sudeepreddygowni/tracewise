@@ -37,19 +37,30 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
   };
 
   return (
-    <TracewiseBubbleArea theme="light">
+    <TracewiseBubbleArea
+      theme="light"
+      style={{
+        width: '100%',
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+    >
       <div
         style={{
           width: '100%',
           height: '100%',
+          minHeight: 0,
           backgroundColor: '#ffffff',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}
       >
-        {/* Header */}
-        <div style={{ padding: '16px', borderBottom: '1px solid var(--tw-border)' }}>
+        {/* Header (fixed at top, never shrinks) */}
+        <div style={{ padding: '16px', borderBottom: '1px solid var(--tw-border)', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Layers size={18} color="var(--tw-brand)" />
@@ -149,16 +160,20 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
           )}
         </div>
 
-        {/* Catalog List */}
+        {/* Catalog List - Independently scrollable, stops wheel bubbling to canvas */}
         <div
+          onWheel={(e) => e.stopPropagation()}
           style={{
-            flex: 1,
+            flex: '1 1 0%',
+            minHeight: 0,
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             padding: '12px',
             display: 'flex',
             flexDirection: 'column',
             gap: '10px',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y'
           }}
         >
           {filteredComponents.length === 0 ? (

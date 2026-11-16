@@ -17,6 +17,7 @@ export function BreadboardSvg({
       width={width}
       height={height}
       viewBox="0 0 320 180"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

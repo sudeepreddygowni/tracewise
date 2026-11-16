@@ -27,6 +27,7 @@ export function ResistorSvg({
       width={width}
       height={height}
       viewBox="0 0 80 35"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       {/* Axial Leads */}

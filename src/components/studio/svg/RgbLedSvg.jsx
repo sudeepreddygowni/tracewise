@@ -19,6 +19,7 @@ export function RgbLedSvg({
       width={width}
       height={height}
       viewBox="0 0 70 80"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

@@ -17,6 +17,7 @@ export function SlideSwitchSvg({
       width={width}
       height={height}
       viewBox="0 0 65 45"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       {/* 3 Leads down */}

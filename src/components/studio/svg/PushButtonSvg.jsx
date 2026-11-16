@@ -14,6 +14,7 @@ export function PushButtonSvg({
       width={width}
       height={height}
       viewBox="0 0 65 65"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

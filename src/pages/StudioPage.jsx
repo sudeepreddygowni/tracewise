@@ -265,9 +265,13 @@ export function StudioPage() {
             style={{
               width: '280px',
               height: '100%',
+              minHeight: 0,
               backgroundColor: '#ffffff',
               borderRight: '1px solid var(--tw-border)',
-              flexShrink: 0
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
             }}
           >
             <ComponentLibrary onAddComponent={handleAddComponentAtCenter} />
@@ -294,9 +298,13 @@ export function StudioPage() {
                 left: 0,
                 width: '320px',
                 height: '100%',
+                minHeight: 0,
                 backgroundColor: '#ffffff',
                 zIndex: 61,
                 boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
                 animation: 'slideInLeft 0.2s ease-out'
               }}
             >
@@ -547,11 +555,13 @@ export function StudioPage() {
                 right: 0,
                 width: '380px',
                 height: '100%',
+                minHeight: 0,
                 backgroundColor: '#ffffff',
                 zIndex: 61,
                 boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
                 display: 'flex',
                 flexDirection: 'column',
+                overflow: 'hidden',
                 animation: 'slideInRight 0.2s ease-out'
               }}
             >

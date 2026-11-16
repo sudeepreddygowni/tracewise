@@ -17,6 +17,7 @@ export function ArduinoUnoSvg({
       width={width}
       height={height}
       viewBox="0 0 380 280"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

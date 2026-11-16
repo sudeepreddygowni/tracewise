@@ -24,6 +24,7 @@ export function LedSvg({
       width={width}
       height={height}
       viewBox="0 0 60 70"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

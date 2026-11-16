@@ -14,6 +14,7 @@ export function PhotoresistorSvg({
       width={width}
       height={height}
       viewBox="0 0 60 60"
+      preserveAspectRatio="xMidYMid meet"
       style={{ overflow: 'visible', userSelect: 'none' }}
     >
       <defs>

@@ -10,7 +10,7 @@ import { PhotoresistorSvg } from './svg/PhotoresistorSvg';
 import { SlideSwitchSvg } from './svg/SlideSwitchSvg';
 import { BuzzerSvg } from './svg/BuzzerSvg';
 import { WireSvg } from './svg/WireSvg';
-import { getComponentDefinition, WIRE_COLORS } from '../../data/componentCatalog';
+import { getComponentDefinition, getComponentPinCanvasCoords, WIRE_COLORS } from '../../data/componentCatalog';
 import {
   ZoomIn,
   ZoomOut,
@@ -108,17 +108,11 @@ export function CircuitCanvas({
   }, []);
 
   // Compute absolute coordinate for any pin on the canvas in world space
+  // using centralized SVG viewBox-to-viewport coordinate mapping
   const getPinCanvasCoords = useCallback((componentId, pinId) => {
     const comp = (project.components || []).find(c => c.id === componentId);
     if (!comp) return { x: 0, y: 0 };
-    const def = getComponentDefinition(comp.type);
-    const pin = def?.pins?.find(p => p.id === pinId);
-    if (!pin) return { x: comp.x, y: comp.y };
-
-    return {
-      x: comp.x + pin.x,
-      y: comp.y + pin.y
-    };
+    return getComponentPinCanvasCoords(comp, pinId);
   }, [project.components]);
 
   // Trackpad 2-finger pan & pinch zoom (ctrlKey) centered on cursor

@@ -146,9 +146,24 @@ export function AuthProvider({ children }) {
         setUser(profile);
         return profile;
       } catch (err) {
-        console.error('Supabase anonymous sign in error:', err);
-        setError(err.message);
-        throw err;
+        console.warn('Supabase anonymous sign in note (falling back to local guest session):', err.message);
+        // If Anonymous sign-in provider is disabled in Supabase dashboard, fall back to seamless local guest session
+        const guestUser = {
+          uid: 'guest_' + Math.random().toString(36).substring(2, 10),
+          displayName: 'Guest',
+          handle: 'guest_' + Math.random().toString(36).substring(2, 6),
+          bio: 'Exploring circuits and projects on Tracewise as a guest visitor.',
+          skills: [],
+          avatarUrl: null,
+          isAnonymous: true,
+          joinedAt: 'Today',
+          privacy: { showProjects: true }
+        };
+        setUser(guestUser);
+        try {
+          localStorage.setItem(LOCAL_GUEST_STORAGE_KEY, JSON.stringify(guestUser));
+        } catch (e) {}
+        return guestUser;
       } finally {
         setIsLoading(false);
       }

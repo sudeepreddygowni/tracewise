@@ -150,14 +150,32 @@ export function ArduinoUnoSvg({
         return (
           <g
             key={pin.id}
+            data-pin="true"
+            data-pin-id={pin.id}
             onClick={(e) => {
               e.stopPropagation();
               onPinClick && onPinClick(pin);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
             }}
             onMouseEnter={() => onPinHover && onPinHover(pin)}
             onMouseLeave={() => onPinHover && onPinHover(null)}
             style={{ cursor: 'pointer' }}
           >
+            {/* Enlarged invisible touch hit area (minimum 30px target) */}
+            <rect
+              x={pin.x - 15}
+              y={pin.y - 15}
+              width="30"
+              height="30"
+              fill="transparent"
+              style={{ pointerEvents: 'all' }}
+            />
+
             {/* Header Socket Hole */}
             <rect
               x={pin.x - 5}

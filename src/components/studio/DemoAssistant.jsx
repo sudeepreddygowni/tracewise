@@ -846,12 +846,13 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
             disabled={isThinking}
             style={{
               flex: 1,
-              padding: '9px 14px',
+              padding: '10px 16px',
               borderRadius: '20px',
               border: '1px solid var(--tw-border)',
-              fontSize: '0.82rem',
+              fontSize: '0.9rem',
               outline: 'none',
-              fontFamily: 'inherit'
+              fontFamily: 'inherit',
+              minHeight: '42px'
             }}
           />
           <TracewiseBubbleIconButton
@@ -860,8 +861,9 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
             size="sm"
             title="Send Question"
             disabled={!inputText.trim() || isThinking}
+            style={{ width: 42, height: 42, minWidth: 42, minHeight: 42 }}
           >
-            <Send size={15} />
+            <Send size={16} />
           </TracewiseBubbleIconButton>
         </div>
       </div>

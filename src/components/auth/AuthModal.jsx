@@ -163,10 +163,12 @@ export function AuthModal({ isOpen, onClose }) {
         style={{
           width: '100%',
           maxWidth: '460px',
+          maxHeight: '92vh',
           backgroundColor: '#ffffff',
           borderRadius: '24px',
           boxShadow: '0 24px 60px rgba(7, 24, 49, 0.45)',
-          overflow: 'hidden',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
           position: 'relative'
         }}
         onClick={(e) => e.stopPropagation()}

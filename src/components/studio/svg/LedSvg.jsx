@@ -64,14 +64,26 @@ export function LedSvg({
         return (
           <g
             key={pin.id}
+            data-pin="true"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
             onClick={(e) => {
               e.stopPropagation();
               onPinClick && onPinClick(pin);
             }}
             onMouseEnter={() => onPinHover && onPinHover(pin)}
             onMouseLeave={() => onPinHover && onPinHover(null)}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', touchAction: 'none' }}
           >
+            {/* Expanded touch target */}
+            <circle
+              cx={pin.x}
+              cy={pin.y}
+              r={16}
+              fill="transparent"
+              style={{ pointerEvents: 'auto' }}
+            />
             <circle
               cx={pin.x}
               cy={pin.y}
@@ -87,6 +99,7 @@ export function LedSvg({
               fontSize="6"
               fontWeight="bold"
               textAnchor="middle"
+              style={{ pointerEvents: 'none' }}
             >
               {pin.id === 'anode' ? 'A(+)' : 'K(-)'}
             </text>

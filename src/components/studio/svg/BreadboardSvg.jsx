@@ -81,14 +81,30 @@ export function BreadboardSvg({
         return (
           <g
             key={pin.id}
+            data-pin="true"
+            data-pin-id={pin.id}
             onClick={(e) => {
               e.stopPropagation();
               onPinClick && onPinClick(pin);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
             }}
             onMouseEnter={() => onPinHover && onPinHover(pin)}
             onMouseLeave={() => onPinHover && onPinHover(null)}
             style={{ cursor: 'pointer' }}
           >
+            {/* Enlarged transparent touch hit area (minimum 30px target) */}
+            <circle
+              cx={pin.x}
+              cy={pin.y}
+              r={15}
+              fill="transparent"
+              style={{ pointerEvents: 'all' }}
+            />
             <circle
               cx={pin.x}
               cy={pin.y}

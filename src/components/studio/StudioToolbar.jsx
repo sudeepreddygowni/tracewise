@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Save,
@@ -11,7 +11,9 @@ import {
   Check,
   AlertCircle,
   FolderKanban,
-  Mic
+  Mic,
+  MoreVertical,
+  X
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -34,7 +36,22 @@ export function StudioToolbar({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project?.title || '');
   const [pendingNavUrl, setPendingNavUrl] = useState(null);
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const overflowRef = useRef(null);
   const navigate = useNavigate();
+
+  // Close overflow menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) {
+        setShowOverflowMenu(false);
+      }
+    };
+    if (showOverflowMenu) {
+      document.addEventListener('pointerdown', handleClickOutside);
+    }
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [showOverflowMenu]);
 
   const handleTitleSubmit = () => {
     setEditingTitle(false);
@@ -56,21 +73,22 @@ export function StudioToolbar({
   return (
     <TracewiseBubbleArea theme="light">
       <header
+        className="studio-toolbar-header"
         style={{
-          minHeight: '58px',
+          minHeight: '56px',
           backgroundColor: '#ffffff',
           borderBottom: '1px solid var(--tw-border)',
           display: 'flex',
-          flexWrap: 'wrap',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '8px 16px',
+          padding: '8px 14px',
           zIndex: 50,
-          gap: '12px'
+          gap: '8px',
+          position: 'relative'
         }}
       >
-        {/* Left: Prominent Breadcrumb Navigation (← Dashboard / Projects / Title) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Left Section: Back & Project Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
           <TracewiseBubbleButton
             onClick={() => handleNav('/app')}
             variant="ghost"
@@ -79,35 +97,19 @@ export function StudioToolbar({
             style={{
               color: 'var(--tw-text-secondary)',
               fontSize: '0.82rem',
-              padding: '4px 10px',
-              gap: '4px'
+              padding: '6px 10px',
+              gap: '4px',
+              minHeight: '38px',
+              flexShrink: 0
             }}
           >
             <ChevronLeft size={16} />
-            <span>Dashboard</span>
+            <span className="hide-on-compact-mobile">Dashboard</span>
           </TracewiseBubbleButton>
 
-          <span style={{ color: 'var(--tw-border)', fontWeight: 300 }}>/</span>
+          <span className="hide-on-compact-mobile" style={{ color: 'var(--tw-border)', fontWeight: 300, flexShrink: 0 }}>/</span>
 
-          <TracewiseBubbleButton
-            onClick={() => handleNav('/projects')}
-            variant="ghost"
-            size="sm"
-            title="Browse Projects Catalog"
-            style={{
-              color: 'var(--tw-text-secondary)',
-              fontSize: '0.82rem',
-              padding: '4px 10px',
-              gap: '4px'
-            }}
-          >
-            <FolderKanban size={14} />
-            <span>Projects</span>
-          </TracewiseBubbleButton>
-
-          <span style={{ color: 'var(--tw-border)', fontWeight: 300 }}>/</span>
-
-          {/* Project Title & Version */}
+          {/* Project Title with Truncation on Small Screens */}
           {editingTitle ? (
             <input
               type="text"
@@ -117,13 +119,14 @@ export function StudioToolbar({
               onKeyDown={(e) => e.key === 'Enter' && handleTitleSubmit()}
               autoFocus
               style={{
-                fontSize: '0.92rem',
+                fontSize: '0.9rem',
                 fontWeight: 700,
                 padding: '4px 8px',
                 borderRadius: '6px',
                 border: '1px solid var(--tw-brand)',
                 color: 'var(--tw-text)',
-                fontFamily: 'var(--font-heading)'
+                fontFamily: 'var(--font-heading)',
+                maxWidth: '180px'
               }}
             />
           ) : (
@@ -135,39 +138,56 @@ export function StudioToolbar({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer'
+                gap: '6px',
+                cursor: 'pointer',
+                minWidth: 0,
+                overflow: 'hidden'
               }}
               title="Click to rename"
             >
-              <h1 style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)', margin: 0 }}>
+              <h1
+                style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 700,
+                  color: 'var(--tw-text)',
+                  fontFamily: 'var(--font-heading)',
+                  margin: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '160px'
+                }}
+              >
                 {project?.title || 'Untitled Project'}
               </h1>
               <span
+                className="hide-on-compact-mobile"
                 style={{
-                  fontSize: '0.7rem',
+                  fontSize: '0.68rem',
                   fontWeight: 600,
                   color: 'var(--tw-brand)',
                   backgroundColor: 'var(--tw-brand-soft)',
-                  padding: '2px 8px',
-                  borderRadius: '12px'
+                  padding: '2px 6px',
+                  borderRadius: '10px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
                 }}
               >
-                {project?.version?.label || 'v1.0 Baseline'}
+                {project?.version?.label || 'v1.0'}
               </span>
             </div>
           )}
         </div>
 
-        {/* Center: Undo / Redo & Save status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Center Section: Undo / Redo & Save status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <TracewiseBubbleIconButton
             onClick={onUndo}
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
             variant="ghost"
             size="sm"
-            style={{ opacity: canUndo ? 1 : 0.4 }}
+            style={{ opacity: canUndo ? 1 : 0.4, width: 38, height: 38, minWidth: 38, minHeight: 38 }}
           >
             <Undo2 size={16} />
           </TracewiseBubbleIconButton>
@@ -178,7 +198,7 @@ export function StudioToolbar({
             title="Redo (Ctrl+Y)"
             variant="ghost"
             size="sm"
-            style={{ opacity: canRedo ? 1 : 0.4 }}
+            style={{ opacity: canRedo ? 1 : 0.4, width: 38, height: 38, minWidth: 38, minHeight: 38 }}
           >
             <Redo2 size={16} />
           </TracewiseBubbleIconButton>
@@ -186,80 +206,242 @@ export function StudioToolbar({
           {/* Saved Status Indicator */}
           <span
             style={{
-              fontSize: '0.75rem',
+              fontSize: '0.72rem',
               color: isSaved ? 'var(--tw-success)' : '#d97706',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              marginLeft: '8px',
-              fontWeight: 600
+              marginLeft: '4px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap'
             }}
           >
-            {isSaved ? <Check size={13} /> : null}
-            {isSaved ? 'Saved to Browser' : 'Unsaved edits'}
+            {isSaved ? <Check size={12} /> : null}
+            <span className="hide-on-compact-mobile">{isSaved ? 'Saved' : 'Unsaved'}</span>
           </span>
         </div>
 
-        {/* Right: Actions (Save, Fork, Compare, Build, Pitch Lab) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        {/* Right Section: Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {/* Always Visible Save Button */}
           <TracewiseBubbleButton
             onClick={onSave}
             title="Save Project"
             variant="secondary"
             size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
+            style={{
+              fontSize: '0.8rem',
+              gap: '4px',
+              padding: '6px 12px',
+              minHeight: '38px',
+              minWidth: '60px'
+            }}
           >
             <Save size={14} />
             <span>Save</span>
           </TracewiseBubbleButton>
 
-          <TracewiseBubbleButton
-            onClick={onFork}
-            title="Fork independent copy"
-            variant="secondary"
-            size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
-          >
-            <GitFork size={14} />
-            <span>Fork Remix</span>
-          </TracewiseBubbleButton>
+          {/* Desktop-only secondary actions */}
+          <div className="desktop-actions-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <TracewiseBubbleButton
+              onClick={onFork}
+              title="Fork independent copy"
+              variant="secondary"
+              size="sm"
+              style={{ fontSize: '0.8rem', gap: '4px', padding: '6px 12px', minHeight: '38px' }}
+            >
+              <GitFork size={14} />
+              <span>Fork Remix</span>
+            </TracewiseBubbleButton>
 
-          <TracewiseBubbleButton
-            to={`/app/compare/${project?.id}`}
-            title="Compare versions & debug"
-            variant={hasErrors ? 'danger' : 'secondary'}
-            size="sm"
-            style={{
-              fontSize: '0.82rem',
-              gap: '6px',
-              padding: '6px 14px'
-            }}
-          >
-            <GitCompare size={14} />
-            <span>Compare & Debug</span>
-          </TracewiseBubbleButton>
+            <TracewiseBubbleButton
+              to={`/app/compare/${project?.id}`}
+              title="Compare versions & debug"
+              variant={hasErrors ? 'danger' : 'secondary'}
+              size="sm"
+              style={{
+                fontSize: '0.8rem',
+                gap: '4px',
+                padding: '6px 12px',
+                minHeight: '38px'
+              }}
+            >
+              <GitCompare size={14} />
+              <span>Compare & Debug</span>
+            </TracewiseBubbleButton>
 
-          <TracewiseBubbleButton
-            to={`/app/build/${project?.id}`}
-            title="Physical Assembly Checklist & BOM"
-            variant="primary"
-            size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
-          >
-            <Wrench size={14} />
-            <span>Build Guide</span>
-          </TracewiseBubbleButton>
+            <TracewiseBubbleButton
+              to={`/app/build/${project?.id}`}
+              title="Physical Assembly Checklist & BOM"
+              variant="primary"
+              size="sm"
+              style={{ fontSize: '0.8rem', gap: '4px', padding: '6px 12px', minHeight: '38px' }}
+            >
+              <Wrench size={14} />
+              <span>Build Guide</span>
+            </TracewiseBubbleButton>
 
-          <TracewiseBubbleButton
-            to={`/app/pitch/${project?.id}`}
-            title="Project Pitch Lab — Presentation & Judge Prep"
-            variant="secondary"
-            size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
-          >
-            <Mic size={14} color="var(--tw-brand)" />
-            <span>Pitch Lab</span>
-          </TracewiseBubbleButton>
+            <TracewiseBubbleButton
+              to={`/app/pitch/${project?.id}`}
+              title="Project Pitch Lab — Presentation & Judge Prep"
+              variant="secondary"
+              size="sm"
+              style={{ fontSize: '0.8rem', gap: '4px', padding: '6px 12px', minHeight: '38px' }}
+            >
+              <Mic size={14} color="var(--tw-brand)" />
+              <span>Pitch Lab</span>
+            </TracewiseBubbleButton>
+          </div>
+
+          {/* Mobile/Tablet Overflow Menu Button */}
+          <div className="mobile-overflow-container" ref={overflowRef} style={{ position: 'relative' }}>
+            <TracewiseBubbleIconButton
+              onClick={() => setShowOverflowMenu(prev => !prev)}
+              variant="ghost"
+              size="sm"
+              title="More Actions"
+              style={{
+                width: 38,
+                height: 38,
+                minWidth: 38,
+                minHeight: 38,
+                backgroundColor: showOverflowMenu ? 'rgba(30, 63, 216, 0.08)' : 'transparent'
+              }}
+            >
+              <MoreVertical size={18} />
+            </TracewiseBubbleIconButton>
+
+            {/* Overflow Dropdown Menu */}
+            {showOverflowMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '8px',
+                  width: '210px',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '14px',
+                  boxShadow: '0 12px 32px rgba(7, 24, 49, 0.18)',
+                  border: '1px solid var(--tw-border)',
+                  padding: '6px',
+                  zIndex: 100,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  animation: 'fadeIn 0.15s ease-out'
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setShowOverflowMenu(false);
+                    onFork();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--tw-text)',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--tw-bg)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <GitFork size={15} color="var(--tw-brand)" />
+                  <span>Fork Remix</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowOverflowMenu(false);
+                    navigate(`/app/compare/${project?.id}`);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: hasErrors ? 'var(--tw-error)' : 'var(--tw-text)',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--tw-bg)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <GitCompare size={15} color={hasErrors ? 'var(--tw-error)' : 'var(--tw-brand)'} />
+                  <span>Compare & Debug</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowOverflowMenu(false);
+                    navigate(`/app/build/${project?.id}`);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--tw-text)',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--tw-bg)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Wrench size={15} color="var(--tw-brand)" />
+                  <span>Build Guide</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowOverflowMenu(false);
+                    navigate(`/app/pitch/${project?.id}`);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--tw-text)',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--tw-bg)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Mic size={15} color="var(--tw-brand)" />
+                  <span>Pitch Lab</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -282,8 +464,8 @@ export function StudioToolbar({
             style={{
               background: '#ffffff',
               borderRadius: '20px',
-              padding: '28px',
-              maxWidth: '460px',
+              padding: '24px',
+              maxWidth: '440px',
               width: '100%',
               boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
               display: 'flex',
@@ -295,8 +477,8 @@ export function StudioToolbar({
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div
                 style={{
-                  width: 42,
-                  height: 42,
+                  width: 40,
+                  height: 40,
                   borderRadius: '12px',
                   backgroundColor: '#fef3c7',
                   display: 'flex',
@@ -305,27 +487,28 @@ export function StudioToolbar({
                   flexShrink: 0
                 }}
               >
-                <AlertCircle size={24} color="#d97706" />
+                <AlertCircle size={22} color="#d97706" />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.18rem', fontWeight: 700, margin: 0, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
                   Unsaved Changes
                 </h3>
-                <p style={{ fontSize: '0.84rem', color: 'var(--tw-text-muted)', margin: '2px 0 0' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--tw-text-muted)', margin: '2px 0 0' }}>
                   Project: {project?.title || 'Current Project'}
                 </p>
               </div>
             </div>
 
-            <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
+            <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
               You have unsaved changes in your circuit or code. Would you like to save your work before navigating away?
             </p>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px', flexWrap: 'wrap' }}>
               <TracewiseBubbleButton
                 onClick={() => setPendingNavUrl(null)}
                 variant="ghost"
                 size="sm"
+                style={{ minHeight: '36px' }}
               >
                 Keep Editing
               </TracewiseBubbleButton>
@@ -338,7 +521,7 @@ export function StudioToolbar({
                 }}
                 variant="secondary"
                 size="sm"
-                style={{ color: 'var(--tw-error)' }}
+                style={{ color: 'var(--tw-error)', minHeight: '36px' }}
               >
                 Discard
               </TracewiseBubbleButton>
@@ -352,6 +535,7 @@ export function StudioToolbar({
                 }}
                 variant="primary"
                 size="sm"
+                style={{ minHeight: '36px' }}
               >
                 Save & Exit
               </TracewiseBubbleButton>
@@ -359,6 +543,30 @@ export function StudioToolbar({
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 900px) {
+          .desktop-actions-group {
+            display: none !important;
+          }
+          .mobile-overflow-container {
+            display: block !important;
+          }
+        }
+        @media (min-width: 901px) {
+          .desktop-actions-group {
+            display: flex !important;
+          }
+          .mobile-overflow-container {
+            display: none !important;
+          }
+        }
+        @media (max-width: 520px) {
+          .hide-on-compact-mobile {
+            display: none !important;
+          }
+        }
+      `}</style>
     </TracewiseBubbleArea>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
 import { StudioToolbar } from '../components/studio/StudioToolbar';
@@ -9,9 +9,20 @@ import { ComponentInspector } from '../components/studio/ComponentInspector';
 import { DemoAssistant } from '../components/studio/DemoAssistant';
 import { ValidationDrawer } from '../components/studio/ValidationDrawer';
 import { applyProjectModification } from '../domain/projectBuilder/projectModifier';
-import { Code, Sliders, Sparkles, Layout, CheckCircle2 } from 'lucide-react';
+import {
+  Code,
+  Sliders,
+  Sparkles,
+  Layout,
+  Layers,
+  ChevronRight,
+  ChevronLeft,
+  X,
+  Maximize2
+} from 'lucide-react';
 import {
   TracewiseBubbleButton,
+  TracewiseBubbleIconButton,
   TracewiseBubbleArea
 } from '../components/ui/BubbleActions';
 
@@ -46,11 +57,42 @@ export function StudioPage() {
   ); // 'code' | 'inspector' | 'assistant'
   const [isValidationOpen, setIsValidationOpen] = useState(false);
 
+  // Responsive device breakpoint state
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
+  const [mobileActiveTab, setMobileActiveTab] = useState('canvas'); // 'canvas' | 'components' | 'code' | 'inspector' | 'assistant'
+  const [tabletLeftOpen, setTabletLeftOpen] = useState(false);
+  const [tabletRightOpen, setTabletRightOpen] = useState(false);
+
+  // Live viewport metrics from CircuitCanvas for center-of-view component placement
+  const [viewport, setViewport] = useState({
+    pan: { x: 0, y: 0 },
+    zoom: 1,
+    width: 800,
+    height: 600
+  });
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth <= 1024;
+  const isDesktop = windowWidth > 1024;
+
   useEffect(() => {
     if (location.state?.initialQuery || location.state?.openAssistant) {
       setRightTab('assistant');
+      if (isMobile) {
+        setMobileActiveTab('assistant');
+      } else if (isTablet) {
+        setTabletRightOpen(true);
+      }
     }
-  }, [location.state]);
+  }, [location.state, isMobile, isTablet]);
 
   useEffect(() => {
     if (projectId && (!activeProject || activeProject.id !== projectId)) {
@@ -62,21 +104,13 @@ export function StudioPage() {
     }
   }, [projectId, activeProject, loadProject]);
 
-  if (!activeProject) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--tw-bg)' }}>
-        <p style={{ color: 'var(--tw-text-muted)' }}>Loading Tracewise Studio...</p>
-      </div>
-    );
-  }
-
-  const selectedComp = (activeProject.components || []).find(c => c.id === selectedCompId);
-
-  // When a component is clicked on canvas, auto switch to inspector tab if desired
+  // Handle component selection on canvas
   const handleSelectComponent = (id) => {
     setSelectedCompId(id);
-    if (id && rightTab === 'assistant') {
-      setRightTab('inspector');
+    if (id) {
+      if (rightTab === 'assistant' && isDesktop) {
+        setRightTab('inspector');
+      }
     }
   };
 
@@ -162,8 +196,49 @@ export function StudioPage() {
     setIsValidationOpen(true);
   };
 
+  // Smart placement for added components based on visible viewport center
+  const handleAddComponentAtCenter = (compDef) => {
+    const w = viewport.width || 800;
+    const h = viewport.height || 600;
+    const z = viewport.zoom || 1;
+    const p = viewport.pan || { x: 0, y: 0 };
+
+    // Calculate world coordinates of the viewport center
+    const centerX = (-p.x + w / 2) / z;
+    const centerY = (-p.y + h / 2) / z;
+
+    // Small jitter so consecutive additions don't completely overlap
+    const jitterX = Math.round((Math.random() - 0.5) * 60);
+    const jitterY = Math.round((Math.random() - 0.5) * 60);
+
+    const placeX = Math.max(20, Math.round(centerX - 80 + jitterX));
+    const placeY = Math.max(20, Math.round(centerY - 60 + jitterY));
+
+    addComponent(compDef, placeX, placeY);
+  };
+
+  if (!activeProject) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--tw-bg)' }}>
+        <p style={{ color: 'var(--tw-text-muted)' }}>Loading Tracewise Studio...</p>
+      </div>
+    );
+  }
+
+  const selectedComp = (activeProject.components || []).find(c => c.id === selectedCompId);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100dvh',
+        minHeight: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        position: 'relative'
+      }}
+    >
       {/* Top Toolbar */}
       <StudioToolbar
         project={activeProject}
@@ -181,18 +256,59 @@ export function StudioPage() {
         validation={validation}
       />
 
-      {/* Main Studio 3-Column Layout */}
+      {/* Main Studio Middle Area */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-        {/* Left: Component Library */}
-        <div className="studio-col-left">
-          <ComponentLibrary
-            onAddComponent={(compDef) => {
-              addComponent(compDef, 400 + Math.random() * 80, 160 + Math.random() * 80);
+        {/* DESKTOP LEFT: Component Library (Fixed 280px) */}
+        {isDesktop && (
+          <div
+            className="studio-col-left"
+            style={{
+              width: '280px',
+              height: '100%',
+              backgroundColor: '#ffffff',
+              borderRight: '1px solid var(--tw-border)',
+              flexShrink: 0
             }}
-          />
-        </div>
+          >
+            <ComponentLibrary onAddComponent={handleAddComponentAtCenter} />
+          </div>
+        )}
 
-        {/* Center: Circuit Canvas */}
+        {/* TABLET LEFT DRAWER: Collapsible Component Library */}
+        {isTablet && tabletLeftOpen && (
+          <>
+            <div
+              onClick={() => setTabletLeftOpen(false)}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor: 'rgba(7, 24, 49, 0.35)',
+                zIndex: 60,
+                backdropFilter: 'blur(2px)'
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '320px',
+                height: '100%',
+                backgroundColor: '#ffffff',
+                zIndex: 61,
+                boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+                animation: 'slideInLeft 0.2s ease-out'
+              }}
+            >
+              <ComponentLibrary
+                onAddComponent={handleAddComponentAtCenter}
+                onClose={() => setTabletLeftOpen(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* CENTER: Circuit Canvas */}
         <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
           <CircuitCanvas
             project={activeProject}
@@ -202,147 +318,674 @@ export function StudioPage() {
             onAddConnection={addConnection}
             onRemoveConnection={removeConnection}
             onCommitHistory={commitHistory}
+            onViewportChange={setViewport}
           />
-        </div>
 
-        {/* Right: Engineering Hub (Code Editor, Inspector, Demo Assistant) */}
-        <div
-          className="studio-col-right"
-          style={{
-            width: '380px',
-            height: '100%',
-            backgroundColor: '#ffffff',
-            borderLeft: '1px solid var(--tw-border)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          {/* Right Hub Tab Switcher */}
-          <TracewiseBubbleArea theme="light">
+          {/* TABLET FLOATING TOGGLE BUTTONS (Canvas Edges) */}
+          {isTablet && (
+            <TracewiseBubbleArea theme="light">
+              {/* Left Edge Toggle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: 12,
+                  transform: 'translateY(-50%)',
+                  zIndex: 42
+                }}
+              >
+                <TracewiseBubbleButton
+                  onClick={() => setTabletLeftOpen(prev => !prev)}
+                  variant="secondary"
+                  size="sm"
+                  title="Toggle Component Library"
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--tw-radius-pill)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                    gap: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600
+                  }}
+                >
+                  <Layers size={15} color="var(--tw-brand)" />
+                  <span>Components</span>
+                </TracewiseBubbleButton>
+              </div>
+
+              {/* Right Edge Toggle */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: 12,
+                  transform: 'translateY(-50%)',
+                  zIndex: 42
+                }}
+              >
+                <TracewiseBubbleButton
+                  onClick={() => setTabletRightOpen(prev => !prev)}
+                  variant="secondary"
+                  size="sm"
+                  title="Toggle Engineering Hub"
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 'var(--tw-radius-pill)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                    gap: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600
+                  }}
+                >
+                  <Sliders size={15} color="var(--tw-brand)" />
+                  <span>Hub ({rightTab})</span>
+                </TracewiseBubbleButton>
+              </div>
+            </TracewiseBubbleArea>
+          )}
+
+          {/* MOBILE FLOATING COMPONENT INSPECTOR PILL */}
+          {isMobile && mobileActiveTab === 'canvas' && selectedComp && (
             <div
               style={{
-                display: 'flex',
-                gap: '4px',
-                backgroundColor: '#f1f5f9',
-                padding: '6px',
-                borderBottom: '1px solid var(--tw-border)'
+                position: 'absolute',
+                bottom: 16,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 43,
+                animation: 'slideUp 0.2s ease-out'
               }}
             >
-              <TracewiseBubbleButton
-                onClick={() => setRightTab('code')}
-                variant={rightTab === 'code' ? 'primary' : 'ghost'}
-                size="sm"
+              <button
+                onClick={() => setMobileActiveTab('inspector')}
                 style={{
-                  flex: 1,
-                  fontSize: '0.78rem',
-                  padding: '6px 8px',
-                  gap: '6px'
+                  backgroundColor: 'rgba(7, 24, 49, 0.96)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#ffffff',
+                  padding: '9px 18px',
+                  borderRadius: 'var(--tw-radius-pill)',
+                  border: '1px solid rgba(45, 197, 233, 0.35)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.84rem',
+                  fontWeight: 600
                 }}
               >
-                <Code size={14} />
-                <span>Arduino C++</span>
-              </TracewiseBubbleButton>
-
-              <TracewiseBubbleButton
-                onClick={() => setRightTab('inspector')}
-                variant={rightTab === 'inspector' ? 'primary' : 'ghost'}
-                size="sm"
-                style={{
-                  flex: 1,
-                  fontSize: '0.78rem',
-                  padding: '6px 8px',
-                  gap: '6px'
-                }}
-              >
-                <Sliders size={14} />
-                <span>Inspector</span>
-              </TracewiseBubbleButton>
-
-              <TracewiseBubbleButton
-                onClick={() => setRightTab('assistant')}
-                variant={rightTab === 'assistant' ? 'primary' : 'ghost'}
-                size="sm"
-                style={{
-                  flex: 1,
-                  fontSize: '0.78rem',
-                  padding: '6px 8px',
-                  gap: '6px'
-                }}
-              >
-                <Sparkles size={14} />
-                <span>Assistant</span>
-              </TracewiseBubbleButton>
+                <Sliders size={14} color="#2dc5e9" />
+                <span>Selected: <b>{selectedComp.name || selectedComp.type}</b></span>
+                <span style={{ opacity: 0.6 }}>•</span>
+                <span style={{ color: '#2dc5e9' }}>Tap for Inspector</span>
+              </button>
             </div>
-          </TracewiseBubbleArea>
+          )}
+        </div>
 
-          {/* Right Hub Content */}
-          <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {rightTab === 'code' && (
-              <CodeEditor
-                code={activeProject.firmware?.files?.[0]?.content || ''}
-                onChange={updateFirmware}
-                onRunCheck={handleValidateCode}
-                validationResults={validation.checks}
-              />
-            )}
-
-            {rightTab === 'inspector' && (
-              <ComponentInspector
-                selectedComponent={selectedComp}
-                project={activeProject}
-                onUpdateProps={(newProps) => {
-                  if (selectedCompId) {
-                    updateActiveProject(prev => ({
-                      ...prev,
-                      components: prev.components.map(c =>
-                        c.id === selectedCompId ? { ...c, props: { ...c.props, ...newProps } } : c
-                      )
-                    }));
-                  }
+        {/* DESKTOP RIGHT: Engineering Hub (380px) */}
+        {isDesktop && (
+          <div
+            className="studio-col-right"
+            style={{
+              width: '380px',
+              height: '100%',
+              backgroundColor: '#ffffff',
+              borderLeft: '1px solid var(--tw-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              flexShrink: 0
+            }}
+          >
+            {/* Desktop Hub Tab Switcher */}
+            <TracewiseBubbleArea theme="light">
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '4px',
+                  backgroundColor: '#f1f5f9',
+                  padding: '6px',
+                  borderBottom: '1px solid var(--tw-border)'
                 }}
-                onDeleteComponent={(id) => {
-                  removeComponent(id);
-                  setSelectedCompId(null);
-                }}
-              />
-            )}
+              >
+                <TracewiseBubbleButton
+                  onClick={() => setRightTab('code')}
+                  variant={rightTab === 'code' ? 'primary' : 'ghost'}
+                  size="sm"
+                  style={{ flex: 1, fontSize: '0.78rem', padding: '6px 8px', gap: '6px' }}
+                >
+                  <Code size={14} />
+                  <span>Arduino C++</span>
+                </TracewiseBubbleButton>
 
-            {rightTab === 'assistant' && (
-              <DemoAssistant
-                project={activeProject}
-                validation={validation}
-                onApplyFix={handleApplyAssistantFix}
-                initialQuery={location.state?.initialQuery}
-                buildCompleted={location.state?.buildCompleted}
-                buildMessage={location.state?.buildMessage}
-              />
-            )}
+                <TracewiseBubbleButton
+                  onClick={() => setRightTab('inspector')}
+                  variant={rightTab === 'inspector' ? 'primary' : 'ghost'}
+                  size="sm"
+                  style={{ flex: 1, fontSize: '0.78rem', padding: '6px 8px', gap: '6px' }}
+                >
+                  <Sliders size={14} />
+                  <span>Inspector</span>
+                </TracewiseBubbleButton>
+
+                <TracewiseBubbleButton
+                  onClick={() => setRightTab('assistant')}
+                  variant={rightTab === 'assistant' ? 'primary' : 'ghost'}
+                  size="sm"
+                  style={{ flex: 1, fontSize: '0.78rem', padding: '6px 8px', gap: '6px' }}
+                >
+                  <Sparkles size={14} />
+                  <span>Assistant</span>
+                </TracewiseBubbleButton>
+              </div>
+            </TracewiseBubbleArea>
+
+            {/* Desktop Hub Content */}
+            <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {rightTab === 'code' && (
+                <CodeEditor
+                  code={activeProject.firmware?.files?.[0]?.content || ''}
+                  onChange={updateFirmware}
+                  onRunCheck={handleValidateCode}
+                  validationResults={validation.checks}
+                />
+              )}
+
+              {rightTab === 'inspector' && (
+                <ComponentInspector
+                  selectedComponent={selectedComp}
+                  project={activeProject}
+                  onUpdateProps={(newProps) => {
+                    if (selectedCompId) {
+                      updateActiveProject(prev => ({
+                        ...prev,
+                        components: prev.components.map(c =>
+                          c.id === selectedCompId ? { ...c, props: { ...c.props, ...newProps } } : c
+                        )
+                      }));
+                    }
+                  }}
+                  onDeleteComponent={(id) => {
+                    removeComponent(id);
+                    setSelectedCompId(null);
+                  }}
+                />
+              )}
+
+              {rightTab === 'assistant' && (
+                <DemoAssistant
+                  project={activeProject}
+                  validation={validation}
+                  onApplyFix={handleApplyAssistantFix}
+                  initialQuery={location.state?.initialQuery}
+                  buildCompleted={location.state?.buildCompleted}
+                  buildMessage={location.state?.buildMessage}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TABLET RIGHT DRAWER: Collapsible Engineering Hub */}
+        {isTablet && tabletRightOpen && (
+          <>
+            <div
+              onClick={() => setTabletRightOpen(false)}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor: 'rgba(7, 24, 49, 0.35)',
+                zIndex: 60,
+                backdropFilter: 'blur(2px)'
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '380px',
+                height: '100%',
+                backgroundColor: '#ffffff',
+                zIndex: 61,
+                boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                animation: 'slideInRight 0.2s ease-out'
+              }}
+            >
+              {/* Header with Close */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderBottom: '1px solid var(--tw-border)',
+                  backgroundColor: '#ffffff'
+                }}
+              >
+                <div style={{ display: 'flex', gap: '4px', flex: 1, marginRight: '8px' }}>
+                  <TracewiseBubbleButton
+                    onClick={() => setRightTab('code')}
+                    variant={rightTab === 'code' ? 'primary' : 'ghost'}
+                    size="sm"
+                    style={{ flex: 1, fontSize: '0.74rem', padding: '5px 6px', gap: '4px' }}
+                  >
+                    <Code size={13} />
+                    <span>Code</span>
+                  </TracewiseBubbleButton>
+                  <TracewiseBubbleButton
+                    onClick={() => setRightTab('inspector')}
+                    variant={rightTab === 'inspector' ? 'primary' : 'ghost'}
+                    size="sm"
+                    style={{ flex: 1, fontSize: '0.74rem', padding: '5px 6px', gap: '4px' }}
+                  >
+                    <Sliders size={13} />
+                    <span>Inspector</span>
+                  </TracewiseBubbleButton>
+                  <TracewiseBubbleButton
+                    onClick={() => setRightTab('assistant')}
+                    variant={rightTab === 'assistant' ? 'primary' : 'ghost'}
+                    size="sm"
+                    style={{ flex: 1, fontSize: '0.74rem', padding: '5px 6px', gap: '4px' }}
+                  >
+                    <Sparkles size={13} />
+                    <span>Assistant</span>
+                  </TracewiseBubbleButton>
+                </div>
+
+                <TracewiseBubbleIconButton
+                  onClick={() => setTabletRightOpen(false)}
+                  variant="ghost"
+                  size="sm"
+                  title="Close Drawer"
+                  style={{ width: 34, height: 34, minWidth: 34, minHeight: 34 }}
+                >
+                  <X size={16} />
+                </TracewiseBubbleIconButton>
+              </div>
+
+              {/* Hub Drawer Content */}
+              <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {rightTab === 'code' && (
+                  <CodeEditor
+                    code={activeProject.firmware?.files?.[0]?.content || ''}
+                    onChange={updateFirmware}
+                    onRunCheck={handleValidateCode}
+                    validationResults={validation.checks}
+                  />
+                )}
+                {rightTab === 'inspector' && (
+                  <ComponentInspector
+                    selectedComponent={selectedComp}
+                    project={activeProject}
+                    onUpdateProps={(newProps) => {
+                      if (selectedCompId) {
+                        updateActiveProject(prev => ({
+                          ...prev,
+                          components: prev.components.map(c =>
+                            c.id === selectedCompId ? { ...c, props: { ...c.props, ...newProps } } : c
+                          )
+                        }));
+                      }
+                    }}
+                    onDeleteComponent={(id) => {
+                      removeComponent(id);
+                      setSelectedCompId(null);
+                    }}
+                  />
+                )}
+                {rightTab === 'assistant' && (
+                  <DemoAssistant
+                    project={activeProject}
+                    validation={validation}
+                    onApplyFix={handleApplyAssistantFix}
+                    initialQuery={location.state?.initialQuery}
+                    buildCompleted={location.state?.buildCompleted}
+                    buildMessage={location.state?.buildMessage}
+                  />
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* MOBILE SLIDING BOTTOM SHEET (Components, Code, Inspector, Assistant) */}
+      {isMobile && mobileActiveTab !== 'canvas' && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end'
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            onClick={() => setMobileActiveTab('canvas')}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(7, 24, 49, 0.55)',
+              backdropFilter: 'blur(3px)'
+            }}
+          />
+
+          {/* Bottom Sheet Box */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '82vh',
+              backgroundColor: mobileActiveTab === 'code' ? '#071831' : '#ffffff',
+              borderRadius: '24px 24px 0 0',
+              boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              animation: 'slideUp 0.25s ease-out'
+            }}
+          >
+            {/* Sheet Drag Pill & Header */}
+            <div
+              style={{
+                padding: '12px 16px',
+                borderBottom: mobileActiveTab === 'code' ? '1px solid rgba(74, 167, 242, 0.2)' : '1px solid var(--tw-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: mobileActiveTab === 'code' ? '#0b2348' : '#ffffff',
+                flexShrink: 0
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {mobileActiveTab === 'components' && <Layers size={18} color="var(--tw-brand)" />}
+                {mobileActiveTab === 'code' && <Code size={18} color="#2dc5e9" />}
+                {mobileActiveTab === 'inspector' && <Sliders size={18} color="var(--tw-brand)" />}
+                {mobileActiveTab === 'assistant' && <Sparkles size={18} color="var(--tw-brand)" />}
+
+                <span
+                  style={{
+                    fontSize: '0.96rem',
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-heading)',
+                    color: mobileActiveTab === 'code' ? '#f8fafc' : 'var(--tw-text)'
+                  }}
+                >
+                  {mobileActiveTab === 'components' && 'Component Library'}
+                  {mobileActiveTab === 'code' && 'Arduino C++ Code'}
+                  {mobileActiveTab === 'inspector' && 'Component Inspector'}
+                  {mobileActiveTab === 'assistant' && 'Engineering Assistant'}
+                </span>
+              </div>
+
+              <button
+                onClick={() => setMobileActiveTab('canvas')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  backgroundColor: mobileActiveTab === 'code' ? 'rgba(255,255,255,0.12)' : 'var(--tw-bg)',
+                  color: mobileActiveTab === 'code' ? '#f8fafc' : 'var(--tw-text)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={15} />
+                <span>Canvas</span>
+              </button>
+            </div>
+
+            {/* Sheet Body */}
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {mobileActiveTab === 'components' && (
+                <ComponentLibrary
+                  onAddComponent={(def) => {
+                    handleAddComponentAtCenter(def);
+                    // Stay or return to canvas based on user preference
+                  }}
+                  onClose={() => setMobileActiveTab('canvas')}
+                />
+              )}
+
+              {mobileActiveTab === 'code' && (
+                <CodeEditor
+                  code={activeProject.firmware?.files?.[0]?.content || ''}
+                  onChange={updateFirmware}
+                  onRunCheck={handleValidateCode}
+                  validationResults={validation.checks}
+                />
+              )}
+
+              {mobileActiveTab === 'inspector' && (
+                <ComponentInspector
+                  selectedComponent={selectedComp}
+                  project={activeProject}
+                  onUpdateProps={(newProps) => {
+                    if (selectedCompId) {
+                      updateActiveProject(prev => ({
+                        ...prev,
+                        components: prev.components.map(c =>
+                          c.id === selectedCompId ? { ...c, props: { ...c.props, ...newProps } } : c
+                        )
+                      }));
+                    }
+                  }}
+                  onDeleteComponent={(id) => {
+                    removeComponent(id);
+                    setSelectedCompId(null);
+                    setMobileActiveTab('canvas');
+                  }}
+                />
+              )}
+
+              {mobileActiveTab === 'assistant' && (
+                <DemoAssistant
+                  project={activeProject}
+                  validation={validation}
+                  onApplyFix={handleApplyAssistantFix}
+                  initialQuery={location.state?.initialQuery}
+                  buildCompleted={location.state?.buildCompleted}
+                  buildMessage={location.state?.buildMessage}
+                />
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* MOBILE BOTTOM WORKSPACE NAVIGATION BAR */}
+      {isMobile && (
+        <nav
+          style={{
+            height: '62px',
+            backgroundColor: '#ffffff',
+            borderTop: '1px solid var(--tw-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            padding: '4px 8px',
+            zIndex: 50,
+            flexShrink: 0,
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.04)'
+          }}
+        >
+          {/* 1. Canvas */}
+          <button
+            onClick={() => setMobileActiveTab('canvas')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: mobileActiveTab === 'canvas' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+              cursor: 'pointer',
+              minHeight: '48px',
+              padding: '4px 0'
+            }}
+          >
+            <Layout size={18} strokeWidth={mobileActiveTab === 'canvas' ? 2.5 : 2} />
+            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'canvas' ? 700 : 500 }}>
+              Canvas
+            </span>
+          </button>
+
+          {/* 2. Components */}
+          <button
+            onClick={() => setMobileActiveTab('components')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: mobileActiveTab === 'components' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+              cursor: 'pointer',
+              minHeight: '48px',
+              padding: '4px 0'
+            }}
+          >
+            <Layers size={18} strokeWidth={mobileActiveTab === 'components' ? 2.5 : 2} />
+            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'components' ? 700 : 500 }}>
+              Components
+            </span>
+          </button>
+
+          {/* 3. Code */}
+          <button
+            onClick={() => setMobileActiveTab('code')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: mobileActiveTab === 'code' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+              cursor: 'pointer',
+              minHeight: '48px',
+              padding: '4px 0'
+            }}
+          >
+            <Code size={18} strokeWidth={mobileActiveTab === 'code' ? 2.5 : 2} />
+            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'code' ? 700 : 500 }}>
+              Code
+            </span>
+          </button>
+
+          {/* 4. Inspector */}
+          <button
+            onClick={() => setMobileActiveTab('inspector')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: mobileActiveTab === 'inspector' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+              cursor: 'pointer',
+              minHeight: '48px',
+              padding: '4px 0',
+              position: 'relative'
+            }}
+          >
+            <Sliders size={18} strokeWidth={mobileActiveTab === 'inspector' ? 2.5 : 2} />
+            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'inspector' ? 700 : 500 }}>
+              Inspector
+            </span>
+            {selectedComp && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: '25%',
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--tw-brand)'
+                }}
+              />
+            )}
+          </button>
+
+          {/* 5. Assistant */}
+          <button
+            onClick={() => setMobileActiveTab('assistant')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: mobileActiveTab === 'assistant' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+              cursor: 'pointer',
+              minHeight: '48px',
+              padding: '4px 0'
+            }}
+          >
+            <Sparkles size={18} strokeWidth={mobileActiveTab === 'assistant' ? 2.5 : 2} />
+            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'assistant' ? 700 : 500 }}>
+              Assistant
+            </span>
+          </button>
+        </nav>
+      )}
 
       {/* Bottom Structural Validation Drawer */}
       <ValidationDrawer
         validation={validation}
         isOpen={isValidationOpen}
         onToggle={() => setIsValidationOpen(prev => !prev)}
-        onOpenAssistant={() => setRightTab('assistant')}
+        onOpenAssistant={() => {
+          if (isMobile) {
+            setMobileActiveTab('assistant');
+          } else {
+            setRightTab('assistant');
+            if (isTablet) setTabletRightOpen(true);
+          }
+        }}
       />
 
       <style>{`
-        @media (max-width: 1024px) {
-          .studio-col-left {
-            display: none !important;
-          }
-          .studio-col-right {
-            width: 320px !important;
-          }
+        @keyframes slideInLeft {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
         }
-        @media (max-width: 768px) {
-          .studio-col-right {
-            display: none !important;
-          }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
       `}</style>
     </div>

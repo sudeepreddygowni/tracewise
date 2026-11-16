@@ -20,7 +20,8 @@ import {
   Grid,
   Move,
   CheckCircle2,
-  Maximize2
+  Maximize2,
+  X
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -35,7 +36,8 @@ export function CircuitCanvas({
   onMoveComponent,
   onAddConnection,
   onRemoveConnection,
-  onCommitHistory
+  onCommitHistory,
+  onViewportChange
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -53,13 +55,37 @@ export function CircuitCanvas({
   const [showGrid, setShowGrid] = useState(true);
 
   const containerRef = useRef(null);
-  const touchStateRef = useRef({
-    initialDistance: 0,
+
+  // Active pointers tracker for unified pointer events and multitouch pinch
+  const activePointersRef = useRef(new Map());
+  const dragInfoRef = useRef({
+    compId: null,
+    offset: { x: 0, y: 0 },
+    target: null,
+    pointerId: null,
+    moved: false
+  });
+  const panningPointerIdRef = useRef(null);
+  const pinchStateRef = useRef({
+    active: false,
+    initialDist: 0,
     initialZoom: 1,
     initialMidpoint: { x: 0, y: 0 },
-    initialPan: { x: 0, y: 0 },
-    isTouching: false
+    initialPan: { x: 0, y: 0 }
   });
+
+  // Notify parent of viewport changes for smart center-of-view component placement
+  useEffect(() => {
+    if (onViewportChange && containerRef.current) {
+      const { clientWidth, clientHeight } = containerRef.current;
+      onViewportChange({
+        pan,
+        zoom,
+        width: clientWidth || 800,
+        height: clientHeight || 600
+      });
+    }
+  }, [pan, zoom, onViewportChange]);
 
   // Track space bar state for pan cursor & drag
   useEffect(() => {
@@ -112,7 +138,7 @@ export function CircuitCanvas({
         const worldY = (mouseY - pan.y) / zoom;
 
         const factor = Math.pow(0.992, e.deltaY);
-        const newZoom = Math.min(Math.max(zoom * factor, 0.4), 2.5);
+        const newZoom = Math.min(Math.max(zoom * factor, 0.35), 2.5);
 
         setZoom(newZoom);
         setPan({
@@ -132,21 +158,196 @@ export function CircuitCanvas({
     return () => container.removeEventListener('wheel', handleWheel);
   }, [zoom, pan]);
 
-  // Handle pointer down on background (mouse or touch)
-  const handlePointerDown = (e) => {
-    // If middle click (button === 1), or Space held, or clicking empty canvas background:
-    if (e.button === 1 || isSpacePressed || e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true') {
+  // Unified Pointer Down on Canvas Container (Empty Space or Background)
+  const handleContainerPointerDown = (e) => {
+    // Ignore clicks on floating UI cards or buttons
+    if (e.target.closest && (e.target.closest('.glass-card') || e.target.closest('button'))) {
+      return;
+    }
+
+    // Ignore if clicked on a pin (pins handle wiring)
+    if (e.target.closest && e.target.closest('[data-pin="true"]')) {
+      return;
+    }
+
+    // Record pointer
+    activePointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // Multitouch gesture handling (2 fingers)
+    if (activePointersRef.current.size === 2) {
+      // Abort any ongoing component drag immediately
+      abortComponentDrag();
+
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const midX = (pts[0].clientX + pts[1].clientX) / 2;
+      const midY = (pts[0].clientY + pts[1].clientY) / 2;
+
+      pinchStateRef.current = {
+        active: true,
+        initialDist: dist || 1,
+        initialZoom: zoom,
+        initialMidpoint: { x: midX, y: midY },
+        initialPan: { ...pan }
+      };
+      setIsPanning(false);
+      return;
+    }
+
+    // 1-pointer pan on background (Middle click, Spacebar, or empty canvas click)
+    const isBackgroundTarget = e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true';
+    if (e.button === 1 || isSpacePressed || isBackgroundTarget) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      panningPointerIdRef.current = e.pointerId;
+      try {
+        containerRef.current?.setPointerCapture(e.pointerId);
+      } catch (err) {
+        // Safe fallback
+      }
     }
   };
 
-  // Handle pointer move for panning, dragging component, or wire rubberband
+  // Helper to cleanly abort component dragging
+  const abortComponentDrag = () => {
+    if (dragInfoRef.current.compId) {
+      try {
+        if (dragInfoRef.current.target && dragInfoRef.current.pointerId != null) {
+          dragInfoRef.current.target.releasePointerCapture(dragInfoRef.current.pointerId);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+      if (dragInfoRef.current.moved && onCommitHistory) {
+        onCommitHistory();
+      }
+      dragInfoRef.current = {
+        compId: null,
+        offset: { x: 0, y: 0 },
+        target: null,
+        pointerId: null,
+        moved: false
+      };
+      setDraggingCompId(null);
+    }
+  };
+
+  // Unified Pointer Down on a Component
+  const handleCompPointerDown = (e, comp) => {
+    // Only primary button or touch
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    // Pin clicks must NOT trigger component dragging
+    if (e.target.closest && e.target.closest('[data-pin="true"]')) {
+      return;
+    }
+
+    e.stopPropagation();
+    activePointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // If 2 or more fingers are on screen, abort dragging and switch to multitouch pinch-zoom
+    if (activePointersRef.current.size >= 2) {
+      abortComponentDrag();
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const midX = (pts[0].clientX + pts[1].clientX) / 2;
+      const midY = (pts[0].clientY + pts[1].clientY) / 2;
+
+      pinchStateRef.current = {
+        active: true,
+        initialDist: dist || 1,
+        initialZoom: zoom,
+        initialMidpoint: { x: midX, y: midY },
+        initialPan: { ...pan }
+      };
+      setIsPanning(false);
+      return;
+    }
+
+    // Select component
+    onSelectComponent(comp.id);
+    setSelectedWireId(null);
+
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const curX = (e.clientX - rect.left - pan.x) / zoom;
+    const curY = (e.clientY - rect.top - pan.y) / zoom;
+    const offset = {
+      x: curX - comp.x,
+      y: curY - comp.y
+    };
+
+    setDraggingCompId(comp.id);
+    setDragOffset(offset);
+
+    dragInfoRef.current = {
+      compId: comp.id,
+      offset,
+      target: e.currentTarget,
+      pointerId: e.pointerId,
+      moved: false
+    };
+
+    // Capture pointer so fast movements on touchscreens or trackpads stay bound
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (err) {
+      // Safe fallback
+    }
+  };
+
+  // Unified Pointer Move
   const handlePointerMove = (e) => {
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    }
+
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
 
-    if (isPanning) {
+    // 1. Two-finger pinch-zoom and pan
+    if (activePointersRef.current.size >= 2 && pinchStateRef.current.active) {
+      const pts = Array.from(activePointersRef.current.values());
+      const curDist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const curMidX = (pts[0].clientX + pts[1].clientX) / 2;
+      const curMidY = (pts[0].clientY + pts[1].clientY) / 2;
+
+      if (pinchStateRef.current.initialDist > 0) {
+        const scale = curDist / pinchStateRef.current.initialDist;
+        const newZoom = Math.min(Math.max(pinchStateRef.current.initialZoom * scale, 0.35), 2.5);
+
+        const worldMidX = (pinchStateRef.current.initialMidpoint.x - rect.left - pinchStateRef.current.initialPan.x) / pinchStateRef.current.initialZoom;
+        const worldMidY = (pinchStateRef.current.initialMidpoint.y - rect.top - pinchStateRef.current.initialPan.y) / pinchStateRef.current.initialZoom;
+
+        const newPanX = curMidX - rect.left - worldMidX * newZoom;
+        const newPanY = curMidY - rect.top - worldMidY * newZoom;
+
+        setZoom(newZoom);
+        setPan({ x: newPanX, y: newPanY });
+      }
+      return;
+    }
+
+    // 2. Component Dragging with 1 pointer
+    if (dragInfoRef.current.compId && dragInfoRef.current.pointerId === e.pointerId) {
+      const curX = (e.clientX - rect.left - pan.x) / zoom;
+      const curY = (e.clientY - rect.top - pan.y) / zoom;
+      setMousePos({ x: curX, y: curY });
+
+      const newX = Math.round(curX - dragInfoRef.current.offset.x);
+      const newY = Math.round(curY - dragInfoRef.current.offset.y);
+
+      // Clamp so components cannot be dragged off into negative coordinates
+      const clampedX = Math.max(10, newX);
+      const clampedY = Math.max(10, newY);
+
+      dragInfoRef.current.moved = true;
+      onMoveComponent(dragInfoRef.current.compId, clampedX, clampedY);
+      return;
+    }
+
+    // 3. Canvas Background Panning
+    if (isPanning && panningPointerIdRef.current === e.pointerId) {
       setPan({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y
@@ -154,94 +355,59 @@ export function CircuitCanvas({
       return;
     }
 
+    // 4. Default cursor tracking for pending wire rubberband
     const curX = (e.clientX - rect.left - pan.x) / zoom;
     const curY = (e.clientY - rect.top - pan.y) / zoom;
-
     setMousePos({ x: curX, y: curY });
-
-    if (draggingCompId) {
-      const newX = Math.round(curX - dragOffset.x);
-      const newY = Math.round(curY - dragOffset.y);
-      onMoveComponent(draggingCompId, Math.max(10, newX), Math.max(10, newY));
-    }
   };
 
-  const handlePointerUp = () => {
-    if (isPanning) {
-      setIsPanning(false);
-    }
-    if (draggingCompId) {
-      setDraggingCompId(null);
-      if (onCommitHistory) {
+  // Unified Pointer Up / End
+  const handlePointerUp = (e) => {
+    activePointersRef.current.delete(e.pointerId);
+
+    // If finished dragging component
+    if (dragInfoRef.current.pointerId === e.pointerId) {
+      try {
+        if (dragInfoRef.current.target) {
+          dragInfoRef.current.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {
+        // Safe fallback
+      }
+
+      if (dragInfoRef.current.moved && onCommitHistory) {
         onCommitHistory();
       }
-    }
-  };
 
-  // Touch gesture handling (1-finger pan on empty canvas, 2-finger pinch/pan)
-  const handleTouchStart = (e) => {
-    if (e.touches.length === 1) {
-      if (e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true') {
-        setIsPanning(true);
-        setPanStart({
-          x: e.touches[0].clientX - pan.x,
-          y: e.touches[0].clientY - pan.y
-        });
-      }
-    } else if (e.touches.length === 2) {
-      setIsPanning(false);
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-      const midX = (touch1.clientX + touch2.clientX) / 2;
-      const midY = (touch1.clientY + touch2.clientY) / 2;
-
-      touchStateRef.current = {
-        initialDistance: dist,
-        initialZoom: zoom,
-        initialMidpoint: { x: midX, y: midY },
-        initialPan: { ...pan },
-        isTouching: true
+      dragInfoRef.current = {
+        compId: null,
+        offset: { x: 0, y: 0 },
+        target: null,
+        pointerId: null,
+        moved: false
       };
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (e.touches.length === 1 && isPanning) {
-      setPan({
-        x: e.touches[0].clientX - panStart.x,
-        y: e.touches[0].clientY - panStart.y
-      });
-    } else if (e.touches.length === 2 && touchStateRef.current.isTouching) {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const dist = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
-      const midX = (touch1.clientX + touch2.clientX) / 2;
-      const midY = (touch1.clientY + touch2.clientY) / 2;
-
-      const scale = dist / touchStateRef.current.initialDistance;
-      const newZoom = Math.min(Math.max(touchStateRef.current.initialZoom * scale, 0.4), 2.5);
-
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const worldMidX = (touchStateRef.current.initialMidpoint.x - rect.left - touchStateRef.current.initialPan.x) / touchStateRef.current.initialZoom;
-      const worldMidY = (touchStateRef.current.initialMidpoint.y - rect.top - touchStateRef.current.initialPan.y) / touchStateRef.current.initialZoom;
-
-      setZoom(newZoom);
-      setPan({
-        x: midX - rect.left - worldMidX * newZoom,
-        y: midY - rect.top - worldMidY * newZoom
-      });
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsPanning(false);
-    touchStateRef.current.isTouching = false;
-    if (draggingCompId) {
       setDraggingCompId(null);
-      if (onCommitHistory) onCommitHistory();
     }
+
+    // If finished panning background
+    if (panningPointerIdRef.current === e.pointerId) {
+      setIsPanning(false);
+      panningPointerIdRef.current = null;
+      try {
+        containerRef.current?.releasePointerCapture(e.pointerId);
+      } catch (err) {
+        // Safe fallback
+      }
+    }
+
+    if (activePointersRef.current.size < 2) {
+      pinchStateRef.current.active = false;
+    }
+  };
+
+  // Unified Pointer Cancel or Lost Capture
+  const handlePointerCancel = (e) => {
+    handlePointerUp(e);
   };
 
   // Keyboard shortcut to delete selected wire or cancel rubberband
@@ -285,25 +451,6 @@ export function CircuitCanvas({
       }
       setPendingWireStart(null);
     }
-  };
-
-  // Component Drag Start
-  const handleCompMouseDown = (e, comp) => {
-    if (e.target.tagName === 'circle' || e.target.tagName === 'text') return; // let pin click handle
-    e.stopPropagation();
-    onSelectComponent(comp.id);
-    setSelectedWireId(null);
-
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const curX = (e.clientX - rect.left - pan.x) / zoom;
-    const curY = (e.clientY - rect.top - pan.y) / zoom;
-
-    setDraggingCompId(comp.id);
-    setDragOffset({
-      x: curX - comp.x,
-      y: curY - comp.y
-    });
   };
 
   // Fit Circuit to View calculation
@@ -366,12 +513,10 @@ export function CircuitCanvas({
   return (
     <div
       ref={containerRef}
-      onMouseDown={handlePointerDown}
-      onMouseMove={handlePointerMove}
-      onMouseUp={handlePointerUp}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onPointerDown={handleContainerPointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onClick={(e) => {
         if (e.target === containerRef.current || e.target.getAttribute('data-canvas-bg') === 'true') {
           setPendingWireStart(null);
@@ -396,22 +541,23 @@ export function CircuitCanvas({
         touchAction: 'none'
       }}
     >
-      {/* Top Floating Canvas Toolbar */}
+      {/* Top Floating Canvas Toolbar (Touch Targets >= 38px) */}
       <TracewiseBubbleArea theme="light">
         <div
-          className="glass-card"
+          className="glass-card canvas-floating-toolbar"
           style={{
             position: 'absolute',
-            top: 16,
-            left: 16,
+            top: 14,
+            left: 14,
             zIndex: 40,
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '6px 12px',
+            gap: '6px',
+            padding: '6px 10px',
             borderRadius: 'var(--tw-radius-pill)',
             background: 'rgba(255, 255, 255, 0.95)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.06)'
+            boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+            touchAction: 'auto'
           }}
         >
           <TracewiseBubbleIconButton
@@ -419,11 +565,12 @@ export function CircuitCanvas({
             title="Zoom In"
             variant="ghost"
             size="sm"
+            style={{ width: 38, height: 38, minWidth: 38, minHeight: 38 }}
           >
-            <ZoomIn size={15} />
+            <ZoomIn size={16} />
           </TracewiseBubbleIconButton>
 
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tw-text-muted)', minWidth: '40px', textAlign: 'center' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--tw-text-muted)', minWidth: '38px', textAlign: 'center' }}>
             {Math.round(zoom * 100)}%
           </span>
 
@@ -432,8 +579,9 @@ export function CircuitCanvas({
             title="Zoom Out"
             variant="ghost"
             size="sm"
+            style={{ width: 38, height: 38, minWidth: 38, minHeight: 38 }}
           >
-            <ZoomOut size={15} />
+            <ZoomOut size={16} />
           </TracewiseBubbleIconButton>
 
           <TracewiseBubbleIconButton
@@ -441,8 +589,9 @@ export function CircuitCanvas({
             title="Reset View (100%)"
             variant="ghost"
             size="sm"
+            style={{ width: 38, height: 38, minWidth: 38, minHeight: 38 }}
           >
-            <RotateCcw size={14} />
+            <RotateCcw size={15} />
           </TracewiseBubbleIconButton>
 
           <TracewiseBubbleIconButton
@@ -450,8 +599,9 @@ export function CircuitCanvas({
             title="Fit Circuit to View"
             variant="ghost"
             size="sm"
+            style={{ width: 38, height: 38, minWidth: 38, minHeight: 38 }}
           >
-            <Maximize2 size={14} />
+            <Maximize2 size={15} />
           </TracewiseBubbleIconButton>
 
           <TracewiseBubbleIconButton
@@ -460,28 +610,33 @@ export function CircuitCanvas({
             variant="ghost"
             size="sm"
             style={{
+              width: 38,
+              height: 38,
+              minWidth: 38,
+              minHeight: 38,
               color: showGrid ? 'var(--tw-brand)' : 'var(--tw-text-muted)'
             }}
           >
-            <Grid size={15} />
+            <Grid size={16} />
           </TracewiseBubbleIconButton>
         </div>
 
         {/* Wire Color Palette Picker (Top Right) */}
         <div
-          className="glass-card"
+          className="glass-card canvas-color-toolbar"
           style={{
             position: 'absolute',
-            top: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             zIndex: 40,
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '6px 14px',
+            padding: '6px 12px',
             borderRadius: 'var(--tw-radius-pill)',
             background: 'rgba(255, 255, 255, 0.95)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.06)'
+            boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+            touchAction: 'auto'
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -494,14 +649,17 @@ export function CircuitCanvas({
               onClick={() => setActiveWireColor(col.hex)}
               title={col.name}
               style={{
-                width: 18,
-                height: 18,
+                width: 24,
+                height: 24,
+                minWidth: 24,
+                minHeight: 24,
                 borderRadius: '50%',
                 backgroundColor: col.hex,
-                border: activeWireColor === col.hex ? '2.5px solid #071831' : '1px solid rgba(0,0,0,0.15)',
-                transform: activeWireColor === col.hex ? 'scale(1.2)' : 'scale(1)',
+                border: activeWireColor === col.hex ? '3px solid #071831' : '1.5px solid rgba(0,0,0,0.2)',
+                transform: activeWireColor === col.hex ? 'scale(1.15)' : 'scale(1)',
                 transition: 'all 0.15s ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                touchAction: 'manipulation'
               }}
             />
           ))}
@@ -516,20 +674,21 @@ export function CircuitCanvas({
               variant="danger"
               size="sm"
               style={{
-                marginLeft: '6px',
-                padding: '4px 10px',
+                marginLeft: '4px',
+                padding: '6px 12px',
+                minHeight: '36px',
                 fontSize: '0.75rem',
                 gap: '4px'
               }}
             >
-              <Trash2 size={12} />
+              <Trash2 size={13} />
               <span>Delete Wire</span>
             </TracewiseBubbleButton>
           )}
         </div>
       </TracewiseBubbleArea>
 
-      {/* Pending Wire Helper Prompt Bar */}
+      {/* Touch-Friendly Pending Wire Helper Banner with Cancel Button */}
       {pendingWireStart && (
         <div
           style={{
@@ -537,25 +696,51 @@ export function CircuitCanvas({
             bottom: 24,
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 40,
-            background: 'var(--tw-dark)',
+            zIndex: 45,
+            background: 'rgba(7, 24, 49, 0.96)',
+            backdropFilter: 'blur(8px)',
             color: '#ffffff',
-            padding: '8px 20px',
+            padding: '10px 18px',
             borderRadius: 'var(--tw-radius-pill)',
             fontSize: '0.85rem',
             fontWeight: 500,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px'
+            gap: '12px',
+            maxWidth: '92vw',
+            border: '1px solid rgba(45, 197, 233, 0.35)'
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2dc5e9', display: 'inline-block' }} />
-          <span>Click destination pin to complete wire • Press <b>Esc</b> to cancel</span>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#2dc5e9', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.82rem', lineHeight: 1.3 }}>
+            Tap destination pin to complete wire
+          </span>
+          <button
+            onClick={() => setPendingWireStart(null)}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '20px',
+              border: 'none',
+              background: 'rgba(255, 255, 255, 0.18)',
+              color: '#ffffff',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              minHeight: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <X size={12} />
+            <span>Cancel</span>
+          </button>
         </div>
       )}
 
-      {/* Main SVG Scaled Coordinate Space */}
+      {/* Main Scaled Coordinate Space */}
       <div
         data-canvas-bg="true"
         style={{
@@ -565,7 +750,8 @@ export function CircuitCanvas({
           transformOrigin: '0 0',
           position: 'absolute',
           top: 0,
-          left: 0
+          left: 0,
+          touchAction: 'none'
         }}
       >
         <svg
@@ -601,7 +787,7 @@ export function CircuitCanvas({
               );
             })}
 
-            {/* Elastic Pending Wire Following Mouse Cursor */}
+            {/* Elastic Pending Wire Following Mouse/Touch Position */}
             {pendingWireStart && (
               <line
                 x1={pendingWireStart.x}
@@ -626,13 +812,16 @@ export function CircuitCanvas({
           return (
             <div
               key={comp.id}
-              onMouseDown={(e) => handleCompMouseDown(e, comp)}
+              data-component="true"
+              data-component-id={comp.id}
+              onPointerDown={(e) => handleCompPointerDown(e, comp)}
               style={{
                 position: 'absolute',
                 left: comp.x,
                 top: comp.y,
                 cursor: draggingCompId === comp.id ? 'grabbing' : 'grab',
                 zIndex: isSelected ? 30 : 10,
+                touchAction: 'none',
                 transition: draggingCompId === comp.id ? 'none' : 'filter 0.15s ease'
               }}
             >

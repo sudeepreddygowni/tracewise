@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { COMPONENT_CATALOG } from '../../data/componentCatalog';
-import { Search, Plus, Cpu, Check, Layers, AlertCircle } from 'lucide-react';
+import { Search, Plus, Cpu, Check, Layers, AlertCircle, X } from 'lucide-react';
 import {
   TracewiseBubbleButton,
+  TracewiseBubbleIconButton,
   TracewiseBubbleArea
 } from '../ui/BubbleActions';
 
-export function ComponentLibrary({ onAddComponent }) {
+export function ComponentLibrary({ onAddComponent, onClose }) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [lastAddedName, setLastAddedName] = useState(null);
@@ -32,17 +33,16 @@ export function ComponentLibrary({ onAddComponent }) {
   const handleAdd = (comp) => {
     onAddComponent(comp);
     setLastAddedName(comp.name);
-    setTimeout(() => setLastAddedName(null), 2200);
+    setTimeout(() => setLastAddedName(null), 2400);
   };
 
   return (
     <TracewiseBubbleArea theme="light">
       <div
         style={{
-          width: '280px',
+          width: '100%',
           height: '100%',
           backgroundColor: '#ffffff',
-          borderRight: '1px solid var(--tw-border)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
@@ -51,17 +51,33 @@ export function ComponentLibrary({ onAddComponent }) {
         {/* Header */}
         <div style={{ padding: '16px', borderBottom: '1px solid var(--tw-border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)' }}>
-              Component Library
-            </h3>
-            <span style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
-              {filteredComponents.length} parts
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={18} color="var(--tw-brand)" />
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)', margin: 0 }}>
+                Component Library
+              </h3>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
+                {filteredComponents.length} parts
+              </span>
+              {onClose && (
+                <TracewiseBubbleIconButton
+                  onClick={onClose}
+                  variant="ghost"
+                  size="sm"
+                  title="Close Library"
+                  style={{ width: 34, height: 34, minWidth: 34, minHeight: 34 }}
+                >
+                  <X size={16} />
+                </TracewiseBubbleIconButton>
+              )}
+            </div>
           </div>
           
           {/* Search input with alias support */}
           <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--tw-text-muted)' }} />
+            <Search size={15} style={{ position: 'absolute', left: 10, top: 11, color: 'var(--tw-text-muted)' }} />
             <input
               type="text"
               placeholder="Search (e.g. RGB, pot, buzzer)..."
@@ -69,17 +85,27 @@ export function ComponentLibrary({ onAddComponent }) {
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: '100%',
-                padding: '8px 10px 8px 32px',
+                padding: '9px 10px 9px 32px',
                 borderRadius: '8px',
                 border: '1px solid var(--tw-border)',
-                fontSize: '0.82rem',
+                fontSize: '0.84rem',
                 backgroundColor: 'var(--tw-bg)'
               }}
             />
           </div>
 
-          {/* Dynamic Category Pills */}
-          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', marginTop: '10px', paddingBottom: '4px' }}>
+          {/* Dynamic Category Pills with smooth horizontal scrolling */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              marginTop: '10px',
+              paddingBottom: '4px',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none'
+            }}
+          >
             {categories.map((cat) => (
               <TracewiseBubbleButton
                 key={cat}
@@ -87,9 +113,11 @@ export function ComponentLibrary({ onAddComponent }) {
                 variant={selectedCategory === cat ? 'primary' : 'ghost'}
                 size="sm"
                 style={{
-                  fontSize: '0.72rem',
-                  padding: '3px 9px',
-                  whiteSpace: 'nowrap'
+                  fontSize: '0.74rem',
+                  padding: '5px 11px',
+                  whiteSpace: 'nowrap',
+                  minHeight: '34px',
+                  flexShrink: 0
                 }}
               >
                 {cat}
@@ -101,41 +129,52 @@ export function ComponentLibrary({ onAddComponent }) {
           {lastAddedName && (
             <div
               style={{
-                marginTop: '8px',
-                padding: '6px 10px',
-                borderRadius: '6px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
+                marginTop: '10px',
+                padding: '7px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
                 color: '#059669',
-                fontSize: '0.75rem',
+                fontSize: '0.78rem',
                 fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '8px',
+                animation: 'fadeIn 0.2s ease-in'
               }}
             >
-              <Check size={13} />
-              <span>Added {lastAddedName} to canvas</span>
+              <Check size={14} />
+              <span>Added <b>{lastAddedName}</b> to canvas center</span>
             </div>
           )}
         </div>
 
         {/* Catalog List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           {filteredComponents.length === 0 ? (
             <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--tw-text-muted)' }}>
               <AlertCircle size={28} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
-              <p style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--tw-text-secondary)', marginBottom: '4px' }}>
+              <p style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--tw-text-secondary)', marginBottom: '4px' }}>
                 No components found
               </p>
-              <p style={{ fontSize: '0.75rem', marginBottom: '12px' }}>
+              <p style={{ fontSize: '0.76rem', marginBottom: '12px' }}>
                 No catalog items match "{search}".
               </p>
               <TracewiseBubbleButton
                 onClick={() => { setSearch(''); setSelectedCategory('All'); }}
                 variant="ghost"
                 size="sm"
-                style={{ fontSize: '0.74rem' }}
+                style={{ fontSize: '0.76rem', minHeight: '36px' }}
               >
                 Reset Search
               </TracewiseBubbleButton>
@@ -145,54 +184,57 @@ export function ComponentLibrary({ onAddComponent }) {
               <div
                 key={comp.type}
                 style={{
-                  padding: '10px 12px',
-                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
                   border: '1px solid var(--tw-border)',
                   backgroundColor: 'var(--tw-surface)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: '8px',
                   transition: 'border-color 0.15s ease, box-shadow 0.15s ease'
                 }}
                 className="component-catalog-item"
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {comp.category}
                     </span>
-                    <h4 style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--tw-text)', marginTop: '1px' }}>
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--tw-text)', marginTop: '2px', margin: 0 }}>
                       {comp.name}
                     </h4>
                   </div>
                   <TracewiseBubbleButton
                     onClick={() => handleAdd(comp)}
-                    title="Add to Canvas"
+                    title={`Add ${comp.name} to Canvas`}
                     variant="secondary"
                     size="sm"
                     style={{
-                      padding: '3px 8px',
-                      fontSize: '0.74rem',
-                      gap: '3px'
+                      padding: '6px 12px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      gap: '4px',
+                      minHeight: '36px',
+                      flexShrink: 0
                     }}
                   >
-                    <Plus size={12} />
+                    <Plus size={14} />
                     <span>Add</span>
                   </TracewiseBubbleButton>
                 </div>
 
-                <p style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', lineHeight: 1.4 }}>
+                <p style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)', lineHeight: 1.45, margin: 0 }}>
                   {comp.description}
                 </p>
 
                 {/* Pin badges */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                  {comp.pins.slice(0, 4).map(p => (
+                  {comp.pins.slice(0, 5).map(p => (
                     <span
                       key={p.id}
                       style={{
-                        fontSize: '0.66rem',
-                        padding: '1px 5px',
+                        fontSize: '0.68rem',
+                        padding: '2px 6px',
                         borderRadius: '4px',
                         backgroundColor: 'var(--tw-bg)',
                         border: '1px solid var(--tw-border)',
@@ -203,9 +245,9 @@ export function ComponentLibrary({ onAddComponent }) {
                       {p.label || p.id}
                     </span>
                   ))}
-                  {comp.pins.length > 4 && (
-                    <span style={{ fontSize: '0.66rem', color: 'var(--tw-text-muted)', alignSelf: 'center' }}>
-                      +{comp.pins.length - 4} pins
+                  {comp.pins.length > 5 && (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--tw-text-muted)', alignSelf: 'center' }}>
+                      +{comp.pins.length - 5} pins
                     </span>
                   )}
                 </div>

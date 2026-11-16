@@ -266,24 +266,29 @@ export function AuthProvider({ children }) {
           .replace(/[^a-z0-9_]/g, '');
 
         const { data, error: signUpErr } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             data: {
               display_name: displayName || 'Student Maker',
               handle: cleanHandle
-            }
+            },
+            emailRedirectTo: `${window.location.origin}/app`
           }
         });
         if (signUpErr) throw signUpErr;
 
-        if (data?.user) {
+        if (data?.session && data?.user) {
           // If session is returned immediately (email confirmation disabled or auto-confirmed)
           const profile = await buildUserProfile(data.user);
           setUser(profile);
-          return profile;
+          return { user: profile, session: data.session, confirmationPending: false };
+        } else if (data?.user) {
+          // Email verification is required before permanent sign in
+          setUser(null);
+          return { user: data.user, session: null, confirmationPending: true };
         }
-        return data;
+        return { user: null, session: null, confirmationPending: false };
       } catch (err) {
         console.error('Sign up error:', err);
         setError(err.message);
@@ -298,35 +303,40 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // 5. Upgrade Guest to Permanent Account (Identity Linking / Upgrade)
-  const upgradeGuestAccount = async ({ email, password, displayName, handle, provider = 'email' }) => {
+  // 5. Upgrade Guest to Permanent Account (Email & Password)
+  const upgradeGuestAccount = async ({ email, password, displayName, handle }) => {
     setError(null);
     setIsLoading(true);
 
     if (isSupabaseConfigured() && supabase) {
       try {
-        if (provider === 'google') {
-          // Link Google identity to existing anonymous session
-          const { data, error: linkErr } = await supabase.auth.linkIdentity({
-            provider: 'google'
-          });
-          if (linkErr) throw linkErr;
-          return data;
-        } else {
-          // Convert anonymous user to permanent email account
-          const { data, error: updateErr } = await supabase.auth.updateUser({
-            email,
-            password,
-            data: {
-              display_name: displayName,
-              handle: handle?.toLowerCase()
+        const cleanHandle = (handle || email.split('@')[0])
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '');
+
+        // If active session is an anonymous Supabase user, update user credentials
+        if (supabase.auth.getUser) {
+          const { data: { user: currentAuthUser } } = await supabase.auth.getUser();
+          if (currentAuthUser?.is_anonymous) {
+            const { data, error: updateErr } = await supabase.auth.updateUser({
+              email: email.trim(),
+              password,
+              data: {
+                display_name: displayName || 'Student Maker',
+                handle: cleanHandle
+              }
+            });
+            if (updateErr) throw updateErr;
+            if (data?.user) {
+              const profile = await buildUserProfile(data.user);
+              setUser(profile);
+              return { user: profile, confirmationPending: !data.session };
             }
-          });
-          if (updateErr) throw updateErr;
-          const profile = await buildUserProfile(data.user);
-          setUser(profile);
-          return profile;
+          }
         }
+
+        // Otherwise (local guest session), register as permanent email account
+        return await signUpWithEmail(email, password, displayName, cleanHandle);
       } catch (err) {
         console.error('Account upgrade error:', err);
         setError(err.message);
@@ -351,7 +361,59 @@ export function AuthProvider({ children }) {
         localStorage.removeItem(LOCAL_GUEST_STORAGE_KEY);
       } catch (e) {}
       setIsLoading(false);
-      return upgraded;
+      return { user: upgraded, confirmationPending: false };
+    }
+  };
+
+  // 6. Reset Password via Email
+  const resetPassword = async (email) => {
+    setError(null);
+    setIsLoading(true);
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset-password`
+        });
+        if (resetErr) throw resetErr;
+        return { success: true };
+      } catch (err) {
+        console.error('Password reset request error:', err);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setError('Supabase is not configured.');
+      setIsLoading(false);
+      throw new Error('Supabase is not configured.');
+    }
+  };
+
+  // 7. Update Password (from Recovery Session)
+  const updatePassword = async (newPassword) => {
+    setError(null);
+    setIsLoading(true);
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error: updateErr } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+        if (updateErr) throw updateErr;
+        return data;
+      } catch (err) {
+        console.error('Update password error:', err);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setError('Supabase is not configured.');
+      setIsLoading(false);
+      throw new Error('Supabase is not configured.');
     }
   };
 
@@ -436,6 +498,8 @@ export function AuthProvider({ children }) {
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
+    resetPassword,
+    updatePassword,
     continueAsGuest,
     signInAsStudentDemo,
     upgradeGuestAccount,

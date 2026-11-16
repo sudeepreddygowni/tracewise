@@ -160,7 +160,7 @@ export function StudioToolbar({
         </div>
 
         {/* Center: Undo / Redo & Save status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <TracewiseBubbleIconButton
             onClick={onUndo}
             disabled={!canUndo}
@@ -191,8 +191,8 @@ export function StudioToolbar({
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              marginLeft: '6px',
-              fontWeight: 500
+              marginLeft: '8px',
+              fontWeight: 600
             }}
           >
             {isSaved ? <Check size={13} /> : null}
@@ -200,14 +200,14 @@ export function StudioToolbar({
           </span>
         </div>
 
-        {/* Right: Actions (Save, Fork, Compare, Build) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Right: Actions (Save, Fork, Compare, Build, Pitch Lab) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <TracewiseBubbleButton
             onClick={onSave}
             title="Save Project"
             variant="secondary"
             size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px' }}
+            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
           >
             <Save size={14} />
             <span>Save</span>
@@ -218,7 +218,7 @@ export function StudioToolbar({
             title="Fork independent copy"
             variant="secondary"
             size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px' }}
+            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
           >
             <GitFork size={14} />
             <span>Fork Remix</span>
@@ -231,7 +231,8 @@ export function StudioToolbar({
             size="sm"
             style={{
               fontSize: '0.82rem',
-              gap: '6px'
+              gap: '6px',
+              padding: '6px 14px'
             }}
           >
             <GitCompare size={14} />
@@ -243,7 +244,7 @@ export function StudioToolbar({
             title="Physical Assembly Checklist & BOM"
             variant="primary"
             size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px' }}
+            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
           >
             <Wrench size={14} />
             <span>Build Guide</span>
@@ -254,7 +255,7 @@ export function StudioToolbar({
             title="Project Pitch Lab — Presentation & Judge Prep"
             variant="secondary"
             size="sm"
-            style={{ fontSize: '0.82rem', gap: '6px' }}
+            style={{ fontSize: '0.82rem', gap: '6px', padding: '6px 14px' }}
           >
             <Mic size={14} color="var(--tw-brand)" />
             <span>Pitch Lab</span>

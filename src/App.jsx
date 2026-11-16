@@ -14,6 +14,7 @@ import { CommunityPage } from './pages/CommunityPage';
 import { PostDetailPage } from './pages/PostDetailPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { EditProfilePage } from './pages/EditProfilePage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { LearnPage } from './pages/LearnPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/profile/:handle" element={<ProfilePage />} />
               <Route path="/profile/edit" element={<EditProfilePage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/learn" element={<LearnPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />

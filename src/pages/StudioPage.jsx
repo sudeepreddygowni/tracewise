@@ -264,7 +264,7 @@ export function StudioPage() {
           </TracewiseBubbleArea>
 
           {/* Right Hub Content */}
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {rightTab === 'code' && (
               <CodeEditor
                 code={activeProject.firmware?.files?.[0]?.content || ''}

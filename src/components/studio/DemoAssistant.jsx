@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -13,7 +13,8 @@ import {
   MessageSquare,
   Copy,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  ChevronDown
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -21,6 +22,7 @@ import {
   TracewiseBubbleArea
 } from '../ui/BubbleActions';
 import { assistantProvider } from '../../domain/assistant/assistantProvider';
+import { SafeMarkdown } from './SafeMarkdown';
 
 export function DemoAssistant({ project, validation, onApplyFix, initialQuery = null }) {
   const [appliedProposalId, setAppliedProposalId] = useState(null);
@@ -28,7 +30,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
     {
       id: 'msg-welcome',
       role: 'assistant',
-      text: `Hello! I am your Tracewise Engineering Assistant for "${project?.title || 'your project'}". I continuously inspect your canvas wiring, component catalog definitions, and Arduino firmware. How can I help you today?`,
+      text: `### 👋 Welcome to Tracewise Studio!\n\nI am your Engineering Assistant for **"${project?.title || 'your project'}"**. I continuously inspect your canvas wiring, component catalog definitions, and Arduino firmware.\n\nHow can I help you today?`,
       sourceTag: 'Deterministic Rule Engine',
       verifiedFacts: [
         `Components: ${(project?.components || []).length}`,
@@ -40,14 +42,41 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
   const [isThinking, setIsThinking] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [lastFailedQuery, setLastFailedQuery] = useState(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+
+  const scrollContainerRef = useRef(null);
   const chatEndRef = useRef(null);
   const prevProjectIdRef = useRef(project?.id);
   const initialQueryExecutedRef = useRef(false);
 
-  // Auto-scroll to bottom of chat
+  // Measure scroll position to support conditional auto-scroll
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    const near = distanceToBottom < 80;
+    setIsNearBottom(near);
+    setShowJumpToBottom(!near && distanceToBottom > 160);
+  }, []);
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (!scrollContainerRef.current) return;
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+    setIsNearBottom(true);
+    setShowJumpToBottom(false);
+  }, []);
+
+  // Conditional auto-scrolling: only scroll down if near bottom or user just posted
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isThinking]);
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === 'user' || isNearBottom) {
+      scrollToBottom(true);
+    }
+  }, [messages, isThinking, isNearBottom, scrollToBottom]);
 
   // Clean context reset when project switches
   useEffect(() => {
@@ -59,7 +88,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
         {
           id: `msg-welcome-${project.id}`,
           role: 'assistant',
-          text: `Switched context to "${project.title}". All pin declarations and wiring netlists are loaded. What would you like to verify or improve?`,
+          text: `### 🔄 Switched Project: ${project.title}\n\nAll pin declarations, catalog definitions, and wiring netlists are loaded for this project. What would you like to verify or improve?`,
           sourceTag: 'Deterministic Rule Engine',
           verifiedFacts: [
             `Project: ${project.title}`,
@@ -68,8 +97,9 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
           ]
         }
       ]);
+      scrollToBottom(false);
     }
-  }, [project?.id, project?.title, project?.components, project?.connections]);
+  }, [project?.id, project?.title, project?.components, project?.connections, scrollToBottom]);
 
   // Discover reviewable proposals through Assistant Architecture Provider
   const [proposals, setProposals] = useState([]);
@@ -114,7 +144,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
           id: `ast-${Date.now()}`,
           role: 'assistant',
           text: res.text,
-          sourceTag: res.sourceTag || 'Deterministic Rule Engine',
+          sourceTag: res.sourceTag || res.provider || 'Deterministic Rule Engine',
           verifiedFacts: res.verifiedFacts || []
         }
       ]);
@@ -151,15 +181,25 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
 
   const quickPrompts = [
     'Explain how my circuit is wired',
+    'Which pin is my LED connected to?',
     'Check if my firmware pins match hardware',
-    'Explain why I need a resistor for the LED',
-    'Summarize project differences from baseline'
+    'Explain why I need a resistor for the LED'
   ];
 
   return (
-    <TracewiseBubbleArea theme="light">
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', backgroundColor: '#ffffff' }}>
-        {/* Assistant Header */}
+    <TracewiseBubbleArea theme="light" style={{ height: '100%', minHeight: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+          position: 'relative'
+        }}
+      >
+        {/* Pinned Assistant Header */}
         <div
           style={{
             padding: '12px 16px',
@@ -167,7 +207,9 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
             backgroundColor: '#ffffff',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            flexShrink: 0,
+            zIndex: 10
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -180,7 +222,8 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#ffffff'
+                color: '#ffffff',
+                flexShrink: 0
               }}
             >
               <Sparkles size={16} />
@@ -190,7 +233,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
                 Engineering Assistant
               </h4>
               <span style={{ fontSize: '0.7rem', color: 'var(--tw-text-muted)' }}>
-                Rule & Schema Aware • Deterministic Output
+                Conversational • Grounded in Circuit Netlist
               </span>
             </div>
           </div>
@@ -205,16 +248,31 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
               backgroundColor: 'var(--tw-brand-soft)',
               color: 'var(--tw-brand)',
               fontSize: '0.68rem',
-              fontWeight: 700
+              fontWeight: 700,
+              flexShrink: 0
             }}
           >
             <ShieldCheck size={12} />
-            <span>Student Verified</span>
+            <span>Student Safe</span>
           </div>
         </div>
 
-        {/* Scrollable Content: Proposals + Live Chat */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Scrollable Chat Area with Independent Scrolling */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          style={{
+            flex: '1 1 0%',
+            minHeight: 0,
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}
+        >
           {/* Active Proposals Section */}
           {proposals.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -223,7 +281,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
                   Actionable Proposals ({proposals.length})
                 </span>
                 <span style={{ fontSize: '0.7rem', color: 'var(--tw-text-muted)' }}>
-                  Requires Approval
+                  Requires User Approval
                 </span>
               </div>
 
@@ -288,9 +346,9 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
           )}
 
           {/* Chat Conversation Thread */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '4px' }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--tw-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Assistant Conversation
+              Conversation
             </span>
 
             {messages.map((m) => (
@@ -306,25 +364,29 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
               >
                 <div
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: m.role === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                    padding: '12px 16px',
+                    borderRadius: m.role === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
                     backgroundColor: m.role === 'user' ? 'var(--tw-brand)' : (m.isError ? '#fef2f2' : 'var(--tw-bg)'),
                     color: m.role === 'user' ? '#ffffff' : (m.isError ? '#991b1b' : 'var(--tw-text)'),
                     border: m.role === 'user' ? 'none' : (m.isError ? '1px solid #fecaca' : '1px solid var(--tw-border)'),
-                    fontSize: '0.82rem',
+                    fontSize: '0.84rem',
                     lineHeight: 1.55,
-                    whiteSpace: 'pre-wrap',
-                    position: 'relative'
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                    wordBreak: 'break-word'
                   }}
                 >
-                  {m.text}
+                  {m.role === 'user' ? (
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
+                  ) : (
+                    <SafeMarkdown content={m.text} />
+                  )}
                 </div>
 
                 {/* Footer metadata & copy action for assistant replies */}
                 {m.role === 'assistant' && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px', fontSize: '0.68rem', color: 'var(--tw-text-muted)' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--tw-success)' }} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: m.sourceTag?.includes('Gemini') ? 'var(--tw-cyan)' : 'var(--tw-success)' }} />
                       {m.sourceTag || 'Deterministic Rule Engine'}
                     </span>
 
@@ -340,14 +402,15 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
                         alignItems: 'center',
                         gap: '4px',
                         fontSize: '0.68rem',
-                        padding: '2px 4px'
+                        padding: '2px 6px',
+                        borderRadius: '6px'
                       }}
                       title="Copy response to clipboard"
                     >
                       {copiedId === m.id ? (
                         <>
                           <Check size={11} color="var(--tw-success)" />
-                          <span style={{ color: 'var(--tw-success)' }}>Copied</span>
+                          <span style={{ color: 'var(--tw-success)', fontWeight: 600 }}>Copied</span>
                         </>
                       ) : (
                         <>
@@ -361,12 +424,12 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
               </div>
             ))}
 
-            {/* Thinking / Processing indicator */}
+            {/* Thinking indicator */}
             {isThinking && (
               <div
                 style={{
                   alignSelf: 'flex-start',
-                  padding: '8px 14px',
+                  padding: '10px 14px',
                   borderRadius: '14px 14px 14px 2px',
                   backgroundColor: 'var(--tw-bg)',
                   border: '1px solid var(--tw-border)',
@@ -378,7 +441,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
                 }}
               >
                 <RefreshCw size={13} className="animate-spin" />
-                <span>Checking circuit rules & AST definitions...</span>
+                <span>Analyzing circuit netlist & AST rules...</span>
               </div>
             )}
 
@@ -401,7 +464,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
           </div>
 
           {/* Quick Prompt Chips */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto', paddingTop: '10px' }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
               Suggested Questions:
             </span>
@@ -433,15 +496,48 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
           </div>
         </div>
 
-        {/* Chat Input Bar */}
+        {/* Floating Jump to Latest Button */}
+        {showJumpToBottom && (
+          <button
+            type="button"
+            onClick={() => scrollToBottom(true)}
+            style={{
+              position: 'absolute',
+              bottom: '68px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              backgroundColor: 'var(--tw-brand)',
+              color: '#ffffff',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              border: 'none',
+              boxShadow: '0 4px 14px rgba(30, 63, 216, 0.4)',
+              cursor: 'pointer',
+              zIndex: 25,
+              animation: 'fadeIn 0.2s ease-in-out'
+            }}
+          >
+            <span>Jump to latest</span>
+            <ChevronDown size={14} />
+          </button>
+        )}
+
+        {/* Pinned Chat Input Bar */}
         <div
           style={{
-            padding: '10px 14px',
+            padding: '12px 14px',
             borderTop: '1px solid var(--tw-border)',
             backgroundColor: '#ffffff',
             display: 'flex',
             gap: '8px',
-            alignItems: 'center'
+            alignItems: 'center',
+            flexShrink: 0,
+            zIndex: 10
           }}
         >
           <input
@@ -458,10 +554,10 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
             disabled={isThinking}
             style={{
               flex: 1,
-              padding: '8px 12px',
+              padding: '9px 14px',
               borderRadius: '20px',
               border: '1px solid var(--tw-border)',
-              fontSize: '0.8rem',
+              fontSize: '0.82rem',
               outline: 'none',
               fontFamily: 'inherit'
             }}
@@ -473,7 +569,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
             title="Send Question"
             disabled={!inputText.trim() || isThinking}
           >
-            <Send size={14} />
+            <Send size={15} />
           </TracewiseBubbleIconButton>
         </div>
       </div>

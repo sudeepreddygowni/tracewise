@@ -244,14 +244,14 @@ export function DashboardPage() {
                       {proj.version?.label || 'v1.0'}
                     </span>
 
-                    <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <TracewiseBubbleIconButton
                         onClick={(e) => handleFork(e, proj)}
                         size="sm"
                         variant="ghost"
                         title="Fork an independent remix"
                       >
-                        <GitFork size={14} />
+                        <GitFork size={15} />
                       </TracewiseBubbleIconButton>
 
                       <TracewiseBubbleIconButton
@@ -259,8 +259,9 @@ export function DashboardPage() {
                         size="sm"
                         variant="danger"
                         title="Delete project"
+                        style={{ marginLeft: '2px' }}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </TracewiseBubbleIconButton>
                     </div>
                   </div>

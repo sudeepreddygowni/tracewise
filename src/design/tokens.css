@@ -59,6 +59,15 @@
     #F5F9FD 100%
   );
 
+  /* Homepage Perfectly-Matched Coordinated Section Linear Gradients */
+  --tw-home-hero-bg: radial-gradient(ellipse 100% 75% at 50% 30%, #17387e 0%, #0d2656 45%, #071831 82%, #071831 100%);
+  --tw-home-sec2-bg: linear-gradient(180deg, #071831 0%, #0d2652 10%, #19447d 22%, #3f74ad 34%, #a2c9f0 46%, #edf6ff 55%, #a9cef2 65%, #457bb5 76%, #19437b 88%, #071831 100%);
+  --tw-home-sec3-bg: linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%);
+  --tw-home-sec4-bg: linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%);
+  --tw-home-sec5-bg: linear-gradient(180deg, #071831 0%, #0d274e 16%, #1a4378 35%, #4477b0 56%, #9bc4ed 76%, #dbeeff 90%, #F5F9FD 100%);
+  --tw-home-sec6-bg: linear-gradient(180deg, #F5F9FD 0%, #F5F9FD 42%, #d4e9fc 60%, #71a5d6 78%, #1b467e 92%, #071831 100%);
+  --tw-home-sec7-bg: linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%);
+
   --tw-trans-sky-to-navy: linear-gradient(
     180deg,
     #F5F9FD 0%,

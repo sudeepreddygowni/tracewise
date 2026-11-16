@@ -279,9 +279,9 @@ export const TracewiseBubbleIconButton = forwardRef(function TracewiseBubbleIcon
   };
 
   const iconSizes = {
-    sm: { width: 30, height: 30, padding: 0 },
-    md: { width: 38, height: 38, padding: 0 },
-    lg: { width: 46, height: 46, padding: 0 }
+    sm: { width: 34, height: 34, minWidth: 34, minHeight: 34, maxWidth: 34, maxHeight: 34 },
+    md: { width: 40, height: 40, minWidth: 40, minHeight: 40, maxWidth: 40, maxHeight: 40 },
+    lg: { width: 48, height: 48, minWidth: 48, minHeight: 48, maxWidth: 48, maxHeight: 48 }
   };
 
   const currentSize = iconSizes[size] || iconSizes.md;
@@ -291,15 +291,21 @@ export const TracewiseBubbleIconButton = forwardRef(function TracewiseBubbleIcon
       ref={ref}
       onClick={handleClick}
       title={title}
+      aria-label={title || props['aria-label'] || 'Button'}
       variant={variant}
       disabled={disabled}
       active={active}
       style={{
         ...currentSize,
+        padding: 0,
         borderRadius: '50%',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
+        flexShrink: 0,
+        aspectRatio: '1 / 1',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
         ...style
       }}
       className={`tw-bubble-icon-btn ${className}`}

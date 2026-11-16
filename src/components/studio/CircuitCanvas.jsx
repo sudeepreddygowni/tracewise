@@ -402,8 +402,8 @@ export function CircuitCanvas({
             zIndex: 40,
             display: 'flex',
             alignItems: 'center',
-            gap: '4px',
-            padding: '4px 8px',
+            gap: '8px',
+            padding: '6px 12px',
             borderRadius: 'var(--tw-radius-pill)',
             background: 'rgba(255, 255, 255, 0.95)',
             boxShadow: '0 4px 16px rgba(0,0,0,0.06)'

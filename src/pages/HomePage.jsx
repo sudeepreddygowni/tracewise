@@ -23,49 +23,79 @@ import {
   Terminal,
   ShieldCheck,
   ChevronDown,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { useProject } from '../store/useProjectStore';
+import { SafeMarkdown } from '../components/studio/SafeMarkdown';
 
 export function HomePage() {
   const navigate = useNavigate();
   const { loadProject, createNewProject } = useProject();
   const [promptText, setPromptText] = useState('');
+  const [promptHint, setPromptHint] = useState('');
   const [activeFaq, setActiveFaq] = useState(null);
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [helpModalQuery, setHelpModalQuery] = useState('');
+  const [helpModalAnswer, setHelpModalAnswer] = useState('');
+  const [helpModalProvider, setHelpModalProvider] = useState('');
+  const [helpLoading, setHelpLoading] = useState(false);
 
-  const handlePromptSubmit = (e) => {
+  const handlePromptSubmit = async (e) => {
     e?.preventDefault();
     const clean = promptText.trim();
     if (!clean) {
-      const defaultStarter = STARTER_PROJECTS[0];
-      loadProject(defaultStarter.id);
-      navigate(`/app/studio/${defaultStarter.id}`);
+      setPromptHint('Type an idea, question, or choose a starter circuit below.');
       return;
     }
+    setPromptHint('');
 
     const lower = clean.toLowerCase();
 
-    // 1. Question Intent (contains question words or '?')
-    const isQuestion = /^(why|how|what|is|are|can|does|do|explain|check|help|troubleshoot)\b/i.test(clean) || clean.includes('?');
-    if (isQuestion) {
-      let targetStarter = STARTER_PROJECTS[0];
-      if (lower.includes('button') || lower.includes('press') || lower.includes('switch')) {
-        targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-button-led') || targetStarter;
-      } else if (lower.includes('analog') || lower.includes('potentiometer') || lower.includes('dim')) {
-        targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-analog-dimmer') || targetStarter;
-      } else if (lower.includes('bug') || lower.includes('mismatch') || lower.includes('conflict')) {
-        targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-traffic-light-buggy') || targetStarter;
-      }
+    // 1. General Greetings & Platform Questions Intent -> Keep on homepage with dedicated interactive dialog
+    const isGreeting = /^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening|day)|howdy)\b/i.test(lower);
+    const isPlatformQuestion = /^(what is tracewise|how does tracewise work|who are you|help\b|what can you do|about tracewise|how to use|features)\b/i.test(lower);
 
-      loadProject(targetStarter.id);
-      navigate(`/app/studio/${targetStarter.id}`, {
-        state: { initialQuery: clean, openAssistant: true }
-      });
+    if (isGreeting || isPlatformQuestion) {
+      setHelpModalQuery(clean);
+      setHelpModalOpen(true);
+      setHelpLoading(true);
+      try {
+        const res = await fetch('/api/assistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: clean,
+            projectContext: null
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setHelpModalAnswer(data.reply || data.content || data.message || 'Hello! Welcome to Tracewise.');
+          setHelpModalProvider(data.model || data.provider || 'Tracewise Copilot');
+        } else {
+          setHelpModalAnswer(
+            isGreeting
+              ? "Hello! Welcome to Tracewise. I'm your interactive electronics engineering copilot. You can explore starter circuits, build your own custom Arduino designs, verify wiring rules, or test your project pitch."
+              : "Tracewise is a hands-on circuit engineering studio for students. You can wire virtual breadboards, verify microcontroller pinouts against Arduino C++ code, detect wiring regressions between versions, and prepare project pitches."
+          );
+          setHelpModalProvider('Tracewise Rule Engine');
+        }
+      } catch (err) {
+        setHelpModalAnswer(
+          isGreeting
+            ? "Hello! Welcome to Tracewise. I'm your interactive electronics engineering copilot. You can explore starter circuits, build your own custom Arduino designs, verify wiring rules, or test your project pitch."
+            : "Tracewise is a hands-on circuit engineering studio for students. You can wire virtual breadboards, verify microcontroller pinouts against Arduino C++ code, detect wiring regressions between versions, and prepare project pitches."
+        );
+        setHelpModalProvider('Tracewise Rule Engine');
+      } finally {
+        setHelpLoading(false);
+      }
       return;
     }
 
-    // 2. Starter Keyword Intent
+    // 2. Explicit Starter Keyword Intent -> Route to matching starter
     if (lower.includes('pedestrian') || lower.includes('bug') || lower.includes('conflict')) {
       const s = STARTER_PROJECTS.find(p => p.id === 'starter-traffic-light-buggy') || STARTER_PROJECTS[0];
       loadProject(s.id);
@@ -78,7 +108,7 @@ export function HomePage() {
       navigate(`/app/studio/${s.id}`);
       return;
     }
-    if (lower.includes('button') || lower.includes('switch') || lower.includes('input')) {
+    if (lower.includes('button') || lower.includes('switch') || lower.includes('press')) {
       const s = STARTER_PROJECTS.find(p => p.id === 'starter-button-led') || STARTER_PROJECTS[0];
       loadProject(s.id);
       navigate(`/app/studio/${s.id}`);
@@ -90,20 +120,18 @@ export function HomePage() {
       navigate(`/app/studio/${s.id}`);
       return;
     }
-    if (lower.includes('blink') || lower.includes('simple led')) {
+    if (lower.includes('blink') || lower.includes('simple led') || lower.includes('heartbeat')) {
       const s = STARTER_PROJECTS.find(p => p.id === 'starter-led-blink') || STARTER_PROJECTS[0];
       loadProject(s.id);
       navigate(`/app/studio/${s.id}`);
       return;
     }
 
-    // 3. Project Idea / Planning Intent
-    let targetStarter = STARTER_PROJECTS[0];
-    if (lower.includes('sensor') || lower.includes('measure') || lower.includes('monitor') || lower.includes('water') || lower.includes('plant')) {
-      targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-analog-dimmer') || targetStarter;
-    }
-    loadProject(targetStarter.id);
-    navigate(`/app/studio/${targetStarter.id}`, {
+    // 3. New Project Idea / Custom Circuit Intent
+    // Open a fresh project for the user's idea rather than loading an unrelated starter
+    const ideaTitle = clean.length > 36 ? `${clean.slice(0, 33)}...` : clean;
+    const newProj = createNewProject(ideaTitle);
+    navigate(`/app/studio/${newProj.id}`, {
       state: {
         initialQuery: `I want to design: "${clean}". What components, pin connections, and safety precautions do you recommend?`,
         openAssistant: true
@@ -313,7 +341,10 @@ export function HomePage() {
                     <input
                       type="text"
                       value={promptText}
-                      onChange={(e) => setPromptText(e.target.value)}
+                      onChange={(e) => {
+                        setPromptText(e.target.value);
+                        if (promptHint) setPromptHint('');
+                      }}
                       placeholder="What would you like to build or change?"
                       style={{
                         flex: 1,
@@ -334,6 +365,13 @@ export function HomePage() {
                       <ArrowRight size={14} />
                     </TracewiseBubbleButton>
                   </form>
+
+                  {promptHint && (
+                    <div style={{ marginTop: '8px', fontSize: '0.82rem', color: 'var(--tw-brand)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>💡</span>
+                      <span>{promptHint}</span>
+                    </div>
+                  )}
 
                   {/* Quick suggestions tags centered */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--tw-border)' }}>
@@ -407,7 +445,7 @@ export function HomePage() {
           position: 'relative',
           paddingTop: '80px',
           paddingBottom: '130px',
-          background: 'linear-gradient(180deg, #071831 0%, #0d274e 10%, #1a4175 22%, #316298 34%, #6ba1d6 45%, #c8e2fb 54%, #edf6ff 62%, #e5f1fc 70%, #bcdcf7 78%, #78aedc 86%, #3a75ad 92%, #144075 97%, #071831 100%)'
+          background: 'var(--tw-home-sec2-bg, linear-gradient(180deg, #071831 0%, #0d2656 25%, #0f2d60 50%, #0d2656 75%, #071831 100%))'
         }}
         id="workspace"
       >
@@ -545,7 +583,7 @@ export function HomePage() {
         style={{
           position: 'relative',
           padding: '80px 0 90px',
-          background: 'linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%)',
+          background: 'var(--tw-home-sec3-bg, linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%))',
           color: '#ffffff'
         }}
         id="how-it-works"
@@ -650,7 +688,7 @@ export function HomePage() {
           position: 'relative',
           paddingTop: '60px',
           paddingBottom: '120px',
-          background: 'linear-gradient(180deg, #071831 0%, #0B2348 45%, #0E2A58 75%, #071831 100%)',
+          background: 'var(--tw-home-sec4-bg, linear-gradient(180deg, #071831 0%, #0B2348 45%, #0E2A58 75%, #071831 100%))',
           overflow: 'hidden'
         }}
         id="projects"
@@ -703,7 +741,7 @@ export function HomePage() {
       <section
         style={{
           padding: '80px 0 100px',
-          background: 'linear-gradient(180deg, #071831 0%, #0d274e 16%, #173d6f 34%, #2e5f94 52%, #588ec5 70%, #9fc9f0 84%, #dbeeff 94%, #F5F9FD 100%)',
+          background: 'var(--tw-home-sec5-bg, linear-gradient(180deg, #071831 0%, #0d2656 30%, #2a5a9c 70%, #d4e8fc 95%, #F5F9FD 100%))',
           color: '#ffffff',
           position: 'relative'
         }}
@@ -790,7 +828,7 @@ export function HomePage() {
       <section
         style={{
           padding: '80px 0 110px',
-          background: 'linear-gradient(180deg, #F5F9FD 0%, #F5F9FD 48%, #edf6ff 62%, #cbe4fa 74%, #84b8e3 84%, #427cb6 92%, #154278 97%, #071831 100%)',
+          background: 'var(--tw-home-sec6-bg, linear-gradient(180deg, #F5F9FD 0%, #edf6ff 25%, #8cbde8 65%, #18447c 90%, #071831 100%))',
           position: 'relative'
         }}
         id="faq"
@@ -863,7 +901,7 @@ export function HomePage() {
       <section
         style={{
           padding: '90px 0 110px',
-          background: 'linear-gradient(180deg, #071831 0%, #0B2348 45%, #071831 100%)',
+          background: 'var(--tw-home-sec7-bg, linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%))',
           color: '#ffffff',
           position: 'relative',
           overflow: 'hidden'
@@ -936,6 +974,157 @@ export function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* =========================================================================
+          HOMEPAGE ASSISTANT & HELP MODAL (Preserves Homepage, No Forced Project)
+      ========================================================================= */}
+      {helpModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(7, 24, 49, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}
+          onClick={() => setHelpModalOpen(false)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              padding: '28px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--tw-brand-soft)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--tw-brand)'
+                  }}
+                >
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--tw-text)', margin: 0 }}>
+                    Tracewise Assistant
+                  </h3>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
+                    {helpModalProvider || 'Google Gemini 1.5 Flash • Tracewise Reasoning'}
+                  </span>
+                </div>
+              </div>
+              <TracewiseBubbleIconButton
+                size="sm"
+                variant="ghost"
+                onClick={() => setHelpModalOpen(false)}
+                aria-label="Close dialog"
+              >
+                <X size={16} />
+              </TracewiseBubbleIconButton>
+            </div>
+
+            {/* User prompt echo */}
+            <div
+              style={{
+                padding: '10px 14px',
+                backgroundColor: '#f1f5f9',
+                borderRadius: '12px',
+                fontSize: '0.86rem',
+                color: 'var(--tw-text)',
+                fontWeight: 500
+              }}
+            >
+              <span style={{ color: 'var(--tw-text-muted)', fontSize: '0.74rem', display: 'block', marginBottom: '2px' }}>
+                You asked:
+              </span>
+              "{helpModalQuery}"
+            </div>
+
+            {/* Copilot reply */}
+            <div
+              style={{
+                padding: '16px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid var(--tw-border)',
+                borderRadius: '14px',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                fontSize: '0.9rem',
+                lineHeight: 1.6,
+                color: 'var(--tw-text)'
+              }}
+            >
+              {helpLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--tw-text-muted)' }}>
+                  <Sparkles size={16} />
+                  <span>Thinking...</span>
+                </div>
+              ) : (
+                <SafeMarkdown content={helpModalAnswer} />
+              )}
+            </div>
+
+            {/* Suggested Next Steps */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--tw-text-muted)' }}>
+                Where would you like to explore?
+              </span>
+              <TracewiseBubbleArea theme="light" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <TracewiseBubbleButton
+                  to="/app/studio/starter-traffic-light"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setHelpModalOpen(false)}
+                >
+                  <span>Try Traffic Light Demo</span>
+                  <ArrowRight size={14} />
+                </TracewiseBubbleButton>
+                <TracewiseBubbleButton
+                  to="/projects"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setHelpModalOpen(false)}
+                >
+                  <span>Browse Projects</span>
+                </TracewiseBubbleButton>
+                <TracewiseBubbleButton
+                  onClick={() => {
+                    setHelpModalOpen(false);
+                    const blank = createNewProject('Custom Circuit');
+                    navigate(`/app/studio/${blank.id}`);
+                  }}
+                  variant="secondary"
+                  size="sm"
+                >
+                  <span>Open Blank Studio</span>
+                </TracewiseBubbleButton>
+              </TracewiseBubbleArea>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

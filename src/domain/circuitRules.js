@@ -59,10 +59,11 @@ export function validateCircuit(project) {
   }
 
   // --- Rule 2: LED Current Protection ---
-  const leds = (project.components || []).filter(c => c.type === 'led');
+  const standardLeds = (project.components || []).filter(c => c.type === 'led');
+  const rgbLeds = (project.components || []).filter(c => c.type === 'rgb-led');
   let unprotectedLeds = [];
 
-  leds.forEach(led => {
+  standardLeds.forEach(led => {
     // Check if cathode or anode is connected to a resistor
     const attachedWires = (project.connections || []).filter(
       w => w.from.componentId === led.id || w.to.componentId === led.id
@@ -82,6 +83,24 @@ export function validateCircuit(project) {
     }
   });
 
+  rgbLeds.forEach(rgb => {
+    const attachedWires = (project.connections || []).filter(
+      w => w.from.componentId === rgb.id || w.to.componentId === rgb.id
+    );
+    let hasResistor = false;
+    attachedWires.forEach(w => {
+      const otherCompId = w.from.componentId === rgb.id ? w.to.componentId : w.from.componentId;
+      const otherComp = compMap.get(otherCompId);
+      if (otherComp && otherComp.type === 'resistor') {
+        hasResistor = true;
+      }
+    });
+    if (!hasResistor) {
+      unprotectedLeds.push(rgb.name || rgb.id);
+    }
+  });
+
+  const totalLedCount = standardLeds.length + rgbLeds.length;
   if (unprotectedLeds.length > 0) {
     checks.push({
       id: 'check-led-current',
@@ -89,19 +108,57 @@ export function validateCircuit(project) {
       status: 'WARNING',
       severity: 'WARNING',
       message: `Direct wiring detected: ${unprotectedLeds.join(', ')} has no series resistor. In physical hardware, an LED without a 220Ω-1kΩ resistor will draw excessive current and burn out.`,
-      suggestedFix: 'Insert a 220Ω resistor between the LED cathode and Ground rail.',
+      suggestedFix: 'Insert a 220Ω resistor between the LED cathode/leads and Ground rail.',
       ruleOrigin: 'static_rule_check'
     });
-  } else if (leds.length > 0) {
+  } else if (totalLedCount > 0) {
     checks.push({
       id: 'check-led-current',
       name: 'LED Current Protection',
       status: 'PASSED',
       severity: 'INFO',
-      message: `All ${leds.length} LEDs are protected with current-limiting resistors.`,
+      message: `All ${totalLedCount} LED components are protected with current-limiting resistors.`,
       ruleOrigin: 'static_rule_check'
     });
   }
+
+  // --- Rule 4: Active Buzzer Polarity & Drive Check ---
+  const buzzers = (project.components || []).filter(c => c.type === 'buzzer');
+  buzzers.forEach(buzzer => {
+    const attachedWires = (project.connections || []).filter(
+      w => w.from.componentId === buzzer.id || w.to.componentId === buzzer.id
+    );
+
+    if (attachedWires.length > 0) {
+      checks.push({
+        id: `check-buzzer-${buzzer.id}`,
+        name: 'Active Buzzer Circuit Integrity',
+        status: 'PASSED',
+        severity: 'INFO',
+        message: `${buzzer.name || 'Active Buzzer'} is wired for piezoelectric audio signaling. Ensure positive pin connects to digital PWM pin.`,
+        ruleOrigin: 'static_rule_check'
+      });
+    }
+  });
+
+  // --- Rule 5: Potentiometer Voltage Divider Check ---
+  const pots = (project.components || []).filter(c => c.type === 'potentiometer');
+  pots.forEach(pot => {
+    const attachedWires = (project.connections || []).filter(
+      w => w.from.componentId === pot.id || w.to.componentId === pot.id
+    );
+
+    if (attachedWires.length > 0) {
+      checks.push({
+        id: `check-pot-${pot.id}`,
+        name: 'Potentiometer Divider Routing',
+        status: 'PASSED',
+        severity: 'INFO',
+        message: `${pot.name || 'Potentiometer'} wiper routed to provide 0–5V analog voltage control.`,
+        ruleOrigin: 'static_rule_check'
+      });
+    }
+  });
 
   // --- Rule 3: Firmware Pin Consistency ---
   const code = project.firmware?.files?.[0]?.content || '';

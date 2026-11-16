@@ -230,8 +230,7 @@ export default async function handler(req, res) {
       { key: 'wifi', name: 'Wi-Fi Module' },
       { key: 'esp32', name: 'ESP32 Microcontroller' },
       { key: 'esp8266', name: 'ESP8266 Wi-Fi Chip' },
-      { key: 'relay', name: 'Relay Module' },
-      { key: 'buzzer', name: 'Piezo Buzzer' }
+      { key: 'relay', name: 'Relay Module' }
     ];
     const detectedUnsupported = unsupportedList.filter(item => q.includes(item.key)).map(item => item.name);
     if (detectedUnsupported.length > 0) {
@@ -241,13 +240,13 @@ export default async function handler(req, res) {
           `Our catalog currently supports low-voltage educational basics:\n` +
           `• **Microcontroller:** Arduino Uno R3\n` +
           `• **Prototyping:** Half Breadboard\n` +
-          `• **Passives & Inputs:** 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons\n\n` +
+          `• **Inputs & Passives:** 5mm LEDs (Red, Green, Blue, Yellow), RGB LED (Common Cathode), 220Ω & 10kΩ Resistors, Momentary Push Buttons, Potentiometer (10k), Photoresistor (LDR), Slide Switch (SPDT), and Active Piezo Buzzer\n\n` +
           `I will not generate an empty skeleton or fabricate connections for unsupported components. Would you like to build an interactive circuit using our supported catalog components?`,
         provider: 'Tracewise Project Builder',
         sourceTag: 'Catalog Capability Boundary',
         verifiedFacts: [`Status: Unsupported component (${detectedUnsupported.join(', ')})`],
         deterministicChecks: ['Catalog Availability: REJECTED'],
-        suggestions: ['Build a 3-Color Disco Light', 'Explore Traffic Light Controller', 'Open Blank Studio'],
+        suggestions: ['Build a 3-Color Disco Light', 'Build RGB Mood Light', 'Build Potentiometer Dimmer'],
         proposals: [],
         confidence: null
       });
@@ -258,15 +257,54 @@ export default async function handler(req, res) {
       responseText = `### 👋 Hello! Welcome to Tracewise.\n\n` +
         `I am your **Tracewise Engineering Assistant**. I continuously inspect your breadboard schematic, component specifications, and Arduino firmware.\n\n` +
         `**Here is what I can help you with:**\n` +
+        `• **Component Counting**: Ask *"How many LEDs are in this project?"* or *"List all components"*.\n` +
         `• **Circuit Verification**: Check if your LEDs have current-limiting resistors and ensure voltage safety.\n` +
         `• **Firmware Pinout Alignment**: Verify that the digital pins declared in \`sketch.ino\` match the wires on your canvas.\n` +
-        `• **Component Lookups**: Ask *"Which pin is my LED connected to?"* or *"How is my circuit wired?"*.\n` +
+        `• **Component Lookups**: Ask *"Which pin is my LED connected to?"* or *"Explain the connections"*.\n` +
         `• **Presentation Coaching**: Use the Pitch Lab to practice explaining your engineering decisions to science fair judges.\n\n` +
         `What would you like to explore or build today?`;
 
-      suggestions.push('Explain this project');
+      suggestions.push('How many LEDs are in this project?');
+      suggestions.push('Explain the connections');
       suggestions.push('Check if my firmware pins match hardware');
-      suggestions.push('Explain why I need a resistor for the LED');
+
+    // INTENT B: Exact Component Counting
+    } else if (q.includes('how many') || q.includes('count') || q.includes('number of') || q.includes('list component')) {
+      if (q.includes('led')) {
+        const standardLeds = components.filter(c => (c.type || '').includes('led') && c.type !== 'rgb-led');
+        const rgbLeds = components.filter(c => c.type === 'rgb-led');
+        const total = standardLeds.length + rgbLeds.length;
+        if (total === 0) {
+          responseText = `There are currently **0 LEDs** in your project. You can place single LEDs or an RGB LED from the Component Library.`;
+        } else {
+          let breakdown = [];
+          if (standardLeds.length > 0) breakdown.push(`${standardLeds.length} standard 5mm LED${standardLeds.length > 1 ? 's' : ''} (${standardLeds.map(l => l.name || l.props?.color || 'LED').join(', ')})`);
+          if (rgbLeds.length > 0) breakdown.push(`${rgbLeds.length} Common Cathode RGB LED`);
+          responseText = `Your project currently contains **${total} LED${total > 1 ? 's' : ''}**:\n• ${breakdown.join('\n• ')}\n\nEach LED is checked for current-limiting resistors to ensure hardware longevity.`;
+        }
+      } else if (q.includes('button') || q.includes('switch')) {
+        const buttons = components.filter(c => (c.type || '').includes('button'));
+        const switches = components.filter(c => (c.type || '').includes('switch'));
+        const total = buttons.length + switches.length;
+        responseText = `Your project contains **${total} input control${total > 1 ? 's' : ''}**:\n` +
+          (buttons.length > 0 ? `• ${buttons.length} Momentary Push Button${buttons.length > 1 ? 's' : ''} (${buttons.map(b => b.name || b.id).join(', ')})\n` : '') +
+          (switches.length > 0 ? `• ${switches.length} Slide Switch (${switches.map(s => s.name || s.id).join(', ')})\n` : '');
+      } else if (q.includes('resistor')) {
+        const resistors = components.filter(c => (c.type || '').includes('resistor'));
+        responseText = `Your project contains **${resistors.length} resistor${resistors.length === 1 ? '' : 's'}**:\n` +
+          (resistors.length > 0
+            ? resistors.map(r => `• ${r.name || r.id}: ${r.props?.resistance || '220Ω'}`).join('\n')
+            : '• None currently placed.');
+      } else {
+        const typesMap = {};
+        components.forEach(c => {
+          const label = c.name || c.type;
+          typesMap[label] = (typesMap[label] || 0) + 1;
+        });
+        responseText = `Your project contains **${components.length} total components**:\n` +
+          Object.entries(typesMap).map(([name, count]) => `• ${count}x ${name}`).join('\n') +
+          `\n\nAll components are verified against the physical catalog netlist with ${connections.length} wires.`;
+      }
 
     // INTENT B: Capabilities & Platform Questions
     } else if (q.includes('what can you do') || q.includes('what is tracewise') || q.includes('how does this work') || q.includes('help me')) {

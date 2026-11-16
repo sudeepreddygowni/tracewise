@@ -3,11 +3,16 @@
  * Classifies user intent, checks component capability, and generates validated build plans.
  */
 
-import { createDiscoLightBuildPlan } from './projectTemplates.js';
+import {
+  createDiscoLightBuildPlan,
+  createRgbMoodLightBuildPlan,
+  createPotentiometerDimmerBuildPlan,
+  createBuzzerAlarmBuildPlan
+} from './projectTemplates.js';
 import { compileBuildPlan } from './catalogCompiler.js';
 import { planAddLedModification } from './projectModifier.js';
 
-// Components known to be unsupported in the current low-voltage basic catalog
+// Components known to be unsupported in the current basic catalog
 const UNSUPPORTED_KEYWORDS = [
   { keyword: 'servo', name: 'Servo Motor' },
   { keyword: 'stepper', name: 'Stepper Motor' },
@@ -28,8 +33,6 @@ const UNSUPPORTED_KEYWORDS = [
   { keyword: 'temperature sensor', name: 'Temperature Sensor (DHT/DS18B20)' },
   { keyword: 'pir', name: 'PIR Motion Sensor' },
   { keyword: 'motion sensor', name: 'PIR Motion Sensor' },
-  { keyword: 'buzzer', name: 'Piezo Buzzer' },
-  { keyword: 'speaker', name: 'Speaker / Audio Transducer' },
   { keyword: 'rfid', name: 'RFID RC522 Reader' }
 ];
 
@@ -110,7 +113,7 @@ export function planProjectFromPrompt(promptText, activeProject = null) {
       status: 'CANNOT_BUILD',
       intent: BUILD_INTENT.BUILD_PROJECT,
       unsupported,
-      message: `Tracewise cannot fully build this project because the required component (${unsupported.join(', ')}) is not available in the current component library. Our catalog currently supports low-voltage educational basics: Arduino Uno R3, Half Breadboard, 5mm LEDs, 220Ω Resistors, and Momentary Push Buttons.`,
+      message: `Tracewise cannot fully build this project because the required component (${unsupported.join(', ')}) is not available in the current component library. Our catalog currently supports: Arduino Uno R3, Half Breadboard, 5mm LEDs (Red/Green/Blue/Yellow), RGB LED, 220Ω & 10kΩ Resistors, Momentary Push Buttons, Potentiometer (10k), Photoresistor (LDR), Slide Switch (SPDT), and Active Piezo Buzzer.`,
       project: null
     };
   }
@@ -143,6 +146,54 @@ export function planProjectFromPrompt(promptText, activeProject = null) {
 
   // 3. New Project Build Intent
   if (intent === BUILD_INTENT.BUILD_PROJECT) {
+    // RGB Mood Light
+    if (lower.includes('rgb') || lower.includes('color mixer') || lower.includes('mood light')) {
+      const buildPlan = createRgbMoodLightBuildPlan();
+      const compiled = compileBuildPlan(buildPlan);
+      return {
+        status: 'BUILT',
+        intent: BUILD_INTENT.BUILD_PROJECT,
+        plan: buildPlan,
+        buildPlan,
+        project: compiled.project,
+        validation: compiled.validation,
+        summary: compiled.summary,
+        message: `Built RGB LED Mood Light & Color Mixer with ${compiled.summary.componentCount} components, ${compiled.summary.connectionCount} wires, and PWM Arduino firmware.`
+      };
+    }
+
+    // Potentiometer Dimmer
+    if (lower.includes('potentiometer') || lower.includes('dimmer') || lower.includes('analog control') || lower.includes('dial')) {
+      const buildPlan = createPotentiometerDimmerBuildPlan();
+      const compiled = compileBuildPlan(buildPlan);
+      return {
+        status: 'BUILT',
+        intent: BUILD_INTENT.BUILD_PROJECT,
+        plan: buildPlan,
+        buildPlan,
+        project: compiled.project,
+        validation: compiled.validation,
+        summary: compiled.summary,
+        message: `Built Rotary Potentiometer LED Dimmer with ${compiled.summary.componentCount} components, ${compiled.summary.connectionCount} wires, and analogRead/PWM firmware.`
+      };
+    }
+
+    // Buzzer Sound Alarm
+    if (lower.includes('buzzer') || lower.includes('alarm') || lower.includes('beeper') || lower.includes('sound alert')) {
+      const buildPlan = createBuzzerAlarmBuildPlan();
+      const compiled = compileBuildPlan(buildPlan);
+      return {
+        status: 'BUILT',
+        intent: BUILD_INTENT.BUILD_PROJECT,
+        plan: buildPlan,
+        buildPlan,
+        project: compiled.project,
+        validation: compiled.validation,
+        summary: compiled.summary,
+        message: `Built Push-Button Sound Alarm & Active Buzzer with ${compiled.summary.componentCount} components, ${compiled.summary.connectionCount} wires, and audio alarm firmware.`
+      };
+    }
+
     // Disco Light Project (Test A & B)
     if (lower.includes('disco') || (lower.includes('button') && lower.includes('led'))) {
       const buildPlan = createDiscoLightBuildPlan();

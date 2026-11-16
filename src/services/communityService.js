@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase.js';
 
 const LOCAL_POSTS_KEY = 'tracewise_community_posts_v3';
 const LOCAL_COMMENTS_KEY = 'tracewise_community_comments_v3';
@@ -488,6 +488,395 @@ export async function submitContentReport({ targetType, targetId, reason, detail
   } catch (e) {}
 
   return true;
+}
+
+// -----------------------------------------------------------------------------
+// COMMUNITY GROUPS & PUBLISHED PROJECTS
+// -----------------------------------------------------------------------------
+
+export const PREVIEW_GROUPS = [
+  {
+    id: 'group-robotics',
+    name: 'Arduino Robotics Lab',
+    slug: 'arduino-robotics',
+    description: 'Student community building obstacle avoiders, line followers, and motor control systems with Arduino Uno.',
+    category: 'Robotics',
+    avatarEmoji: '🤖',
+    creatorName: 'Tracewise Community',
+    memberCount: 42,
+    postCount: 8,
+    isVerified: true
+  },
+  {
+    id: 'group-circuits',
+    name: 'Circuits 101 & Hardware Safety',
+    slug: 'circuits-101',
+    description: 'Beginner-friendly hardware advice, Ohm’s law formulas, pull-up resistors, and breadboard layout techniques.',
+    category: 'Education',
+    avatarEmoji: '⚡',
+    creatorName: 'Tracewise Community',
+    memberCount: 89,
+    postCount: 15,
+    isVerified: true
+  },
+  {
+    id: 'group-iot',
+    name: 'IoT & Smart Automation',
+    slug: 'iot-automation',
+    description: 'Interactive electronics, sensor telemetry, automated switches, and state machines for home automation.',
+    category: 'Automation',
+    avatarEmoji: '🌐',
+    creatorName: 'Tracewise Community',
+    memberCount: 34,
+    postCount: 5,
+    isVerified: true
+  }
+];
+
+export const PREVIEW_PROJECTS = [
+  {
+    id: 'proj-disco',
+    title: 'Three-Color Button Disco Light',
+    description: 'Interactive lighting controller with debounced button selector switching between Red, Green, and Blue LEDs.',
+    authorName: 'Sudeep Reddy',
+    authorHandle: 'sudeepreddy',
+    tags: ['LED', 'Push Button', 'State Machine', 'Arduino Uno'],
+    likes: 28,
+    remixCount: 14,
+    createdAt: new Date(Date.now() - 3600000 * 20).toISOString()
+  },
+  {
+    id: 'proj-traffic',
+    title: 'Interactive Pedestrian Traffic Light',
+    description: 'Simulated 3-state intersection light with pedestrian crossing interrupt request button.',
+    authorName: 'Alex Rivera',
+    authorHandle: 'alex_circuits',
+    tags: ['Traffic Light', 'Safety', 'Debounce', 'Arduino Uno'],
+    likes: 19,
+    remixCount: 7,
+    createdAt: new Date(Date.now() - 3600000 * 48).toISOString()
+  },
+  {
+    id: 'proj-dimmer',
+    title: 'Rotary Dimmer & Tone Generator',
+    description: 'Analog potentiometer reading on A0 driving active piezo buzzer sound frequency and LED brightness.',
+    authorName: 'Maya Patel',
+    authorHandle: 'maya_robotics',
+    tags: ['Potentiometer', 'Buzzer', 'PWM', 'Analog Input'],
+    likes: 31,
+    remixCount: 11,
+    createdAt: new Date(Date.now() - 3600000 * 96).toISOString()
+  }
+];
+
+export async function getCommunityGroups({ category = 'All' } = {}) {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      let query = supabase
+        .from('community_groups')
+        .select('*')
+        .order('member_count', { ascending: false });
+
+      if (category && category !== 'All') {
+        query = query.eq('category', category);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('Supabase groups query warning:', error.message);
+        return PREVIEW_GROUPS;
+      }
+      return (data || []).map(g => ({
+        id: g.id,
+        name: g.name,
+        slug: g.slug,
+        description: g.description,
+        category: g.category,
+        avatarEmoji: g.avatar_emoji || '⚡',
+        creatorId: g.creator_id,
+        creatorName: g.creator_name,
+        memberCount: g.member_count || 1,
+        postCount: g.post_count || 0,
+        isVerified: g.is_verified || false,
+        createdAt: g.created_at
+      }));
+    } catch (err) {
+      console.warn('Supabase groups error fallback:', err.message);
+      return PREVIEW_GROUPS;
+    }
+  }
+  return PREVIEW_GROUPS;
+}
+
+export async function joinCommunityGroup(groupId, user) {
+  if (!user || user.isAnonymous) {
+    throw new Error('Please sign in or save an account to join community groups.');
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { error } = await supabase
+        .from('community_group_members')
+        .insert({
+          group_id: groupId,
+          user_id: user.uid,
+          user_name: user.displayName || 'Maker',
+          user_handle: user.handle || 'maker',
+          role: 'member'
+        });
+
+      if (error && error.code !== '23505') { // Ignore unique conflict if already joined
+        throw error;
+      }
+
+      // Increment member_count on group
+      await supabase.rpc('increment_group_member_count', { g_id: groupId }).catch(() => {});
+      return true;
+    } catch (err) {
+      console.error('Join group error:', err);
+      throw err;
+    }
+  }
+  return true;
+}
+
+export async function leaveCommunityGroup(groupId, user) {
+  if (!user) return false;
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { error } = await supabase
+        .from('community_group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', user.uid);
+
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Leave group error:', err);
+      throw err;
+    }
+  }
+  return true;
+}
+
+export async function checkGroupMembership(groupId, userId) {
+  if (!userId || !isSupabaseConfigured() || !supabase) return false;
+  try {
+    const { data, error } = await supabase
+      .from('community_group_members')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
+    if (error && error.code === 'PGRST116') return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+export async function getPublishedProjects({ limitCount = 30 } = {}) {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('published_projects')
+        .select('*')
+        .order('likes', { ascending: false })
+        .limit(limitCount);
+
+      if (error) {
+        console.warn('Published projects query warning:', error.message);
+        return PREVIEW_PROJECTS;
+      }
+      return (data || []).map(p => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        authorName: p.author_name,
+        authorHandle: p.author_handle,
+        projectData: p.project_data,
+        tags: p.tags || [],
+        likes: p.likes || 0,
+        remixCount: p.remix_count || 0,
+        createdAt: p.created_at
+      }));
+    } catch (err) {
+      return PREVIEW_PROJECTS;
+    }
+  }
+  return PREVIEW_PROJECTS;
+}
+
+// -----------------------------------------------------------------------------
+// UNIFIED COMMUNITY SEARCH (Across Posts, People, Projects, Groups)
+// Strictly privacy-preserving: NO email addresses returned
+// -----------------------------------------------------------------------------
+
+export async function searchCommunity({ query = '', type = 'all', limitCount = 20 } = {}) {
+  const cleanQ = String(query || '').trim().toLowerCase();
+  const results = {
+    posts: [],
+    people: [],
+    projects: [],
+    groups: []
+  };
+
+  if (!cleanQ) {
+    if (type === 'all' || type === 'posts') results.posts = await getCommunityPosts({ limitCount: 10 });
+    if (type === 'all' || type === 'groups') results.groups = await getCommunityGroups();
+    if (type === 'all' || type === 'projects') results.projects = await getPublishedProjects({ limitCount: 10 });
+    return results;
+  }
+
+  // 1. Search Posts
+  if (type === 'all' || type === 'posts') {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('community_posts')
+          .select('*')
+          .or(`title.ilike.%${cleanQ}%,body.ilike.%${cleanQ}%`)
+          .eq('moderation_status', 'approved')
+          .limit(limitCount);
+
+        if (!error && data) {
+          results.posts = data.map(mapPostRow);
+        } else {
+          results.posts = PREVIEW_COMMUNITY_POSTS.filter(p =>
+            p.title.toLowerCase().includes(cleanQ) || p.body.toLowerCase().includes(cleanQ)
+          );
+        }
+      } catch {
+        results.posts = PREVIEW_COMMUNITY_POSTS.filter(p =>
+          p.title.toLowerCase().includes(cleanQ) || p.body.toLowerCase().includes(cleanQ)
+        );
+      }
+    } else {
+      results.posts = PREVIEW_COMMUNITY_POSTS.filter(p =>
+        p.title.toLowerCase().includes(cleanQ) || p.body.toLowerCase().includes(cleanQ)
+      );
+    }
+  }
+
+  // 2. Search People (Strict privacy: id, display_name, handle, avatar_url, bio, role, linkedin_url - NEVER email!)
+  if (type === 'all' || type === 'people') {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, display_name, handle, avatar_url, bio, role, linkedin_url, created_at')
+          .or(`display_name.ilike.%${cleanQ}%,handle.ilike.%${cleanQ}%,bio.ilike.%${cleanQ}%`)
+          .limit(limitCount);
+
+        if (!error && data) {
+          results.people = data.map(p => ({
+            id: p.id,
+            displayName: p.display_name || 'Student Maker',
+            handle: p.handle || 'student',
+            avatarUrl: p.avatar_url,
+            bio: p.bio,
+            role: p.role || 'student',
+            linkedinUrl: p.linkedin_url
+          }));
+        }
+      } catch (err) {
+        console.warn('People search note:', err.message);
+      }
+    }
+    // Add sample public contributors if empty
+    if (results.people.length === 0) {
+      const publicContributors = [
+        { id: 'usr-sudeep', displayName: 'Sudeep Reddy', handle: 'sudeepreddy', role: 'creator', bio: 'Founder & Lead Architect at TraceWise.', linkedinUrl: 'https://linkedin.com/in/sudeepreddy' },
+        { id: 'usr-alex', displayName: 'Alex Rivera', handle: 'alex_circuits', role: 'student', bio: 'High-school robotics lead and Arduino tinkerer.', linkedinUrl: null },
+        { id: 'usr-maya', displayName: 'Maya Patel', handle: 'maya_robotics', role: 'student', bio: 'Electronics enthusiast focused on autonomous rovers.', linkedinUrl: null }
+      ];
+      results.people = publicContributors.filter(p =>
+        p.displayName.toLowerCase().includes(cleanQ) || p.handle.toLowerCase().includes(cleanQ) || (p.bio && p.bio.toLowerCase().includes(cleanQ))
+      );
+    }
+  }
+
+  // 3. Search Projects
+  if (type === 'all' || type === 'projects') {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('published_projects')
+          .select('*')
+          .or(`title.ilike.%${cleanQ}%,description.ilike.%${cleanQ}%`)
+          .limit(limitCount);
+
+        if (!error && data) {
+          results.projects = data.map(p => ({
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            authorName: p.author_name,
+            authorHandle: p.author_handle,
+            projectData: p.project_data,
+            tags: p.tags || [],
+            likes: p.likes || 0,
+            remixCount: p.remix_count || 0
+          }));
+        } else {
+          results.projects = PREVIEW_PROJECTS.filter(p =>
+            p.title.toLowerCase().includes(cleanQ) || p.description.toLowerCase().includes(cleanQ)
+          );
+        }
+      } catch {
+        results.projects = PREVIEW_PROJECTS.filter(p =>
+          p.title.toLowerCase().includes(cleanQ) || p.description.toLowerCase().includes(cleanQ)
+        );
+      }
+    } else {
+      results.projects = PREVIEW_PROJECTS.filter(p =>
+        p.title.toLowerCase().includes(cleanQ) || p.description.toLowerCase().includes(cleanQ)
+      );
+    }
+  }
+
+  // 4. Search Groups
+  if (type === 'all' || type === 'groups') {
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('community_groups')
+          .select('*')
+          .or(`name.ilike.%${cleanQ}%,description.ilike.%${cleanQ}%,category.ilike.%${cleanQ}%`)
+          .limit(limitCount);
+
+        if (!error && data) {
+          results.groups = data.map(g => ({
+            id: g.id,
+            name: g.name,
+            slug: g.slug,
+            description: g.description,
+            category: g.category,
+            avatarEmoji: g.avatar_emoji || '⚡',
+            memberCount: g.member_count || 1,
+            postCount: g.post_count || 0,
+            isVerified: g.is_verified || false
+          }));
+        } else {
+          results.groups = PREVIEW_GROUPS.filter(g =>
+            g.name.toLowerCase().includes(cleanQ) || g.description.toLowerCase().includes(cleanQ) || g.category.toLowerCase().includes(cleanQ)
+          );
+        }
+      } catch {
+        results.groups = PREVIEW_GROUPS.filter(g =>
+          g.name.toLowerCase().includes(cleanQ) || g.description.toLowerCase().includes(cleanQ) || g.category.toLowerCase().includes(cleanQ)
+        );
+      }
+    } else {
+      results.groups = PREVIEW_GROUPS.filter(g =>
+        g.name.toLowerCase().includes(cleanQ) || g.description.toLowerCase().includes(cleanQ) || g.category.toLowerCase().includes(cleanQ)
+      );
+    }
+  }
+
+  return results;
 }
 
 // Backwards-compatible aliases

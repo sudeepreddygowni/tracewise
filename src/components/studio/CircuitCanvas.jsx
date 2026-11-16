@@ -4,6 +4,11 @@ import { BreadboardSvg } from './svg/BreadboardSvg';
 import { LedSvg } from './svg/LedSvg';
 import { ResistorSvg } from './svg/ResistorSvg';
 import { PushButtonSvg } from './svg/PushButtonSvg';
+import { RgbLedSvg } from './svg/RgbLedSvg';
+import { PotentiometerSvg } from './svg/PotentiometerSvg';
+import { PhotoresistorSvg } from './svg/PhotoresistorSvg';
+import { SlideSwitchSvg } from './svg/SlideSwitchSvg';
+import { BuzzerSvg } from './svg/BuzzerSvg';
 import { WireSvg } from './svg/WireSvg';
 import { getComponentDefinition, WIRE_COLORS } from '../../data/componentCatalog';
 import {
@@ -689,6 +694,56 @@ export function CircuitCanvas({
 
               {comp.type === 'push-button' && (
                 <PushButtonSvg
+                  pins={def.pins}
+                  activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
+                  onPinClick={(pin) => handlePinClick(comp, pin)}
+                  onPinHover={(pin) => setHoveredPin(pin ? { comp, pin } : null)}
+                />
+              )}
+
+              {comp.type === 'rgb-led' && (
+                <RgbLedSvg
+                  red={comp.props?.red ?? 255}
+                  green={comp.props?.green ?? 0}
+                  blue={comp.props?.blue ?? 128}
+                  pins={def.pins}
+                  activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
+                  onPinClick={(pin) => handlePinClick(comp, pin)}
+                  onPinHover={(pin) => setHoveredPin(pin ? { comp, pin } : null)}
+                />
+              )}
+
+              {comp.type === 'potentiometer' && (
+                <PotentiometerSvg
+                  value={comp.props?.value ?? 512}
+                  pins={def.pins}
+                  activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
+                  onPinClick={(pin) => handlePinClick(comp, pin)}
+                  onPinHover={(pin) => setHoveredPin(pin ? { comp, pin } : null)}
+                />
+              )}
+
+              {comp.type === 'photoresistor' && (
+                <PhotoresistorSvg
+                  pins={def.pins}
+                  activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
+                  onPinClick={(pin) => handlePinClick(comp, pin)}
+                  onPinHover={(pin) => setHoveredPin(pin ? { comp, pin } : null)}
+                />
+              )}
+
+              {comp.type === 'slide-switch' && (
+                <SlideSwitchSvg
+                  state={comp.props?.state || 'left'}
+                  pins={def.pins}
+                  activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
+                  onPinClick={(pin) => handlePinClick(comp, pin)}
+                  onPinHover={(pin) => setHoveredPin(pin ? { comp, pin } : null)}
+                />
+              )}
+
+              {comp.type === 'buzzer' && (
+                <BuzzerSvg
                   pins={def.pins}
                   activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
                   onPinClick={(pin) => handlePinClick(comp, pin)}

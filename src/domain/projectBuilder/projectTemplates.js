@@ -330,6 +330,186 @@ void loop() {
 }
 
 /**
+ * RGB Mood Light Build Plan
+ * Requirements:
+ * - 1x Arduino Uno R3
+ * - 1x Half Breadboard
+ * - 1x RGB LED (Common Cathode)
+ * - 3x 220Ω Resistors (Red on D9, Green on D10, Blue on D11)
+ */
+export function createRgbMoodLightBuildPlan(customTitle = null) {
+  return {
+    title: customTitle || 'RGB LED Mood Light & Color Mixer',
+    description: 'Dynamic PWM color fader using a common cathode RGB LED with 3 series 220Ω resistors on PWM pins D9, D10, and D11.',
+    targetBoard: 'uno-main',
+    behavior: 'Smoothly cycles through red, green, blue, cyan, magenta, and amber color spectra.',
+    components: [
+      { id: 'uno-main', type: 'arduino-uno', name: 'Arduino Uno R3', x: 60, y: 140, props: { model: 'Uno R3', voltage: '5V' } },
+      { id: 'bb-main', type: 'breadboard-half', name: 'Half Breadboard', x: 420, y: 120, props: { rows: 30 } },
+      { id: 'rgb-1', type: 'rgb-led', name: 'RGB LED (Common Cathode)', x: 480, y: 310, props: { model: 'Common Cathode' } },
+      { id: 'res-r', type: 'resistor', name: '220Ω Resistor (Red)', x: 440, y: 410, props: { resistance: '220Ω' } },
+      { id: 'res-g', type: 'resistor', name: '220Ω Resistor (Green)', x: 520, y: 410, props: { resistance: '220Ω' } },
+      { id: 'res-b', type: 'resistor', name: '220Ω Resistor (Blue)', x: 600, y: 410, props: { resistance: '220Ω' } }
+    ],
+    connections: [
+      { id: 'w-uno-gnd', from: { componentId: 'uno-main', pinId: 'GND' }, to: { componentId: 'bb-main', pinId: 'rail-bot-neg' }, color: '#0F172A', label: 'Ground Rail' },
+      { id: 'w-rgb-cat', from: { componentId: 'rgb-1', pinId: 'cathode' }, to: { componentId: 'bb-main', pinId: 'rail-bot-neg' }, color: '#0F172A', label: 'RGB Cathode to GND' },
+      { id: 'w-uno-d9', from: { componentId: 'uno-main', pinId: 'D9' }, to: { componentId: 'res-r', pinId: 'lead1' }, color: '#EF4444', label: 'PWM Pin 9 to Red Resistor' },
+      { id: 'w-res-r-lead', from: { componentId: 'res-r', pinId: 'lead2' }, to: { componentId: 'rgb-1', pinId: 'red' }, color: '#EF4444', label: 'Red Anode Lead' },
+      { id: 'w-uno-d10', from: { componentId: 'uno-main', pinId: 'D10' }, to: { componentId: 'res-g', pinId: 'lead1' }, color: '#187A57', label: 'PWM Pin 10 to Green Resistor' },
+      { id: 'w-res-g-lead', from: { componentId: 'res-g', pinId: 'lead2' }, to: { componentId: 'rgb-1', pinId: 'green' }, color: '#187A57', label: 'Green Anode Lead' },
+      { id: 'w-uno-d11', from: { componentId: 'uno-main', pinId: 'D11' }, to: { componentId: 'res-b', pinId: 'lead1' }, color: '#3B82F6', label: 'PWM Pin 11 to Blue Resistor' },
+      { id: 'w-res-b-lead', from: { componentId: 'res-b', pinId: 'lead2' }, to: { componentId: 'rgb-1', pinId: 'blue' }, color: '#3B82F6', label: 'Blue Anode Lead' }
+    ],
+    firmware: {
+      files: [
+        {
+          name: 'sketch.ino',
+          content: `// Tracewise RGB LED Mood Light & Color Mixer
+const int RED_PIN = 9;
+const int GREEN_PIN = 10;
+const int BLUE_PIN = 11;
+
+void setup() {
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
+}
+
+void setColor(int redVal, int greenVal, int blueVal) {
+  analogWrite(RED_PIN, redVal);
+  analogWrite(GREEN_PIN, greenVal);
+  analogWrite(BLUE_PIN, blueVal);
+}
+
+void loop() {
+  // Red
+  setColor(255, 0, 0);
+  delay(1000);
+  // Green
+  setColor(0, 255, 0);
+  delay(1000);
+  // Blue
+  setColor(0, 0, 255);
+  delay(1000);
+  // Cyan
+  setColor(0, 255, 255);
+  delay(1000);
+  // Amber / Yellow
+  setColor(255, 180, 0);
+  delay(1000);
+}
+`
+        }
+      ]
+    }
+  };
+}
+
+/**
+ * Potentiometer Dimmer Build Plan
+ */
+export function createPotentiometerDimmerBuildPlan(customTitle = null) {
+  return {
+    title: customTitle || 'Rotary Potentiometer LED Dimmer',
+    description: 'Analog input control: Reading 10k potentiometer wiper on A0 and mapping 0–1023 to PWM brightness on pin D9.',
+    targetBoard: 'uno-main',
+    behavior: 'Rotating the potentiometer smoothly scales the LED brightness from 0% to 100%.',
+    components: [
+      { id: 'uno-main', type: 'arduino-uno', name: 'Arduino Uno R3', x: 60, y: 140, props: { model: 'Uno R3', voltage: '5V' } },
+      { id: 'bb-main', type: 'breadboard-half', name: 'Half Breadboard', x: 420, y: 120, props: { rows: 30 } },
+      { id: 'pot-1', type: 'potentiometer', name: '10kΩ Potentiometer', x: 460, y: 280, props: { resistance: '10kΩ', value: 512 } },
+      { id: 'led-1', type: 'led', name: 'Red Indicator LED', x: 620, y: 310, props: { color: 'red' } },
+      { id: 'res-1', type: 'resistor', name: '220Ω Resistor', x: 620, y: 410, props: { resistance: '220Ω' } }
+    ],
+    connections: [
+      { id: 'w-uno-5v', from: { componentId: 'uno-main', pinId: '5V' }, to: { componentId: 'pot-1', pinId: 'pin1' }, color: '#EF4444', label: '5V to Pot Terminal 1' },
+      { id: 'w-uno-gnd', from: { componentId: 'uno-main', pinId: 'GND' }, to: { componentId: 'pot-1', pinId: 'pin3' }, color: '#0F172A', label: 'GND to Pot Terminal 2' },
+      { id: 'w-pot-wiper', from: { componentId: 'pot-1', pinId: 'wiper' }, to: { componentId: 'uno-main', pinId: 'A0' }, color: '#EAB308', label: 'Pot Wiper to Analog A0' },
+      { id: 'w-uno-d9', from: { componentId: 'uno-main', pinId: 'D9' }, to: { componentId: 'led-1', pinId: 'anode' }, color: '#3B82F6', label: 'PWM Pin 9 to LED Anode' },
+      { id: 'w-led-res', from: { componentId: 'led-1', pinId: 'cathode' }, to: { componentId: 'res-1', pinId: 'lead1' }, color: '#0F172A', label: 'LED Cathode to Resistor' },
+      { id: 'w-res-gnd', from: { componentId: 'res-1', pinId: 'lead2' }, to: { componentId: 'uno-main', pinId: 'GND_2' }, color: '#0F172A', label: 'Resistor to Ground' }
+    ],
+    firmware: {
+      files: [
+        {
+          name: 'sketch.ino',
+          content: `// Tracewise Potentiometer Dimmer
+const int POT_PIN = A0;
+const int LED_PIN = 9;
+
+void setup() {
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+  // Read analog input (0 - 1023)
+  int potValue = analogRead(POT_PIN);
+  
+  // Map to 8-bit PWM range (0 - 255)
+  int brightness = map(potValue, 0, 1023, 0, 255);
+  
+  // Drive LED brightness
+  analogWrite(LED_PIN, brightness);
+  delay(15);
+}
+`
+        }
+      ]
+    }
+  };
+}
+
+/**
+ * Active Buzzer Sound Alarm Build Plan
+ */
+export function createBuzzerAlarmBuildPlan(customTitle = null) {
+  return {
+    title: customTitle || 'Push-Button Sound Alarm & Active Buzzer',
+    description: 'Security & alert circuit: Pressing the push button triggers the 2.5kHz active piezo buzzer sound.',
+    targetBoard: 'uno-main',
+    behavior: 'Press button on D2 -> Active Buzzer on D8 sounds audible tone.',
+    components: [
+      { id: 'uno-main', type: 'arduino-uno', name: 'Arduino Uno R3', x: 60, y: 140, props: { model: 'Uno R3', voltage: '5V' } },
+      { id: 'bb-main', type: 'breadboard-half', name: 'Half Breadboard', x: 420, y: 120, props: { rows: 30 } },
+      { id: 'btn-1', type: 'push-button', name: 'Alarm Trigger Button', x: 460, y: 310, props: { color: 'red' } },
+      { id: 'buzzer-1', type: 'buzzer', name: 'Active Piezo Buzzer', x: 600, y: 300, props: { tone: '2.5kHz' } }
+    ],
+    connections: [
+      { id: 'w-uno-gnd', from: { componentId: 'uno-main', pinId: 'GND_TOP' }, to: { componentId: 'btn-1', pinId: '2a' }, color: '#0F172A', label: 'Button Ground Return' },
+      { id: 'w-btn-d2', from: { componentId: 'btn-1', pinId: '1a' }, to: { componentId: 'uno-main', pinId: 'D2' }, color: '#187A57', label: 'Button to Digital Pin 2' },
+      { id: 'w-buz-d8', from: { componentId: 'buzzer-1', pinId: 'anode' }, to: { componentId: 'uno-main', pinId: 'D8' }, color: '#F97316', label: 'Buzzer (+) to Pin 8' },
+      { id: 'w-buz-gnd', from: { componentId: 'buzzer-1', pinId: 'cathode' }, to: { componentId: 'uno-main', pinId: 'GND' }, color: '#0F172A', label: 'Buzzer (-) to Ground' }
+    ],
+    firmware: {
+      files: [
+        {
+          name: 'sketch.ino',
+          content: `// Tracewise Active Buzzer Alarm Controller
+const int BUTTON_PIN = 2;
+const int BUZZER_PIN = 8;
+
+void setup() {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(BUZZER_PIN, OUTPUT);
+}
+
+void loop() {
+  int buttonState = digitalRead(BUTTON_PIN);
+  if (buttonState == LOW) { // Button pressed
+    digitalWrite(BUZZER_PIN, HIGH);
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+}
+`
+        }
+      ]
+    }
+  };
+}
+
+/**
  * Generates an accurate, grounded circuit explanation for the Disco Light project.
  */
 export function generateGroundedCircuitExplanation(project) {

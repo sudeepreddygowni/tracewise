@@ -137,6 +137,125 @@ export function ComponentInspector({
             </div>
           )}
 
+          {/* RGB LED Color controls */}
+          {selectedComponent.type === 'rgb-led' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)', display: 'block' }}>
+                RGB Color Mix:
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {[
+                  { name: 'Purple', r: 255, g: 0, b: 255 },
+                  { name: 'Cyan', r: 0, g: 255, b: 255 },
+                  { name: 'Amber', r: 255, g: 180, b: 0 },
+                  { name: 'White', r: 255, g: 255, b: 255 }
+                ].map((preset) => (
+                  <TracewiseBubbleButton
+                    key={preset.name}
+                    onClick={() => onUpdateProps({ red: preset.r, green: preset.g, blue: preset.b })}
+                    variant="ghost"
+                    size="sm"
+                    style={{ padding: '3px 7px', fontSize: '0.72rem' }}
+                  >
+                    {preset.name}
+                  </TracewiseBubbleButton>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Potentiometer wiper control */}
+          {selectedComponent.type === 'potentiometer' && (
+            <div>
+              <label style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)', display: 'block', marginBottom: '4px' }}>
+                Wiper Value: <b>{selectedComponent.props?.value ?? 512}</b> / 1023
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1023"
+                value={selectedComponent.props?.value ?? 512}
+                onChange={(e) => onUpdateProps({ value: parseInt(e.target.value, 10) })}
+                style={{ width: '100%', accentColor: 'var(--tw-brand)' }}
+              />
+            </div>
+          )}
+
+          {/* Photoresistor Light Level */}
+          {selectedComponent.type === 'photoresistor' && (
+            <div>
+              <label style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)', display: 'block', marginBottom: '6px' }}>
+                Simulated Ambient Light:
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['dark', 'dim', 'bright'].map((lvl) => {
+                  const isActive = (selectedComponent.props?.lightLevel || 'dim') === lvl;
+                  return (
+                    <TracewiseBubbleButton
+                      key={lvl}
+                      onClick={() => onUpdateProps({ lightLevel: lvl })}
+                      variant={isActive ? 'primary' : 'ghost'}
+                      size="sm"
+                      style={{ padding: '3px 8px', fontSize: '0.74rem', textTransform: 'capitalize' }}
+                    >
+                      {lvl}
+                    </TracewiseBubbleButton>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Slide Switch Position */}
+          {selectedComponent.type === 'slide-switch' && (
+            <div>
+              <label style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)', display: 'block', marginBottom: '6px' }}>
+                Switch Position:
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['left', 'right'].map((pos) => {
+                  const isActive = (selectedComponent.props?.state || 'left') === pos;
+                  return (
+                    <TracewiseBubbleButton
+                      key={pos}
+                      onClick={() => onUpdateProps({ state: pos })}
+                      variant={isActive ? 'primary' : 'ghost'}
+                      size="sm"
+                      style={{ padding: '3px 8px', fontSize: '0.74rem', textTransform: 'capitalize' }}
+                    >
+                      {pos === 'left' ? 'Terminal 1' : 'Terminal 2'}
+                    </TracewiseBubbleButton>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Active Buzzer Tone */}
+          {selectedComponent.type === 'buzzer' && (
+            <div>
+              <label style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)', display: 'block', marginBottom: '6px' }}>
+                Sounder Frequency:
+              </label>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['1kHz', '2.5kHz', '4kHz'].map((tone) => {
+                  const isActive = (selectedComponent.props?.tone || '2.5kHz') === tone;
+                  return (
+                    <TracewiseBubbleButton
+                      key={tone}
+                      onClick={() => onUpdateProps({ tone })}
+                      variant={isActive ? 'primary' : 'ghost'}
+                      size="sm"
+                      style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                    >
+                      {tone}
+                    </TracewiseBubbleButton>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Canvas Position */}
           <div style={{ display: 'flex', gap: '12px', fontSize: '0.78rem', color: 'var(--tw-text-secondary)', marginTop: '4px' }}>
             <span>X: <b>{selectedComponent.x}px</b></span>

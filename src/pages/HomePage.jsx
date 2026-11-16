@@ -253,6 +253,7 @@ export function HomePage() {
           aria-hidden="true"
         >
           <GradientASCII
+            speed={1.12}
             colors={['#1e3fd8', '#f6f8ff', '#a5d8ff', '#38bdf8']}
             shape="horizon"
             characters=" =+xX0S8#@"

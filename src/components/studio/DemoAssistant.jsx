@@ -24,7 +24,13 @@ import {
 import { assistantProvider } from '../../domain/assistant/assistantProvider';
 import { SafeMarkdown } from './SafeMarkdown';
 import { detectUnsupportedHardware, classifyBuildIntent, BUILD_INTENT } from '../../domain/projectBuilder/projectPlanner';
-import { createDiscoLightBuildPlan, generateGroundedCircuitExplanation } from '../../domain/projectBuilder/projectTemplates';
+import {
+  createDiscoLightBuildPlan,
+  createRgbMoodLightBuildPlan,
+  createPotentiometerDimmerBuildPlan,
+  createBuzzerAlarmBuildPlan,
+  generateGroundedCircuitExplanation
+} from '../../domain/projectBuilder/projectTemplates';
 import { compileBuildPlan } from '../../domain/projectBuilder/catalogCompiler';
 import { planAddLedModification } from '../../domain/projectBuilder/projectModifier';
 
@@ -156,7 +162,7 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
         {
           id: `ast-${Date.now()}`,
           role: 'assistant',
-          text: `### ⚠️ Component Not Available in Catalog\n\nTracewise cannot fully build this project because the required component (**${unsupported.join(', ')}**) is not available in the current component library.\n\nOur catalog currently supports low-voltage educational basics:\n- **Microcontroller:** Arduino Uno R3\n- **Prototyping:** Half Breadboard\n- **Passives & Inputs:** 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons\n\nI will not generate an empty skeleton or fabricate connections for unsupported components. Would you like to build an interactive circuit using our supported catalog components?`,
+          text: `### ⚠️ Component Not Available in Catalog\n\nTracewise cannot fully build this project because the required component (**${unsupported.join(', ')}**) is not available in the current component library.\n\nOur catalog currently supports:\n- **Microcontroller:** Arduino Uno R3\n- **Prototyping:** Half Breadboard\n- **Components:** 5mm LEDs (Red, Green, Blue, Yellow), RGB LED (Common Cathode), 220Ω & 10kΩ Resistors, Momentary Push Buttons, Potentiometer (10k), Photoresistor (LDR), Slide Switch (SPDT), and Active Piezo Buzzer\n\nI will not generate an empty skeleton or fabricate connections for unsupported components. Would you like to build an interactive circuit using our supported catalog components?`,
           sourceTag: 'Tracewise Project Builder',
           verifiedFacts: [
             `Requested: ${unsupported.join(', ')}`,
@@ -274,6 +280,114 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
             'Wires: 15',
             'Validation: PASSED'
           ]
+        }
+      ]);
+      setIsThinking(false);
+      return;
+    }
+
+    // 3b. RGB Mood Light Build
+    const isRgbBuild = (lower.includes('rgb') || lower.includes('color mixer') || lower.includes('mood light')) &&
+      (lower.includes('build') || lower.includes('create') || lower.includes('make'));
+    if (isRgbBuild) {
+      const plan = createRgbMoodLightBuildPlan();
+      const compiled = compileBuildPlan(plan);
+      const proposalId = `prop-rgb-${Date.now()}`;
+      const newProposal = {
+        id: proposalId,
+        title: plan.title,
+        summary: plan.description,
+        changes: [
+          { type: 'circuit', description: 'Place Common Cathode RGB LED and 3 series 220Ω resistors' },
+          { type: 'circuit', description: 'Wire Red, Green, Blue channels to PWM Pins D9, D10, D11' },
+          { type: 'firmware', description: 'Compile PWM analogWrite spectrum cycling firmware' }
+        ],
+        action: () => {
+          onApplyFix({ type: 'replace_project', project: compiled.project, id: proposalId });
+          setAppliedProposalId(proposalId);
+        }
+      };
+      setProposals(prev => [newProposal, ...prev]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          text: `### 🌈 Ready to Build RGB LED Mood Light\n\nI have generated a verified build plan for the **RGB LED Mood Light & Color Mixer**:\n\n- **Components:** Arduino Uno R3, Half Breadboard, RGB LED (Common Cathode), 3x 220Ω Resistors\n- **Connections:** PWM pins D9, D10, D11 driving color anodes through resistors, cathode grounded\n- **Firmware:** PWM spectrum fader loaded into Arduino C++ editor\n\nClick **"Review & Apply"** on the proposal card above to place this circuit onto your canvas.`,
+          sourceTag: 'Tracewise Project Builder',
+          verifiedFacts: ['RGB Channels: D9 (Red), D10 (Green), D11 (Blue)', 'Resistors: 3x 220Ω']
+        }
+      ]);
+      setIsThinking(false);
+      return;
+    }
+
+    // 3c. Potentiometer Dimmer Build
+    const isPotBuild = (lower.includes('potentiometer') || lower.includes('dimmer') || lower.includes('dial')) &&
+      (lower.includes('build') || lower.includes('create') || lower.includes('make'));
+    if (isPotBuild) {
+      const plan = createPotentiometerDimmerBuildPlan();
+      const compiled = compileBuildPlan(plan);
+      const proposalId = `prop-pot-${Date.now()}`;
+      const newProposal = {
+        id: proposalId,
+        title: plan.title,
+        summary: plan.description,
+        changes: [
+          { type: 'circuit', description: 'Place 10kΩ Potentiometer, Red LED, and 220Ω Resistor' },
+          { type: 'circuit', description: 'Wire wiper to Analog A0, 5V, GND, and LED to PWM D9' },
+          { type: 'firmware', description: 'Compile analogRead to PWM map() brightness scaling firmware' }
+        ],
+        action: () => {
+          onApplyFix({ type: 'replace_project', project: compiled.project, id: proposalId });
+          setAppliedProposalId(proposalId);
+        }
+      };
+      setProposals(prev => [newProposal, ...prev]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          text: `### 🎛️ Ready to Build Potentiometer LED Dimmer\n\nI have generated a verified build plan for the **Rotary Potentiometer LED Dimmer**:\n\n- **Components:** Arduino Uno R3, Half Breadboard, 10kΩ Rotary Potentiometer, Red LED, 220Ω Resistor\n- **Wiring:** Wiper to Analog A0, LED driven from PWM Pin 9 through current-limiting resistor\n- **Firmware:** \`analogRead(A0)\` mapped to \`analogWrite(9, val)\`\n\nClick **"Review & Apply"** above to build this circuit onto your canvas.`,
+          sourceTag: 'Tracewise Project Builder',
+          verifiedFacts: ['Wiper Pin: A0 (0-1023 input)', 'Output Pin: D9 (PWM 0-255 brightness)']
+        }
+      ]);
+      setIsThinking(false);
+      return;
+    }
+
+    // 3d. Buzzer Alarm Build
+    const isBuzzerBuild = (lower.includes('buzzer') || lower.includes('alarm') || lower.includes('beeper')) &&
+      (lower.includes('build') || lower.includes('create') || lower.includes('make'));
+    if (isBuzzerBuild) {
+      const plan = createBuzzerAlarmBuildPlan();
+      const compiled = compileBuildPlan(plan);
+      const proposalId = `prop-buz-${Date.now()}`;
+      const newProposal = {
+        id: proposalId,
+        title: plan.title,
+        summary: plan.description,
+        changes: [
+          { type: 'circuit', description: 'Place Active Piezo Buzzer and Push Button' },
+          { type: 'circuit', description: 'Wire Push Button to D2 with GND return, Buzzer (+) to D8' },
+          { type: 'firmware', description: 'Compile button debounced audio trigger firmware' }
+        ],
+        action: () => {
+          onApplyFix({ type: 'replace_project', project: compiled.project, id: proposalId });
+          setAppliedProposalId(proposalId);
+        }
+      };
+      setProposals(prev => [newProposal, ...prev]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          text: `### 🔔 Ready to Build Push-Button Sound Alarm\n\nI have generated a verified build plan for the **Push-Button Sound Alarm & Active Buzzer**:\n\n- **Components:** Arduino Uno R3, Half Breadboard, Alarm Push Button, Active Piezo Buzzer\n- **Wiring:** Button on digital input D2 (INPUT_PULLUP), Buzzer positive lead on digital output D8\n- **Firmware:** Real-time state detection sounding 2.5kHz alert when pressed\n\nClick **"Review & Apply"** on the proposal card to build this onto your canvas.`,
+          sourceTag: 'Tracewise Project Builder',
+          verifiedFacts: ['Trigger: Pin D2 (INPUT_PULLUP)', 'Sound: Pin D8 (Active Buzzer)']
         }
       ]);
       setIsThinking(false);

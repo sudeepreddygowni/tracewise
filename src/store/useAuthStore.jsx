@@ -360,24 +360,37 @@ export function AuthProvider({ children }) {
     if (!user) return null;
 
     try {
+      const cleanHandle = updatedFields.handle
+        ? updatedFields.handle.toLowerCase().trim().replace(/[^a-z0-9_]/g, '')
+        : user.handle;
+
       if (isSupabaseConfigured() && supabase && !user.isAnonymous) {
+        const updatePayload = {
+          display_name: updatedFields.displayName || user.displayName,
+          handle: cleanHandle,
+          bio: updatedFields.bio ?? user.bio,
+          skills: updatedFields.skills || user.skills,
+          avatar_url: updatedFields.avatarUrl ?? user.avatarUrl,
+          updated_at: new Date().toISOString()
+        };
+
         const { error: updateErr } = await supabase
           .from('profiles')
-          .update({
-            display_name: updatedFields.displayName || user.displayName,
-            bio: updatedFields.bio ?? user.bio,
-            skills: updatedFields.skills || user.skills,
-            avatar_url: updatedFields.avatarUrl ?? user.avatarUrl,
-            updated_at: new Date().toISOString()
-          })
+          .update(updatePayload)
           .eq('id', user.uid);
 
-        if (updateErr) throw updateErr;
+        if (updateErr) {
+          if (updateErr.code === '23505') {
+            throw new Error(`The handle "@${cleanHandle}" is already taken by another maker.`);
+          }
+          throw updateErr;
+        }
       }
 
       const updatedUser = {
         ...user,
         displayName: updatedFields.displayName || user.displayName,
+        handle: cleanHandle,
         bio: updatedFields.bio ?? user.bio,
         skills: updatedFields.skills || user.skills,
         avatarUrl: updatedFields.avatarUrl ?? user.avatarUrl

@@ -28,7 +28,11 @@ import {
   generateQuizQuestions,
   evaluateInterviewAnswer
 } from '../domain/pitch/pitchEngine';
-import { getPitchPreparation, savePitchPreparation } from '../services/pitchStorage';
+import {
+  getPitchPreparation,
+  savePitchPreparation,
+  recordPitchAttempt
+} from '../services/pitchStorage';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleIconButton,
@@ -124,8 +128,12 @@ export function PitchLabPage() {
     setIsSaving(true);
     setSaveStatus('Saving...');
     try {
-      await savePitchPreparation(currentProj.id, { brief: updatedBrief, pitches: updatedPitches }, user);
-      setSaveStatus(user && !user.isAnonymous ? 'Saved to Supabase' : 'Saved locally in browser');
+      const res = await savePitchPreparation(currentProj.id, { brief: updatedBrief, pitches: updatedPitches }, user);
+      if (res && res.message) {
+        setSaveStatus(res.message);
+      } else {
+        setSaveStatus(user && !user.isAnonymous ? 'Synced to Supabase' : 'Saved locally in browser');
+      }
     } catch (e) {
       setSaveStatus('Save error');
     } finally {
@@ -171,6 +179,18 @@ export function PitchLabPage() {
     return Math.round((correct / quizQuestions.length) * 100);
   };
 
+  const handleSubmitQuiz = () => {
+    setQuizSubmitted(true);
+    const score = calculateQuizScore();
+    if (currentProj) {
+      recordPitchAttempt(currentProj.id, {
+        attemptType: 'quiz',
+        score,
+        data: { quizAnswers }
+      }, user).catch(() => {});
+    }
+  };
+
   // Mock interview answer submission
   const handleEvaluateAnswer = () => {
     if (!userInterviewAnswer.trim()) return;
@@ -185,6 +205,20 @@ export function PitchLabPage() {
       }
     }));
     setIsEvaluating(false);
+
+    if (currentProj && evaluation) {
+      recordPitchAttempt(currentProj.id, {
+        attemptType: 'mock_interview',
+        score: evaluation.overallScore,
+        data: {
+          questionId: currQ.id,
+          question: currQ.question,
+          userAnswer: userInterviewAnswer,
+          scores: evaluation.scores,
+          feedback: evaluation.feedback
+        }
+      }, user).catch(() => {});
+    }
   };
 
   if (!currentProj) {
@@ -714,7 +748,7 @@ export function PitchLabPage() {
                   </TracewiseBubbleButton>
                 ) : (
                   <TracewiseBubbleButton
-                    onClick={() => setQuizSubmitted(true)}
+                    onClick={handleSubmitQuiz}
                     variant="primary"
                     disabled={Object.keys(quizAnswers).length < quizQuestions.length}
                   >

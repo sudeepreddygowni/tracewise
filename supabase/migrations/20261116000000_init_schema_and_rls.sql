@@ -4,7 +4,7 @@
 -- =============================================================================
 
 -- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 
 -- -----------------------------------------------------------------------------
 -- 1. PROFILES TABLE
@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS public.community_comments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_community_comments_post_id ON public.community_comments (post_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_community_comments_author ON public.community_comments (author_id);
 
 -- -----------------------------------------------------------------------------
 -- 4. COMMUNITY REPORTS TABLE (Private moderation queue)
@@ -82,6 +83,9 @@ CREATE TABLE IF NOT EXISTS public.community_reports (
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_community_reports_status ON public.community_reports (status);
+CREATE INDEX IF NOT EXISTS idx_community_reports_reporter ON public.community_reports (reporter_id);
+
 -- -----------------------------------------------------------------------------
 -- 5. PITCH LAB PREPARATIONS TABLE (Private to student)
 -- -----------------------------------------------------------------------------
@@ -96,7 +100,7 @@ CREATE TABLE IF NOT EXISTS public.pitch_preparations (
   CONSTRAINT unique_user_project_pitch UNIQUE (user_id, project_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_pitch_preparations_user ON public.pitch_preparations (user_id);
+CREATE INDEX IF NOT EXISTS idx_pitch_preparations_user_proj ON public.pitch_preparations (user_id, project_id);
 
 -- -----------------------------------------------------------------------------
 -- 6. PITCH LAB QUESTIONS TABLE
@@ -110,6 +114,8 @@ CREATE TABLE IF NOT EXISTS public.pitch_questions (
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()) NOT NULL,
   CONSTRAINT unique_user_project_questions UNIQUE (user_id, project_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_pitch_questions_user_proj ON public.pitch_questions (user_id, project_id);
 
 -- -----------------------------------------------------------------------------
 -- 7. PITCH LAB ATTEMPTS TABLE (Quizzes & Mock Interview sessions)
@@ -138,13 +144,18 @@ ALTER TABLE public.pitch_preparations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_attempts ENABLE ROW LEVEL SECURITY;
 
--- Helper function to check if current caller is permanent (not anonymous)
+-- Helper function: is_permanent_user()
+-- Checks verified JWT claims to distinguish permanent accounts from anonymous sessions.
 CREATE OR REPLACE FUNCTION public.is_permanent_user()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SET search_path = public
 AS $$
-  SELECT (auth.jwt() ->> 'is_anonymous')::BOOLEAN IS NOT TRUE;
+  SELECT 
+    auth.uid() IS NOT NULL 
+    AND COALESCE((auth.jwt() ->> 'is_anonymous')::BOOLEAN, FALSE) IS NOT TRUE
+    AND COALESCE((auth.jwt() -> 'app_metadata' ->> 'is_anonymous')::BOOLEAN, FALSE) IS NOT TRUE;
 $$;
 
 -- -----------------------------------------------------------------------------
@@ -156,90 +167,187 @@ CREATE POLICY "Public profiles are readable by everyone"
 
 CREATE POLICY "Users can insert their own profile"
   ON public.profiles FOR INSERT
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK ((select auth.uid()) = id);
 
 CREATE POLICY "Users can update only their own profile"
   ON public.profiles FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  USING ((select auth.uid()) = id)
+  WITH CHECK ((select auth.uid()) = id);
 
 CREATE POLICY "Users can delete only their own profile"
   ON public.profiles FOR DELETE
-  USING (auth.uid() = id);
+  USING ((select auth.uid()) = id);
 
 -- -----------------------------------------------------------------------------
 -- COMMUNITY POSTS RLS
 -- -----------------------------------------------------------------------------
 CREATE POLICY "Approved community posts are readable by all"
   ON public.community_posts FOR SELECT
-  USING (moderation_status = 'approved' OR auth.uid() = author_id);
+  USING (moderation_status = 'approved' OR (select auth.uid()) = author_id);
 
 CREATE POLICY "Permanent users can create posts"
   ON public.community_posts FOR INSERT
   WITH CHECK (
-    auth.uid() = author_id
-    AND public.is_permanent_user()
+    (select auth.uid()) = author_id
+    AND (select public.is_permanent_user())
   );
 
 CREATE POLICY "Authors can update their own posts"
   ON public.community_posts FOR UPDATE
-  USING (auth.uid() = author_id AND public.is_permanent_user())
-  WITH CHECK (auth.uid() = author_id AND public.is_permanent_user());
+  USING ((select auth.uid()) = author_id AND (select public.is_permanent_user()))
+  WITH CHECK ((select auth.uid()) = author_id AND (select public.is_permanent_user()));
 
 CREATE POLICY "Authors can delete their own posts"
   ON public.community_posts FOR DELETE
-  USING (auth.uid() = author_id AND public.is_permanent_user());
+  USING ((select auth.uid()) = author_id AND (select public.is_permanent_user()));
 
 -- -----------------------------------------------------------------------------
 -- COMMUNITY COMMENTS RLS
 -- -----------------------------------------------------------------------------
 CREATE POLICY "Approved comments are readable by all"
   ON public.community_comments FOR SELECT
-  USING (moderation_status = 'approved' OR auth.uid() = author_id);
+  USING (moderation_status = 'approved' OR (select auth.uid()) = author_id);
 
 CREATE POLICY "Permanent users can add comments"
   ON public.community_comments FOR INSERT
   WITH CHECK (
-    auth.uid() = author_id
-    AND public.is_permanent_user()
+    (select auth.uid()) = author_id
+    AND (select public.is_permanent_user())
   );
 
 CREATE POLICY "Authors can update their own comments"
   ON public.community_comments FOR UPDATE
-  USING (auth.uid() = author_id AND public.is_permanent_user())
-  WITH CHECK (auth.uid() = author_id AND public.is_permanent_user());
+  USING ((select auth.uid()) = author_id AND (select public.is_permanent_user()))
+  WITH CHECK ((select auth.uid()) = author_id AND (select public.is_permanent_user()));
 
 CREATE POLICY "Authors can delete their own comments"
   ON public.community_comments FOR DELETE
-  USING (auth.uid() = author_id AND public.is_permanent_user());
+  USING ((select auth.uid()) = author_id AND (select public.is_permanent_user()));
 
 -- -----------------------------------------------------------------------------
--- COMMUNITY REPORTS RLS (Write-only for users, never publicly readable)
+-- COMMUNITY REPORTS RLS (Write-only for reporters, never publicly readable)
 -- -----------------------------------------------------------------------------
 CREATE POLICY "Authenticated users can submit reports"
   ON public.community_reports FOR INSERT
-  WITH CHECK (auth.uid() = reporter_id);
+  WITH CHECK ((select auth.uid()) = reporter_id);
 
 -- -----------------------------------------------------------------------------
 -- PITCH LAB RLS (Strict user isolation)
 -- -----------------------------------------------------------------------------
 CREATE POLICY "Users can manage their own pitch preparations"
   ON public.pitch_preparations FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING ((select auth.uid()) = user_id)
+  WITH CHECK ((select auth.uid()) = user_id);
 
 CREATE POLICY "Users can manage their own pitch questions"
   ON public.pitch_questions FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING ((select auth.uid()) = user_id)
+  WITH CHECK ((select auth.uid()) = user_id);
 
 CREATE POLICY "Users can manage their own pitch attempts"
   ON public.pitch_attempts FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING ((select auth.uid()) = user_id)
+  WITH CHECK ((select auth.uid()) = user_id);
+
+-- =============================================================================
+-- DATABASE INTEGRITY & MODERATION TRIGGERS
+-- =============================================================================
+
+-- Protect community post fields from tampering on update
+CREATE OR REPLACE FUNCTION public.protect_community_post_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.author_id := OLD.author_id;
+  NEW.author_handle := OLD.author_handle;
+  NEW.comment_count := OLD.comment_count;
+  NEW.created_at := OLD.created_at;
+  NEW.updated_at := TIMEZONE('utc', NOW());
+
+  IF OLD.moderation_status IN ('flagged', 'hidden') AND NEW.moderation_status = 'approved' THEN
+    NEW.moderation_status := OLD.moderation_status;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER trg_protect_community_post_fields
+  BEFORE UPDATE ON public.community_posts
+  FOR EACH ROW EXECUTE FUNCTION public.protect_community_post_fields();
+
+-- Protect community comments on update
+CREATE OR REPLACE FUNCTION public.protect_community_comment_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  NEW.author_id := OLD.author_id;
+  NEW.author_handle := OLD.author_handle;
+  NEW.post_id := OLD.post_id;
+  NEW.created_at := OLD.created_at;
+  NEW.updated_at := TIMEZONE('utc', NOW());
+
+  IF OLD.moderation_status IN ('flagged', 'hidden') AND NEW.moderation_status = 'approved' THEN
+    NEW.moderation_status := OLD.moderation_status;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER trg_protect_community_comment_fields
+  BEFORE UPDATE ON public.community_comments
+  FOR EACH ROW EXECUTE FUNCTION public.protect_community_comment_fields();
+
+-- Automatically keep comment_count synchronized on post
+CREATE OR REPLACE FUNCTION public.sync_post_comment_count()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE public.community_posts
+    SET comment_count = (
+      SELECT COUNT(*) FROM public.community_comments 
+      WHERE post_id = NEW.post_id AND moderation_status = 'approved'
+    )
+    WHERE id = NEW.post_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE public.community_posts
+    SET comment_count = (
+      SELECT COUNT(*) FROM public.community_comments 
+      WHERE post_id = OLD.post_id AND moderation_status = 'approved'
+    )
+    WHERE id = OLD.post_id;
+    RETURN OLD;
+  ELSIF TG_OP = 'UPDATE' THEN
+    UPDATE public.community_posts
+    SET comment_count = (
+      SELECT COUNT(*) FROM public.community_comments 
+      WHERE post_id = NEW.post_id AND moderation_status = 'approved'
+    )
+    WHERE id = NEW.post_id;
+    RETURN NEW;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER trg_sync_post_comment_count
+  AFTER INSERT OR UPDATE OR DELETE ON public.community_comments
+  FOR EACH ROW EXECUTE FUNCTION public.sync_post_comment_count();
 
 -- -----------------------------------------------------------------------------
--- AUTOMATIC PROFILE CREATION TRIGGER
+-- AUTOMATIC PROFILE CREATION & UPGRADE TRIGGER
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -252,52 +360,75 @@ DECLARE
   base_handle TEXT;
   is_anon BOOLEAN;
 BEGIN
-  is_anon := COALESCE((new.raw_app_meta_data->>'is_anonymous')::BOOLEAN, FALSE);
+  is_anon := COALESCE(
+    (new.raw_app_meta_data->>'is_anonymous')::BOOLEAN,
+    (new.raw_user_meta_data->>'is_anonymous')::BOOLEAN,
+    FALSE
+  );
 
-  IF is_anon THEN
-    clean_handle := 'guest_' || SUBSTRING(new.id::TEXT FROM 1 FOR 8);
-    INSERT INTO public.profiles (id, handle, display_name, bio, is_anonymous)
-    VALUES (
-      new.id,
-      clean_handle,
-      'Guest',
-      'Exploring circuits and projects on Tracewise as a guest visitor.',
-      TRUE
-    )
-    ON CONFLICT (id) DO NOTHING;
-  ELSE
-    base_handle := LOWER(REGEXP_REPLACE(COALESCE(new.raw_user_meta_data->>'handle', split_part(new.email, '@', 1), 'student'), '[^a-z0-9_]', '', 'g'));
-    IF char_length(base_handle) < 3 THEN
-      base_handle := 'maker_' || SUBSTRING(new.id::TEXT FROM 1 FOR 6);
+  IF TG_OP = 'INSERT' THEN
+    IF is_anon THEN
+      clean_handle := 'guest_' || SUBSTRING(new.id::TEXT FROM 1 FOR 8);
+      INSERT INTO public.profiles (id, handle, display_name, bio, is_anonymous)
+      VALUES (
+        new.id,
+        clean_handle,
+        'Guest',
+        'Exploring circuits and projects on Tracewise as a guest visitor.',
+        TRUE
+      )
+      ON CONFLICT (id) DO NOTHING;
+    ELSE
+      base_handle := LOWER(REGEXP_REPLACE(COALESCE(new.raw_user_meta_data->>'handle', split_part(new.email, '@', 1), 'maker'), '[^a-z0-9_]', '', 'g'));
+      IF char_length(base_handle) < 3 THEN
+        base_handle := 'maker_' || SUBSTRING(new.id::TEXT FROM 1 FOR 6);
+      END IF;
+      clean_handle := SUBSTRING(base_handle FROM 1 FOR 20);
+
+      WHILE EXISTS (SELECT 1 FROM public.profiles WHERE LOWER(handle) = LOWER(clean_handle) AND id <> new.id) LOOP
+        clean_handle := SUBSTRING(base_handle FROM 1 FOR 20) || '_' || FLOOR(1000 + RANDOM() * 9000)::TEXT;
+      END LOOP;
+
+      INSERT INTO public.profiles (id, handle, display_name, bio, avatar_url, is_anonymous)
+      VALUES (
+        new.id,
+        clean_handle,
+        COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', 'Student Maker'),
+        'Electronics explorer building and debugging circuits on Tracewise.',
+        new.raw_user_meta_data->>'avatar_url',
+        FALSE
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        is_anonymous = FALSE,
+        display_name = COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', profiles.display_name),
+        avatar_url = COALESCE(new.raw_user_meta_data->>'avatar_url', profiles.avatar_url),
+        updated_at = NOW();
     END IF;
-    clean_handle := SUBSTRING(base_handle FROM 1 FOR 20);
-
-    -- Ensure handle uniqueness if conflict occurs
-    IF EXISTS (SELECT 1 FROM public.profiles WHERE LOWER(handle) = LOWER(clean_handle)) THEN
-      clean_handle := clean_handle || '_' || FLOOR(100 + RANDOM() * 900)::TEXT;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF NOT is_anon THEN
+      UPDATE public.profiles
+      SET 
+        is_anonymous = FALSE,
+        display_name = CASE 
+          WHEN display_name = 'Guest' THEN COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1), 'Student Maker')
+          ELSE display_name 
+        END,
+        avatar_url = COALESCE(new.raw_user_meta_data->>'avatar_url', profiles.avatar_url),
+        updated_at = NOW()
+      WHERE id = new.id;
     END IF;
-
-    INSERT INTO public.profiles (id, handle, display_name, bio, avatar_url, is_anonymous)
-    VALUES (
-      new.id,
-      clean_handle,
-      COALESCE(new.raw_user_meta_data->>'display_name', new.raw_user_meta_data->>'full_name', 'Student Maker'),
-      'Electronics explorer building and debugging circuits on Tracewise.',
-      new.raw_user_meta_data->>'avatar_url',
-      FALSE
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      is_anonymous = FALSE,
-      display_name = EXCLUDED.display_name,
-      updated_at = NOW();
   END IF;
 
   RETURN new;
 END;
 $$;
 
--- Create trigger on auth.users (runs on signup or anonymous signin)
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT OR UPDATE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Revoke public execution of internal trigger functions
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.protect_community_post_fields() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.protect_community_comment_fields() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.sync_post_comment_count() FROM PUBLIC, anon, authenticated;

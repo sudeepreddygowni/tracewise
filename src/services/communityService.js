@@ -116,15 +116,15 @@ export async function getCommunityPosts({ category = 'All', authorUid = null, li
       const { data, error } = await query;
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        return data.map(mapPostRow);
-      }
+      // When Supabase is configured, return genuine database posts (empty array if none exist yet)
+      return (data || []).map(mapPostRow);
     } catch (err) {
-      console.warn('Supabase community posts query error:', err.message);
+      console.error('Supabase community posts query error:', err.message);
+      throw err;
     }
   }
 
-  // Fallback to local storage
+  // Fallback to local storage ONLY in unconfigured offline/preview mode
   try {
     const raw = localStorage.getItem(LOCAL_POSTS_KEY);
     let posts = raw ? JSON.parse(raw) : PREVIEW_COMMUNITY_POSTS;
@@ -150,10 +150,14 @@ export async function getCommunityPostById(postId) {
         .eq('id', postId)
         .single();
 
-      if (error) throw error;
-      if (data) return mapPostRow(data);
+      if (error) {
+        if (error.code === 'PGRST116') return null; // Row not found
+        throw error;
+      }
+      return data ? mapPostRow(data) : null;
     } catch (err) {
       console.warn('Supabase post detail query note:', err.message);
+      return null;
     }
   }
 
@@ -328,13 +332,14 @@ export async function getPostComments(postId) {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      if (data) return data.map(mapCommentRow);
+      return (data || []).map(mapCommentRow);
     } catch (err) {
-      console.warn('Supabase comments query note:', err.message);
+      console.error('Supabase comments query error:', err.message);
+      throw err;
     }
   }
 
-  // Local fallback
+  // Local fallback ONLY when unconfigured
   try {
     const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
     const comments = raw ? JSON.parse(raw) : [];

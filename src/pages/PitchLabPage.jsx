@@ -38,6 +38,7 @@ import {
   TracewiseBubbleIconButton,
   TracewiseBubbleArea
 } from '../components/ui/BubbleActions';
+import { assistantProvider } from '../domain/assistant/assistantProvider';
 
 export function PitchLabPage() {
   const { projectId } = useParams();
@@ -75,6 +76,28 @@ export function PitchLabPage() {
   const [copiedKey, setCopiedKey] = useState(null);
   const [saveStatus, setSaveStatus] = useState('Saved');
   const [isSaving, setIsSaving] = useState(false);
+  const [pitchCritique, setPitchCritique] = useState(null);
+  const [isCritiquing, setIsCritiquing] = useState(false);
+
+  const handleRunAIReview = async () => {
+    const currentText = pitches[`pitch${pitchDuration}`] || '';
+    if (!currentText.trim() || isCritiquing) return;
+
+    setIsCritiquing(true);
+    try {
+      const res = await assistantProvider.getResponse({
+        queryText: currentText,
+        task: 'pitch_review',
+        project: currentProj,
+        validation: currentProj?.validation
+      });
+      setPitchCritique(res);
+    } catch (err) {
+      console.warn('Pitch critique error:', err);
+    } finally {
+      setIsCritiquing(false);
+    }
+  };
 
   // Quiz State
   const [quizAnswers, setQuizAnswers] = useState({});
@@ -557,6 +580,61 @@ export function PitchLabPage() {
                       fontFamily: 'inherit'
                     }}
                   />
+
+                  {/* AI Presentation Review Trigger */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                    <TracewiseBubbleButton
+                      onClick={handleRunAIReview}
+                      variant="primary"
+                      size="sm"
+                      disabled={isCritiquing || !pitches[`pitch${pitchDuration}`]?.trim()}
+                      style={{ gap: '6px' }}
+                    >
+                      <Sparkles size={14} />
+                      <span>{isCritiquing ? 'Analyzing Presentation...' : 'Critique Pitch Draft'}</span>
+                    </TracewiseBubbleButton>
+
+                    <span style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)' }}>
+                      Evaluates problem clarity, timing pace, and hardware grounding.
+                    </span>
+                  </div>
+
+                  {pitchCritique && (
+                    <div
+                      style={{
+                        marginTop: '16px',
+                        padding: '20px',
+                        borderRadius: '16px',
+                        backgroundColor: '#f8fafc',
+                        border: '1.5px solid var(--tw-border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 700, padding: '3px 8px', borderRadius: '6px', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)' }}>
+                            {pitchCritique.sourceTag || 'Deterministic Rule Engine'}
+                          </span>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                            Presentation Evaluation & Rubric Feedback
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPitchCritique(null)}
+                          style={{ background: 'none', border: 'none', color: 'var(--tw-text-muted)', fontSize: '0.76rem', cursor: 'pointer' }}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+
+                      <div style={{ fontSize: '0.86rem', color: 'var(--tw-text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                        {pitchCritique.text}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

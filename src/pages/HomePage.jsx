@@ -36,13 +36,95 @@ export function HomePage() {
 
   const handlePromptSubmit = (e) => {
     e?.preventDefault();
-    const starter = STARTER_PROJECTS[0];
-    loadProject(starter.id);
-    navigate(`/app/studio/${starter.id}`);
+    const clean = promptText.trim();
+    if (!clean) {
+      const defaultStarter = STARTER_PROJECTS[0];
+      loadProject(defaultStarter.id);
+      navigate(`/app/studio/${defaultStarter.id}`);
+      return;
+    }
+
+    const lower = clean.toLowerCase();
+
+    // 1. Question Intent (contains question words or '?')
+    const isQuestion = /^(why|how|what|is|are|can|does|do|explain|check|help|troubleshoot)\b/i.test(clean) || clean.includes('?');
+    if (isQuestion) {
+      let targetStarter = STARTER_PROJECTS[0];
+      if (lower.includes('button') || lower.includes('press') || lower.includes('switch')) {
+        targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-button-led') || targetStarter;
+      } else if (lower.includes('analog') || lower.includes('potentiometer') || lower.includes('dim')) {
+        targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-analog-dimmer') || targetStarter;
+      } else if (lower.includes('bug') || lower.includes('mismatch') || lower.includes('conflict')) {
+        targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-traffic-light-buggy') || targetStarter;
+      }
+
+      loadProject(targetStarter.id);
+      navigate(`/app/studio/${targetStarter.id}`, {
+        state: { initialQuery: clean, openAssistant: true }
+      });
+      return;
+    }
+
+    // 2. Starter Keyword Intent
+    if (lower.includes('pedestrian') || lower.includes('bug') || lower.includes('conflict')) {
+      const s = STARTER_PROJECTS.find(p => p.id === 'starter-traffic-light-buggy') || STARTER_PROJECTS[0];
+      loadProject(s.id);
+      navigate(`/app/studio/${s.id}`);
+      return;
+    }
+    if (lower.includes('traffic') || lower.includes('signal') || lower.includes('intersection')) {
+      const s = STARTER_PROJECTS.find(p => p.id === 'starter-traffic-light') || STARTER_PROJECTS[0];
+      loadProject(s.id);
+      navigate(`/app/studio/${s.id}`);
+      return;
+    }
+    if (lower.includes('button') || lower.includes('switch') || lower.includes('input')) {
+      const s = STARTER_PROJECTS.find(p => p.id === 'starter-button-led') || STARTER_PROJECTS[0];
+      loadProject(s.id);
+      navigate(`/app/studio/${s.id}`);
+      return;
+    }
+    if (lower.includes('dimmer') || lower.includes('analog') || lower.includes('potentiometer') || lower.includes('pwm')) {
+      const s = STARTER_PROJECTS.find(p => p.id === 'starter-analog-dimmer') || STARTER_PROJECTS[0];
+      loadProject(s.id);
+      navigate(`/app/studio/${s.id}`);
+      return;
+    }
+    if (lower.includes('blink') || lower.includes('simple led')) {
+      const s = STARTER_PROJECTS.find(p => p.id === 'starter-led-blink') || STARTER_PROJECTS[0];
+      loadProject(s.id);
+      navigate(`/app/studio/${s.id}`);
+      return;
+    }
+
+    // 3. Project Idea / Planning Intent
+    let targetStarter = STARTER_PROJECTS[0];
+    if (lower.includes('sensor') || lower.includes('measure') || lower.includes('monitor') || lower.includes('water') || lower.includes('plant')) {
+      targetStarter = STARTER_PROJECTS.find(s => s.id === 'starter-analog-dimmer') || targetStarter;
+    }
+    loadProject(targetStarter.id);
+    navigate(`/app/studio/${targetStarter.id}`, {
+      state: {
+        initialQuery: `I want to design: "${clean}". What components, pin connections, and safety precautions do you recommend?`,
+        openAssistant: true
+      }
+    });
   };
 
   const handleQuickPrompt = (title) => {
-    const starter = STARTER_PROJECTS.find(s => s.title.toLowerCase().includes(title.toLowerCase())) || STARTER_PROJECTS[0];
+    const lower = title.toLowerCase();
+    let starter = STARTER_PROJECTS[0];
+    if (lower.includes('pedestrian') || lower.includes('bug')) {
+      starter = STARTER_PROJECTS.find(s => s.id === 'starter-traffic-light-buggy') || starter;
+    } else if (lower.includes('button')) {
+      starter = STARTER_PROJECTS.find(s => s.id === 'starter-button-led') || starter;
+    } else if (lower.includes('dimmer') || lower.includes('analog')) {
+      starter = STARTER_PROJECTS.find(s => s.id === 'starter-analog-dimmer') || starter;
+    } else if (lower.includes('blink')) {
+      starter = STARTER_PROJECTS.find(s => s.id === 'starter-led-blink') || starter;
+    } else {
+      starter = STARTER_PROJECTS.find(s => s.title.toLowerCase().includes(lower)) || starter;
+    }
     loadProject(starter.id);
     navigate(`/app/studio/${starter.id}`);
   };

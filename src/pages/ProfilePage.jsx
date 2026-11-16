@@ -10,7 +10,8 @@ import {
   FolderKanban,
   ExternalLink,
   ArrowRight,
-  Cpu
+  Cpu,
+  Linkedin
 } from 'lucide-react';
 import { useAuth } from '../store/useAuthStore';
 import { getCommunityPosts } from '../services/communityService';
@@ -61,6 +62,7 @@ export function ProfilePage() {
                 handle: dbProfile.handle,
                 bio: dbProfile.bio || '',
                 skills: dbProfile.skills || [],
+                linkedinUrl: dbProfile.linkedin_url || null,
                 joinedAt: dbProfile.created_at ? new Date(dbProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently',
                 avatarUrl: dbProfile.avatar_url,
                 uid: dbProfile.id,
@@ -209,18 +211,48 @@ export function ProfilePage() {
                 </div>
               </div>
 
-              {/* Action */}
-              {isOwnProfile && (
-                <TracewiseBubbleButton
-                  to="/profile/edit"
-                  variant="secondary"
-                  size="sm"
-                  style={{ gap: '6px' }}
-                >
-                  <Edit3 size={15} />
-                  <span>Edit Profile</span>
-                </TracewiseBubbleButton>
-              )}
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {profileData?.linkedinUrl && profileData.linkedinUrl.startsWith('https://') && (
+                  <a
+                    href={profileData.linkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '7px 16px',
+                      borderRadius: 'var(--tw-radius-pill)',
+                      backgroundColor: '#0a66c2',
+                      color: '#ffffff',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      boxShadow: '0 2px 10px rgba(10, 102, 194, 0.28)',
+                      transition: 'transform 0.15s ease, opacity 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <Linkedin size={15} />
+                    <span>LinkedIn Profile</span>
+                    <ExternalLink size={12} style={{ opacity: 0.8 }} />
+                  </a>
+                )}
+
+                {isOwnProfile && (
+                  <TracewiseBubbleButton
+                    to="/profile/edit"
+                    variant="secondary"
+                    size="sm"
+                    style={{ gap: '6px' }}
+                  >
+                    <Edit3 size={15} />
+                    <span>Edit Profile</span>
+                  </TracewiseBubbleButton>
+                )}
+              </div>
             </div>
 
             {/* Bio */}

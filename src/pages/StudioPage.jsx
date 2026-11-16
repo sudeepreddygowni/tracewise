@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
 import { StudioToolbar } from '../components/studio/StudioToolbar';
 import { ComponentLibrary } from '../components/studio/ComponentLibrary';
@@ -17,6 +17,7 @@ import {
 export function StudioPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     activeProject,
     loadProject,
@@ -39,8 +40,16 @@ export function StudioPage() {
   } = useProject();
 
   const [selectedCompId, setSelectedCompId] = useState(null);
-  const [rightTab, setRightTab] = useState('code'); // 'code' | 'inspector' | 'assistant'
+  const [rightTab, setRightTab] = useState(
+    location.state?.initialQuery || location.state?.openAssistant ? 'assistant' : 'code'
+  ); // 'code' | 'inspector' | 'assistant'
   const [isValidationOpen, setIsValidationOpen] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.initialQuery || location.state?.openAssistant) {
+      setRightTab('assistant');
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (projectId && (!activeProject || activeProject.id !== projectId)) {
@@ -291,6 +300,7 @@ export function StudioPage() {
                 project={activeProject}
                 validation={validation}
                 onApplyFix={handleApplyAssistantFix}
+                initialQuery={location.state?.initialQuery}
               />
             )}
           </div>

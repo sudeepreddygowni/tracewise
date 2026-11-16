@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, X, Shield, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X, Shield, Check, AlertCircle, Linkedin } from 'lucide-react';
 import { useAuth } from '../store/useAuthStore';
 import { TracewiseBubbleButton, TracewiseBubbleArea } from '../components/ui/BubbleActions';
 
@@ -13,9 +13,27 @@ export function EditProfilePage() {
   const [bio, setBio] = useState(user?.bio || '');
   const [skills, setSkills] = useState(user?.skills || []);
   const [newSkillText, setNewSkillText] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState(user?.linkedinUrl || '');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Strict HTTPS LinkedIn URL validation helper
+  const isValidLinkedInUrl = (url) => {
+    if (!url || !url.trim()) return true;
+    const trimmed = url.trim();
+    if (!trimmed.startsWith('https://')) return false;
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.hostname.toLowerCase();
+      const isLinkedInHost = host === 'linkedin.com' || host.endsWith('.linkedin.com');
+      if (!isLinkedInHost) return false;
+      const validPathRegex = /^\/(in|company|school|pub)\/[a-zA-Z0-9_\-\.\%\/]+/i;
+      return validPathRegex.test(parsed.pathname);
+    } catch {
+      return false;
+    }
+  };
 
   if (!isAuthenticated || !user) {
     return (
@@ -62,13 +80,19 @@ export function EditProfilePage() {
       return;
     }
 
+    if (linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl)) {
+      setErrorMessage('Please enter a valid HTTPS LinkedIn profile URL (e.g. https://www.linkedin.com/in/username).');
+      return;
+    }
+
     try {
       setSaving(true);
       await updateProfile({
         displayName: displayName.trim(),
         handle: handle.trim(),
         bio: bio.trim(),
-        skills
+        skills,
+        linkedinUrl: linkedinUrl.trim() || null
       });
       setSavedSuccess(true);
       setTimeout(() => {
@@ -272,6 +296,56 @@ export function EditProfilePage() {
                     </span>
                   ))}
                 </div>
+              </div>
+
+              {/* LinkedIn Profile (Optional) */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Linkedin size={15} color="#0a66c2" />
+                    <span>LinkedIn Profile URL</span>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 500, color: 'var(--tw-text-muted)' }}>(Optional)</span>
+                  </label>
+                  {linkedinUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setLinkedinUrl('')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        padding: 0
+                      }}
+                    >
+                      Clear URL
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  value={linkedinUrl}
+                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  placeholder="https://www.linkedin.com/in/username"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    border: linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl)
+                      ? '1px solid #ef4444'
+                      : '1px solid var(--tw-border)',
+                    fontSize: '0.92rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <span style={{ fontSize: '0.76rem', color: linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl) ? '#ef4444' : 'var(--tw-text-muted)', marginTop: '4px', display: 'block' }}>
+                  {linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl)
+                    ? 'Enter a valid HTTPS link starting with https://www.linkedin.com/in/ (or /company/, /school/, /pub/).'
+                    : 'Showcase your engineering projects and experience to judges and mentors.'}
+                </span>
               </div>
 
               {/* Privacy Safeguards info */}

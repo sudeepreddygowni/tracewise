@@ -48,6 +48,7 @@ export function AuthProvider({ children }) {
             bio: profile.bio || '',
             skills: profile.skills || [],
             avatarUrl: profile.avatar_url || supabaseUser.user_metadata?.avatar_url || null,
+            linkedinUrl: profile.linkedin_url || null,
             isAnonymous: false,
             joinedAt: profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recent',
             privacy: profile.privacy || { showProjects: true }
@@ -386,6 +387,7 @@ export function AuthProvider({ children }) {
           bio: updatedFields.bio ?? user.bio,
           skills: updatedFields.skills || user.skills,
           avatar_url: updatedFields.avatarUrl ?? user.avatarUrl,
+          linkedin_url: updatedFields.linkedinUrl !== undefined ? (updatedFields.linkedinUrl ? updatedFields.linkedinUrl.trim() : null) : (user.linkedinUrl || null),
           updated_at: new Date().toISOString()
         };
 
@@ -408,7 +410,8 @@ export function AuthProvider({ children }) {
         handle: cleanHandle,
         bio: updatedFields.bio ?? user.bio,
         skills: updatedFields.skills || user.skills,
-        avatarUrl: updatedFields.avatarUrl ?? user.avatarUrl
+        avatarUrl: updatedFields.avatarUrl ?? user.avatarUrl,
+        linkedinUrl: updatedFields.linkedinUrl !== undefined ? (updatedFields.linkedinUrl ? updatedFields.linkedinUrl.trim() : null) : user.linkedinUrl
       };
 
       setUser(updatedUser);

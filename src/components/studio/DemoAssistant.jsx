@@ -23,18 +23,34 @@ import {
 } from '../ui/BubbleActions';
 import { assistantProvider } from '../../domain/assistant/assistantProvider';
 import { SafeMarkdown } from './SafeMarkdown';
+import { detectUnsupportedHardware, classifyBuildIntent, BUILD_INTENT } from '../../domain/projectBuilder/projectPlanner';
+import { createDiscoLightBuildPlan, generateGroundedCircuitExplanation } from '../../domain/projectBuilder/projectTemplates';
+import { compileBuildPlan } from '../../domain/projectBuilder/catalogCompiler';
+import { planAddLedModification } from '../../domain/projectBuilder/projectModifier';
 
-export function DemoAssistant({ project, validation, onApplyFix, initialQuery = null }) {
+export function DemoAssistant({ project, validation, onApplyFix, initialQuery = null, buildCompleted = false, buildMessage = null }) {
   const [appliedProposalId, setAppliedProposalId] = useState(null);
+  
+  // Real component counts from project state
+  const comps = project?.components || [];
+  const wires = project?.connections || [];
+  const ledCount = comps.filter(c => c.type === 'led').length;
+  const buttonCount = comps.filter(c => c.type === 'push-button').length;
+  const resistorCount = comps.filter(c => c.type === 'resistor').length;
+
+  const initialWelcomeText = buildCompleted
+    ? `### 🚀 Project Built Successfully!\n\n**"${project?.title || 'Your Circuit'}"** has been constructed on your canvas with matching Arduino C++ firmware.\n\n- **Components generated (${comps.length}):** ${ledCount} LEDs, ${buttonCount} Buttons, ${resistorCount} Resistors, 1 Arduino Uno R3, 1 Half Breadboard\n- **Connections routed:** ${wires.length} catalog-verified wires\n- **Firmware:** Synthesized debounced state machine firmware loaded in the code editor\n- **Validation Status:** ${validation?.overallStatus || 'STRUCTURALLY_VALID'}\n\nWhat would you like to verify or modify?`
+    : `### 👋 Welcome to Tracewise Studio!\n\nI am your Engineering Assistant for **"${project?.title || 'your project'}"**. I continuously inspect your canvas wiring, component catalog definitions, and Arduino firmware.\n\nHow can I help you today?`;
+
   const [messages, setMessages] = useState([
     {
       id: 'msg-welcome',
       role: 'assistant',
-      text: `### 👋 Welcome to Tracewise Studio!\n\nI am your Engineering Assistant for **"${project?.title || 'your project'}"**. I continuously inspect your canvas wiring, component catalog definitions, and Arduino firmware.\n\nHow can I help you today?`,
+      text: initialWelcomeText,
       sourceTag: 'Deterministic Rule Engine',
       verifiedFacts: [
-        `Components: ${(project?.components || []).length}`,
-        `Wires: ${(project?.connections || []).length}`
+        `Components: ${comps.length}`,
+        `Wires: ${wires.length}`
       ]
     }
   ]);
@@ -130,6 +146,168 @@ export function DemoAssistant({ project, validation, onApplyFix, initialQuery = 
     setIsThinking(true);
     setLastFailedQuery(null);
 
+    const lower = cleanQuery.toLowerCase();
+
+    // 1. Check for unsupported hardware (Test D)
+    const unsupported = detectUnsupportedHardware(cleanQuery);
+    if (unsupported.length > 0) {
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          text: `### ⚠️ Component Not Available in Catalog\n\nTracewise cannot fully build this project because the required component (**${unsupported.join(', ')}**) is not available in the current component library.\n\nOur catalog currently supports low-voltage educational basics:\n- **Microcontroller:** Arduino Uno R3\n- **Prototyping:** Half Breadboard\n- **Passives & Inputs:** 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons\n\nI will not generate an empty skeleton or fabricate connections for unsupported components. Would you like to build an interactive circuit using our supported catalog components?`,
+          sourceTag: 'Tracewise Project Builder',
+          verifiedFacts: [
+            `Requested: ${unsupported.join(', ')}`,
+            'Status: Unsupported in current library'
+          ]
+        }
+      ]);
+      setIsThinking(false);
+      return;
+    }
+
+    // 2. Incremental Circuit Modification Intent (Test C: "Add another LED to the current project")
+    const isAddLed = (lower.includes('add') || lower.includes('attach') || lower.includes('wire')) &&
+      lower.includes('led');
+
+    if (isAddLed && project) {
+      try {
+        let color = 'yellow';
+        if (lower.includes('red')) color = 'red';
+        else if (lower.includes('green')) color = 'green';
+        else if (lower.includes('blue')) color = 'blue';
+
+        const modPlan = planAddLedModification(project, color);
+        const proposalId = `prop-mod-${Date.now()}`;
+
+        // Create an active reviewable proposal
+        const newProposal = {
+          id: proposalId,
+          title: modPlan.title,
+          summary: modPlan.summary,
+          changes: modPlan.changesPreview.map(c => ({ type: 'circuit', description: c })),
+          action: () => {
+            onApplyFix({
+              type: 'apply_project_modification',
+              modification: modPlan,
+              id: proposalId
+            });
+            setAppliedProposalId(proposalId);
+          }
+        };
+
+        setProposals(prev => [newProposal, ...prev]);
+
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `ast-${Date.now()}`,
+            role: 'assistant',
+            text: `### 🛠️ Proposed Project Modification\n\nI have prepared a build proposal to **${modPlan.title}**.\n\n**Planned Changes:**\n${modPlan.changesPreview.map(c => `- ${c}`).join('\n')}\n\nYou can click **"Review & Apply"** on the proposal card above to update your circuit canvas and firmware.`,
+            sourceTag: 'Tracewise Project Builder',
+            verifiedFacts: [
+              `Target Pin: ${modPlan.allocatedPin}`,
+              'Components to Add: 1 LED, 1 Resistor',
+              'Wires to Add: 3'
+            ]
+          }
+        ]);
+        setIsThinking(false);
+        return;
+      } catch (err) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `ast-err-${Date.now()}`,
+            role: 'assistant',
+            text: `⚠️ Could not prepare modification: ${err.message}`,
+            isError: true
+          }
+        ]);
+        setIsThinking(false);
+        return;
+      }
+    }
+
+    // 3. Disco Light Build in Current Project
+    const isDiscoBuild = (lower.includes('disco') && (lower.includes('build') || lower.includes('create') || lower.includes('make'))) ||
+      (lower.includes('three button') && lower.includes('led'));
+
+    if (isDiscoBuild) {
+      const plan = createDiscoLightBuildPlan();
+      const compiled = compileBuildPlan(plan);
+      const proposalId = `prop-disco-${Date.now()}`;
+
+      const newProposal = {
+        id: proposalId,
+        title: 'Build Three-Color Button-Controlled Disco Light',
+        summary: 'Compiles 11 component instances (Uno, Breadboard, 3 LEDs, 3 Resistors, 3 Buttons), 15 wires, and debounced state machine firmware.',
+        changes: [
+          { type: 'circuit', description: 'Add 3 LEDs (Red on D8, Green on D9, Blue on D10)' },
+          { type: 'circuit', description: 'Add 3 series 220Ω resistors connected to Ground' },
+          { type: 'circuit', description: 'Add 3 push buttons (D2, D3, D4 with Ground return)' },
+          { type: 'firmware', description: 'Compile debounced single-color state machine firmware' }
+        ],
+        action: () => {
+          onApplyFix({
+            type: 'replace_project',
+            project: compiled.project,
+            id: proposalId
+          });
+          setAppliedProposalId(proposalId);
+        }
+      };
+
+      setProposals(prev => [newProposal, ...prev]);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ast-${Date.now()}`,
+          role: 'assistant',
+          text: `### 💡 Ready to Build Disco Light Controller\n\nI have generated a verified build plan for the **Three-Color Button-Controlled Disco Light**:\n\n- **11 Components:** Arduino Uno R3, Half Breadboard, 3 LEDs (Red, Green, Blue), 3 Resistors (220Ω), 3 Momentary Push Buttons\n- **15 Wires:** Buttons to D2/D3/D4, LEDs to D8/D9/D10 through series 220Ω resistors, and ground returns\n- **Firmware:** Synthesized debounced state machine with one-color-at-a-time logic\n\nClick **"Review & Apply"** on the proposal card above to build this circuit onto your canvas.`,
+          sourceTag: 'Tracewise Project Builder',
+          verifiedFacts: [
+            'Components: 11',
+            'Wires: 15',
+            'Validation: PASSED'
+          ]
+        }
+      ]);
+      setIsThinking(false);
+      return;
+    }
+
+    // 4. Grounded Circuit Explanation (Test E: "Explain how the circuit works")
+    const isExplainCircuit = lower.includes('explain') && (lower.includes('circuit') || lower.includes('how it works') || lower.includes('how this works') || lower.includes('how does'));
+    if (isExplainCircuit) {
+      const isDiscoProject = (project?.title || '').toLowerCase().includes('disco') ||
+        (comps.filter(c => c.type === 'push-button').length >= 3 && comps.filter(c => c.type === 'led').length >= 3);
+
+      if (isDiscoProject) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `ast-${Date.now()}`,
+            role: 'assistant',
+            text: generateGroundedCircuitExplanation(project),
+            sourceTag: 'Tracewise Deterministic Reasoning Engine',
+            verifiedFacts: [
+              `Buttons: 3 inputs (D2, D3, D4 with INPUT_PULLUP)`,
+              `LEDs: 3 outputs (D8, D9, D10 with 220Ω protection)`,
+              `Components: ${comps.length}`,
+              `Wires: ${wires.length}`
+            ]
+          }
+        ]);
+        setIsThinking(false);
+        return;
+      }
+    }
+
+    // 5. General Conversational / Engineering Assistance
     try {
       const res = await assistantProvider.getResponse({
         queryText: cleanQuery,

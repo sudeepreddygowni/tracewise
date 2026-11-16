@@ -50,9 +50,10 @@ ${firmwareCode.slice(0, 1800)}
 
 STRICT GROUNDING & ACCURACY RULES:
 1. Always be conversational, clear, and encouraging. Format your responses with structured Markdown: headings (###), bullet points, and code blocks with JetBrains Mono.
-2. GREETINGS ("Hi", "Hello", "Hey"): Greet the user naturally, introduce yourself as the Tracewise Engineering Assistant, and briefly summarize what you can help with (circuit wiring, pin verification, Ohm's law, and code debugging). Do NOT dump unprompted circuit reports on a greeting.
-3. GROUNDING: Base all circuit claims exclusively on the provided components, wires, and code above. Never invent physical multimeter readings or claim a physical breadboard was tested.
-4. CODE SUGGESTIONS: When suggesting code changes, provide clean, copyable Arduino C++ snippets.`;
+2. CAPABILITY & CATALOG BOUNDARIES: Tracewise currently supports: Arduino Uno R3, Half Breadboard, 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons. If the user asks to build or simulate hardware outside this catalog (e.g. Servo motors, Ultrasonic distance sensors, OLED/LCD screens, Bluetooth/Wi-Fi), clearly explain that Tracewise's catalog does not yet support that component. Do NOT fabricate fake pinouts or pretend unsupported components exist.
+3. GREETINGS ("Hi", "Hello", "Hey"): Greet the user naturally, introduce yourself as the Tracewise Engineering Assistant, and briefly summarize what you can help with (circuit wiring, pin verification, Ohm's law, and code debugging). Do NOT dump unprompted circuit reports on a greeting.
+4. GROUNDING: Base all circuit claims exclusively on the provided components, wires, and code above. Never invent physical multimeter readings or claim a physical breadboard was tested.
+5. CODE SUGGESTIONS: When suggesting code changes, provide clean, copyable Arduino C++ snippets.`;
 
     const contents = [
       ...(history || []).slice(-4).map(m => ({
@@ -214,6 +215,43 @@ export default async function handler(req, res) {
     let responseText = '';
     const deterministicChecks = [];
     const suggestions = [];
+
+    // INTENT 0: Unsupported Component Detection
+    const unsupportedList = [
+      { key: 'servo', name: 'Servo Motor' },
+      { key: 'stepper', name: 'Stepper Motor' },
+      { key: 'ultrasonic', name: 'Ultrasonic Distance Sensor (HC-SR04)' },
+      { key: 'distance sensor', name: 'Ultrasonic Distance Sensor' },
+      { key: 'hc-sr04', name: 'Ultrasonic Sensor' },
+      { key: 'oled', name: 'OLED Display (I2C/SPI)' },
+      { key: 'lcd', name: 'LCD Display Screen' },
+      { key: 'display', name: 'Digital Display Screen' },
+      { key: 'bluetooth', name: 'Bluetooth Module (HC-05/06)' },
+      { key: 'wifi', name: 'Wi-Fi Module' },
+      { key: 'esp32', name: 'ESP32 Microcontroller' },
+      { key: 'esp8266', name: 'ESP8266 Wi-Fi Chip' },
+      { key: 'relay', name: 'Relay Module' },
+      { key: 'buzzer', name: 'Piezo Buzzer' }
+    ];
+    const detectedUnsupported = unsupportedList.filter(item => q.includes(item.key)).map(item => item.name);
+    if (detectedUnsupported.length > 0) {
+      return res.status(200).json({
+        text: `### ⚠️ Component Not Available in Catalog\n\n` +
+          `Tracewise cannot fully build this project because the required component (**${detectedUnsupported.join(', ')}**) is not available in the current component library.\n\n` +
+          `Our catalog currently supports low-voltage educational basics:\n` +
+          `• **Microcontroller:** Arduino Uno R3\n` +
+          `• **Prototyping:** Half Breadboard\n` +
+          `• **Passives & Inputs:** 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons\n\n` +
+          `I will not generate an empty skeleton or fabricate connections for unsupported components. Would you like to build an interactive circuit using our supported catalog components?`,
+        provider: 'Tracewise Project Builder',
+        sourceTag: 'Catalog Capability Boundary',
+        verifiedFacts: [`Status: Unsupported component (${detectedUnsupported.join(', ')})`],
+        deterministicChecks: ['Catalog Availability: REJECTED'],
+        suggestions: ['Build a 3-Color Disco Light', 'Explore Traffic Light Controller', 'Open Blank Studio'],
+        proposals: [],
+        confidence: null
+      });
+    }
 
     // INTENT A: Natural Greetings
     if (/^(hi|hello|hey|good\s*(morning|afternoon|evening)|howdy|greetings|start|who\s*are\s*you)\b/i.test(q)) {

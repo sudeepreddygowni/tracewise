@@ -5,10 +5,34 @@ const AuthContext = createContext(null);
 
 const LOCAL_GUEST_STORAGE_KEY = 'tracewise_guest_session_v1';
 
+/**
+ * Ensures email redirects in production strictly use the live canonical domain
+ * instead of accidentally falling back to localhost or unpermitted origins.
+ */
+export const getCanonicalRedirectUrl = (path = '/app') => {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    // In production or on Vercel preview environments, always use canonical production origin
+    if (origin.includes('tracewise') || origin.includes('vercel.app')) {
+      return `https://tracewise-nine.vercel.app${cleanPath}`;
+    }
+    // Only in explicit local development on localhost, use localhost
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return `${origin}${cleanPath}`;
+    }
+    return `https://tracewise-nine.vercel.app${cleanPath}`;
+  }
+  return `https://tracewise-nine.vercel.app${cleanPath}`;
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [authNotification, setAuthNotification] = useState(null);
+
+  const clearAuthNotification = () => setAuthNotification(null);
 
   // Helper to normalize Supabase auth user + profile into app user shape
   const buildUserProfile = async (supabaseUser) => {
@@ -97,11 +121,46 @@ export function AuthProvider({ children }) {
           setUser(null);
         }
 
+        // Check for auth callback parameters in hash or search query
+        try {
+          const hash = window.location.hash || '';
+          const search = window.location.search || '';
+          const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : '');
+          const searchParams = new URLSearchParams(search.startsWith('?') ? search.substring(1) : '');
+
+          const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+          const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+          const authType = hashParams.get('type') || searchParams.get('type');
+
+          if (errorDesc || errorCode) {
+            const decoded = decodeURIComponent(errorDesc || 'Email confirmation link has expired or is invalid.');
+            setError(decoded);
+            setAuthNotification({
+              type: 'error',
+              message: decoded
+            });
+          } else if (authType === 'signup') {
+            setAuthNotification({
+              type: 'success',
+              message: 'Your email address has been confirmed successfully! Welcome to Tracewise.'
+            });
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          }
+        } catch (e) {
+          console.warn('Auth callback parameter check note:', e);
+        }
+
         // Listen for Supabase session changes
         const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session?.user) {
             const profile = await buildUserProfile(session.user);
             setUser(profile);
+            if (event === 'SIGNED_IN') {
+              // Ensure error state is cleared upon successful sign in
+              setError(null);
+            }
           } else {
             setUser(null);
           }
@@ -205,7 +264,7 @@ export function AuthProvider({ children }) {
         const { data, error: oauthErr } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin
+            redirectTo: getCanonicalRedirectUrl('/app')
           }
         });
         if (oauthErr) throw oauthErr;
@@ -273,7 +332,7 @@ export function AuthProvider({ children }) {
               display_name: displayName || 'Student Maker',
               handle: cleanHandle
             },
-            emailRedirectTo: `${window.location.origin}/app`
+            emailRedirectTo: getCanonicalRedirectUrl('/app')
           }
         });
         if (signUpErr) throw signUpErr;
@@ -373,7 +432,7 @@ export function AuthProvider({ children }) {
     if (isSupabaseConfigured() && supabase) {
       try {
         const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/reset-password`
+          redirectTo: getCanonicalRedirectUrl('/reset-password')
         });
         if (resetErr) throw resetErr;
         return { success: true };
@@ -495,6 +554,8 @@ export function AuthProvider({ children }) {
     isGuest: Boolean(user?.isAnonymous),
     isLoading,
     error,
+    authNotification,
+    clearAuthNotification,
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,

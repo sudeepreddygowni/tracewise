@@ -29,10 +29,11 @@ import {
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { useProject } from '../store/useProjectStore';
 import { SafeMarkdown } from '../components/studio/SafeMarkdown';
+import { planProjectFromPrompt, detectUnsupportedHardware } from '../domain/projectBuilder/projectPlanner';
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { loadProject, createNewProject } = useProject();
+  const { loadProject, createNewProject, generateProjectFromPrompt } = useProject();
   const [promptText, setPromptText] = useState('');
   const [promptHint, setPromptHint] = useState('');
   const [activeFaq, setActiveFaq] = useState(null);
@@ -95,7 +96,32 @@ export function HomePage() {
       return;
     }
 
-    // 2. Explicit Starter Keyword Intent -> Route to matching starter
+    // 2. Unsupported Hardware Intent -> Stop safely and explain why
+    const unsupported = detectUnsupportedHardware(clean);
+    if (unsupported.length > 0) {
+      setHelpModalQuery(clean);
+      setHelpModalOpen(true);
+      setHelpModalAnswer(
+        `### ⚠️ Component Not Available\n\nTracewise cannot fully build this project because the required component (**${unsupported.join(', ')}**) is not available in the current component library.\n\nOur catalog currently supports low-voltage educational components:\n- **Microcontroller:** Arduino Uno R3\n- **Prototyping:** Half Breadboard\n- **Passives & Inputs:** 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons\n\nWould you like to build an interactive circuit using our supported components instead?`
+      );
+      setHelpModalProvider('Tracewise Project Builder');
+      return;
+    }
+
+    // 3. Project Builder Intent -> Real Project Generation Engine (Not Just Chat)
+    const buildResult = generateProjectFromPrompt(clean);
+    if (buildResult && buildResult.status === 'BUILT' && buildResult.project) {
+      navigate(`/app/studio/${buildResult.project.id}`, {
+        state: {
+          buildCompleted: true,
+          buildMessage: buildResult.message,
+          openAssistant: true
+        }
+      });
+      return;
+    }
+
+    // 4. Explicit Starter Keyword Intent -> Route to matching starter
     if (lower.includes('pedestrian') || lower.includes('bug') || lower.includes('conflict')) {
       const s = STARTER_PROJECTS.find(p => p.id === 'starter-traffic-light-buggy') || STARTER_PROJECTS[0];
       loadProject(s.id);
@@ -127,8 +153,7 @@ export function HomePage() {
       return;
     }
 
-    // 3. New Project Idea / Custom Circuit Intent
-    // Open a fresh project for the user's idea rather than loading an unrelated starter
+    // 5. Custom Circuit Idea
     const ideaTitle = clean.length > 36 ? `${clean.slice(0, 33)}...` : clean;
     const newProj = createNewProject(ideaTitle);
     navigate(`/app/studio/${newProj.id}`, {

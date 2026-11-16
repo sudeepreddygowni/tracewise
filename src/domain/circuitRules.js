@@ -3,7 +3,7 @@
  * Deterministic structural checks with honest reporting
  */
 
-import { getComponentDefinition } from '../data/componentCatalog';
+import { getComponentDefinition } from '../data/componentCatalog.js';
 
 /**
  * Validates structural integrity and pin mappings of a project
@@ -134,9 +134,12 @@ export function validateCircuit(project) {
     wiredPins.set(pinId, otherComp);
   });
 
-  // Check for the signature Button pin conflict:
-  // e.g. Button component wired to D7, but code declares BUTTON_PIN = 2
+  // Check Button & Input Pin Consistency (Multi-button aware)
   const buttons = (project.components || []).filter(c => c.type === 'push-button');
+  const buttonVars = Object.entries(pinDeclarations).filter(
+    ([k]) => k.toLowerCase().includes('button') || k.toLowerCase().includes('btn')
+  );
+
   let pinMismatchFound = false;
 
   buttons.forEach(btn => {
@@ -150,10 +153,41 @@ export function validateCircuit(project) {
       const physicalPin = btnWire.from.componentId === project.boardId ? btnWire.from.pinId : btnWire.to.pinId;
       const physicalPinNum = parseInt(physicalPin.replace('D', ''), 10);
 
-      // Check if code has a BUTTON_PIN or similar
-      for (const [varName, codePinNum] of Object.entries(pinDeclarations)) {
-        if (varName.toLowerCase().includes('button') || varName.toLowerCase().includes('btn')) {
-          if (!isNaN(physicalPinNum) && codePinNum !== physicalPinNum) {
+      const btnIdentifier = `${btn.id} ${btn.name || ''}`.toLowerCase();
+
+      // Find the best matching variable for this button:
+      // 1. Direct name/color keyword match (e.g. 'red', 'green', 'blue', 'pedestrian', '1', '2')
+      let matchedVar = buttonVars.find(([varName]) => {
+        const lowerVar = varName.toLowerCase();
+        if (btnIdentifier.includes('red') && lowerVar.includes('red')) return true;
+        if (btnIdentifier.includes('green') && lowerVar.includes('green')) return true;
+        if (btnIdentifier.includes('blue') && lowerVar.includes('blue')) return true;
+        if (btnIdentifier.includes('pedestrian') && (lowerVar.includes('pedestrian') || lowerVar === 'button_pin')) return true;
+        return false;
+      });
+
+      // 2. If single button or no color match, check exact pin match or single var
+      if (!matchedVar) {
+        if (buttonVars.length === 1) {
+          matchedVar = buttonVars[0];
+        } else {
+          // If a variable declares this exact physical pin, match it
+          const exactPinVar = buttonVars.find(([, codePin]) => codePin === physicalPinNum);
+          if (exactPinVar) {
+            matchedVar = exactPinVar;
+          } else {
+            // Pick first unmatched variable
+            matchedVar = buttonVars[0];
+          }
+        }
+      }
+
+      if (matchedVar) {
+        const [varName, codePinNum] = matchedVar;
+        if (!isNaN(physicalPinNum) && codePinNum !== physicalPinNum) {
+          // Verify if physical pin is actually undeclared in any button variable
+          const isDeclaredInAnyBtn = buttonVars.some(([, p]) => p === physicalPinNum);
+          if (!isDeclaredInAnyBtn || buttonVars.length === 1) {
             pinMismatchFound = true;
             checks.push({
               id: 'check-pin-mismatch',

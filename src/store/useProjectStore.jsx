@@ -10,6 +10,9 @@ import {
 } from '../services/projectStorage';
 import { createBlankProject, generateId } from '../domain/projectSchema';
 import { validateCircuit } from '../domain/circuitRules';
+import { compileBuildPlan } from '../domain/projectBuilder/catalogCompiler';
+import { planProjectFromPrompt } from '../domain/projectBuilder/projectPlanner';
+import { applyProjectModification as applyMod } from '../domain/projectBuilder/projectModifier';
 
 const ProjectContext = createContext(null);
 
@@ -130,6 +133,49 @@ export function ProjectProvider({ children }) {
     setIsSaved(true);
     return blank;
   }, []);
+
+  const buildProjectFromPlan = useCallback((buildPlan) => {
+    const compiled = compileBuildPlan(buildPlan);
+    const saved = storageSaveProject(compiled.project);
+    setProjects(getAllProjects());
+    setActiveProject(saved);
+    historyRef.current = [JSON.parse(JSON.stringify(saved))];
+    historyIndexRef.current = 0;
+    setIsSaved(true);
+    return {
+      project: saved,
+      validation: compiled.validation,
+      summary: compiled.summary
+    };
+  }, []);
+
+  const applyModification = useCallback((modification) => {
+    if (!activeProject || !modification) return null;
+    const modified = applyMod(activeProject, modification);
+    const saved = storageSaveProject(modified);
+    setActiveProject(saved);
+    pushHistory(saved);
+    setProjects(getAllProjects());
+    setIsSaved(true);
+    return saved;
+  }, [activeProject]);
+
+  const generateProjectFromPrompt = useCallback((promptText) => {
+    const result = planProjectFromPrompt(promptText, activeProject);
+    if (result.status === 'BUILT' && result.project) {
+      const saved = storageSaveProject(result.project);
+      setProjects(getAllProjects());
+      setActiveProject(saved);
+      historyRef.current = [JSON.parse(JSON.stringify(saved))];
+      historyIndexRef.current = 0;
+      setIsSaved(true);
+      return {
+        ...result,
+        project: saved
+      };
+    }
+    return result;
+  }, [activeProject]);
 
   const deleteProject = useCallback((id) => {
     storageDeleteProject(id);
@@ -255,6 +301,9 @@ export function ProjectProvider({ children }) {
         saveCurrent,
         forkActive,
         createNewProject,
+        buildProjectFromPlan,
+        applyModification,
+        generateProjectFromPrompt,
         deleteProject,
         updateActiveProject,
         addComponent,

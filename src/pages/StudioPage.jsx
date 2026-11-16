@@ -8,6 +8,7 @@ import { CodeEditor } from '../components/studio/CodeEditor';
 import { ComponentInspector } from '../components/studio/ComponentInspector';
 import { DemoAssistant } from '../components/studio/DemoAssistant';
 import { ValidationDrawer } from '../components/studio/ValidationDrawer';
+import { applyProjectModification } from '../domain/projectBuilder/projectModifier';
 import { Code, Sliders, Sparkles, Layout, CheckCircle2 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -81,6 +82,18 @@ export function StudioPage() {
 
   // Honest, precise engineering fix applicator
   const handleApplyAssistantFix = (fix) => {
+    if (!fix) return;
+
+    if (fix.type === 'apply_project_modification' && fix.modification) {
+      updateActiveProject(prev => applyProjectModification(prev, fix.modification));
+      return;
+    }
+
+    if (fix.type === 'replace_project' && fix.project) {
+      updateActiveProject(() => fix.project);
+      return;
+    }
+
     if (fix.code) {
       updateFirmware(fix.code);
     }
@@ -114,21 +127,21 @@ export function StudioPage() {
         };
         comps.push(newResistor);
 
-        // 3. Connect LED Cathode -> Resistor Pin 1
+        // 3. Connect LED Cathode -> Resistor Lead 1
         const wireToResistor = {
           id: `wire-${Math.random().toString(36).slice(-5)}`,
           from: { componentId: led.id, pinId: 'cathode' },
-          to: { componentId: resistorId, pinId: 'pin1' },
+          to: { componentId: resistorId, pinId: 'lead1' },
           color: '#2DC5E9',
           label: 'LED Cathode Wire'
         };
         wires.push(wireToResistor);
 
-        // 4. Connect Resistor Pin 2 -> Ground Target
-        const gTarget = fix.groundTarget || { componentId: 'uno-1', pinId: 'gnd-1' };
+        // 4. Connect Resistor Lead 2 -> Ground Target
+        const gTarget = fix.groundTarget || { componentId: 'uno-main', pinId: 'GND' };
         const wireToGround = {
           id: `wire-${Math.random().toString(36).slice(-5)}`,
-          from: { componentId: resistorId, pinId: 'pin2' },
+          from: { componentId: resistorId, pinId: 'lead2' },
           to: gTarget,
           color: '#0B2348',
           label: 'GND Return Wire'
@@ -301,6 +314,8 @@ export function StudioPage() {
                 validation={validation}
                 onApplyFix={handleApplyAssistantFix}
                 initialQuery={location.state?.initialQuery}
+                buildCompleted={location.state?.buildCompleted}
+                buildMessage={location.state?.buildMessage}
               />
             )}
           </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
+import { useAuth } from '../store/useAuthStore';
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { exportProjectsJson, importProjectsJson } from '../services/projectStorage';
 import {
@@ -28,6 +29,7 @@ import {
 export function DashboardPage() {
   const navigate = useNavigate();
   const { projects, createNewProject, forkActive, deleteProject, loadProject } = useProject();
+  const { authNotification, clearAuthNotification } = useAuth();
   const [search, setSearch] = useState('');
   const [importError, setImportError] = useState('');
 
@@ -141,6 +143,39 @@ export function DashboardPage() {
 
       {/* Main Container */}
       <main style={{ maxWidth: '1240px', margin: '0 auto', width: '100%', padding: '36px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        
+        {/* Auth callback notification banner */}
+        {authNotification && (
+          <div
+            style={{
+              padding: '14px 20px',
+              borderRadius: '12px',
+              backgroundColor: authNotification.type === 'error' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+              border: `1px solid ${authNotification.type === 'error' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+              color: authNotification.type === 'error' ? '#dc2626' : '#059669',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '0.92rem',
+              fontWeight: 500
+            }}
+          >
+            <span>{authNotification.message}</span>
+            <button
+              onClick={clearAuthNotification}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'currentColor',
+                fontWeight: 600,
+                fontSize: '0.85rem'
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         
         {/* Title & Action Cluster */}
         <TracewiseBubbleArea theme="light">

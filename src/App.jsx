@@ -8,6 +8,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { StudioPage } from './pages/StudioPage';
 import { ComparePage } from './pages/ComparePage';
 import { BuildGuidePage } from './pages/BuildGuidePage';
+import { PitchLabPage } from './pages/PitchLabPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { PostDetailPage } from './pages/PostDetailPage';
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/app/studio/:projectId" element={<StudioPage />} />
             <Route path="/app/compare/:projectId" element={<ComparePage />} />
             <Route path="/app/build/:projectId" element={<BuildGuidePage />} />
+            <Route path="/app/pitch/:projectId" element={<PitchLabPage />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

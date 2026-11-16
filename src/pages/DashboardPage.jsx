@@ -16,7 +16,8 @@ import {
   Sparkles,
   ArrowRight,
   Clock,
-  Play
+  Play,
+  Mic
 } from 'lucide-react';
 import {
   TracewiseBubbleArea,
@@ -281,9 +282,30 @@ export function DashboardPage() {
                     </span>
                   </div>
 
-                  <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--tw-brand)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    Open Studio <ArrowRight size={14} />
-                  </span>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <Link
+                      to={`/app/pitch/${proj.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color: 'var(--tw-text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--tw-bg)'
+                      }}
+                      title="Open Project Pitch Lab"
+                    >
+                      <Mic size={13} color="var(--tw-brand)" />
+                      <span>Pitch Lab</span>
+                    </Link>
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--tw-brand)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      Open Studio <ArrowRight size={14} />
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}

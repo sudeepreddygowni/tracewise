@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../store/useAuthStore';
 import { getCommunityPosts } from '../services/communityService';
 import { useProject } from '../store/useProjectStore';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { TracewiseBubbleButton, TracewiseBubbleArea } from '../components/ui/BubbleActions';
 
 export function ProfilePage() {
@@ -43,46 +44,76 @@ export function ProfilePage() {
         const posts = await getCommunityPosts({ authorUid: currentUser.uid });
         setUserPosts(posts);
       } else {
-        // Fetch or simulate other student profile
-        const sampleProfiles = {
-          'alex_circuits': {
-            displayName: 'Alex Rivera',
-            handle: 'alex_circuits',
-            bio: 'High school electronics enthusiast building micro-robotics and traffic controllers with Arduino Uno.',
-            skills: ['Arduino Uno', 'Digital I/O', 'Analog Sensors', 'Breadboarding'],
-            joinedAt: 'November 2026',
-            avatarUrl: null,
-            uid: 'student-demo-101'
-          },
-          'maya_robotics': {
-            displayName: 'Maya Patel',
-            handle: 'maya_robotics',
-            bio: 'STEM club robotics lead. Exploring PWM motor controllers and LED power efficiency.',
-            skills: ['Robotics', 'PWM Control', 'Circuit Math', 'Breadboarding'],
-            joinedAt: 'October 2026',
-            avatarUrl: null,
-            uid: 'student-maya-202'
-          },
-          'devon_maker': {
-            displayName: 'Devon Lee',
-            handle: 'devon_maker',
-            bio: 'Experimenting with ultrasonic rangefinders and autonomous rovers.',
-            skills: ['Sensors', 'Ultrasonic', 'C++', 'Hardware Debugging'],
-            joinedAt: 'September 2026',
-            avatarUrl: null,
-            uid: 'student-devon-303'
-          }
-        };
+        let found = null;
 
-        const found = sampleProfiles[targetHandle?.toLowerCase()] || {
-          displayName: targetHandle ? targetHandle.replace(/_/g, ' ') : 'Student Maker',
-          handle: targetHandle || 'student',
-          bio: 'Electronics explorer building and debugging circuits on Tracewise.',
-          skills: ['Arduino Uno', 'Circuit Design'],
-          joinedAt: 'Recently',
-          avatarUrl: null,
-          uid: 'student-' + targetHandle
-        };
+        // 1. Try querying real profile from Supabase PostgreSQL
+        if (isSupabaseConfigured() && supabase && targetHandle) {
+          try {
+            const { data: dbProfile, error: dbErr } = await supabase
+              .from('profiles')
+              .select('*')
+              .ilike('handle', targetHandle)
+              .single();
+
+            if (dbProfile && !dbErr) {
+              found = {
+                displayName: dbProfile.display_name,
+                handle: dbProfile.handle,
+                bio: dbProfile.bio || '',
+                skills: dbProfile.skills || [],
+                joinedAt: dbProfile.created_at ? new Date(dbProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently',
+                avatarUrl: dbProfile.avatar_url,
+                uid: dbProfile.id,
+                isAnonymous: dbProfile.is_anonymous
+              };
+            }
+          } catch (e) {
+            console.warn('Supabase profile query note:', e.message);
+          }
+        }
+
+        // 2. Fallback to curated student showcases or dynamic handle
+        if (!found) {
+          const sampleProfiles = {
+            'alex_circuits': {
+              displayName: 'Alex Rivera',
+              handle: 'alex_circuits',
+              bio: 'High school electronics enthusiast building micro-robotics and traffic controllers with Arduino Uno.',
+              skills: ['Arduino Uno', 'Digital I/O', 'Analog Sensors', 'Breadboarding'],
+              joinedAt: 'November 2026',
+              avatarUrl: null,
+              uid: 'preview-student-1'
+            },
+            'maya_robotics': {
+              displayName: 'Maya Patel',
+              handle: 'maya_robotics',
+              bio: 'STEM club robotics lead. Exploring PWM motor controllers and LED power efficiency.',
+              skills: ['Robotics', 'PWM Control', 'Circuit Math', 'Breadboarding'],
+              joinedAt: 'October 2026',
+              avatarUrl: null,
+              uid: 'preview-student-2'
+            },
+            'devon_maker': {
+              displayName: 'Devon Lee',
+              handle: 'devon_maker',
+              bio: 'Experimenting with ultrasonic rangefinders and autonomous rovers.',
+              skills: ['Sensors', 'Ultrasonic', 'C++', 'Hardware Debugging'],
+              joinedAt: 'September 2026',
+              avatarUrl: null,
+              uid: 'preview-student-3'
+            }
+          };
+
+          found = sampleProfiles[targetHandle?.toLowerCase()] || {
+            displayName: targetHandle ? targetHandle.replace(/_/g, ' ') : 'Student Maker',
+            handle: targetHandle || 'student',
+            bio: 'Electronics explorer building and debugging circuits on Tracewise.',
+            skills: ['Arduino Uno', 'Circuit Design'],
+            joinedAt: 'Recently',
+            avatarUrl: null,
+            uid: 'student-' + targetHandle
+          };
+        }
 
         setProfileData(found);
         const posts = await getCommunityPosts({ authorUid: found.uid });
@@ -163,10 +194,17 @@ export function ProfilePage() {
                       <Calendar size={14} />
                       Joined {profileData?.joinedAt || 'Recently'}
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--tw-success)', fontWeight: 600 }}>
-                      <Shield size={14} />
-                      Verified Student Profile
-                    </span>
+                    {profileData?.isAnonymous ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--tw-brand)', fontWeight: 600 }}>
+                        <Sparkles size={14} />
+                        Guest Visitor
+                      </span>
+                    ) : (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--tw-success)', fontWeight: 600 }}>
+                        <Shield size={14} />
+                        Verified Student Profile
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

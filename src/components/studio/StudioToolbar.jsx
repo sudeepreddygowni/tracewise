@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   Check,
   AlertCircle,
-  FolderKanban
+  FolderKanban,
+  Mic
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -246,6 +247,17 @@ export function StudioToolbar({
           >
             <Wrench size={14} />
             <span>Build Guide</span>
+          </TracewiseBubbleButton>
+
+          <TracewiseBubbleButton
+            to={`/app/pitch/${project?.id}`}
+            title="Project Pitch Lab — Presentation & Judge Prep"
+            variant="secondary"
+            size="sm"
+            style={{ fontSize: '0.82rem', gap: '6px' }}
+          >
+            <Mic size={14} color="var(--tw-brand)" />
+            <span>Pitch Lab</span>
           </TracewiseBubbleButton>
         </div>
       </header>

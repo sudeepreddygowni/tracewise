@@ -10,7 +10,8 @@ import {
   MessageSquare,
   Settings,
   ChevronDown,
-  Edit3
+  Edit3,
+  Sparkles
 } from 'lucide-react';
 import { useProject } from '../../store/useProjectStore';
 import { useAuth } from '../../store/useAuthStore';
@@ -61,9 +62,11 @@ export function Navbar() {
     setUserMenuOpen(false);
   }, [location.pathname]);
 
-  const initials = user?.displayName
-    ? user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'TW';
+  const initials = user?.isAnonymous
+    ? 'G'
+    : (user?.displayName
+      ? user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+      : 'TW');
 
   const handleNavLinkClick = (to) => {
     if (to.startsWith('/#')) {
@@ -221,13 +224,46 @@ export function Navbar() {
                       }}
                     >
                       <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--tw-border)', marginBottom: '4px' }}>
-                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--tw-text)' }}>
-                          {user?.displayName}
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--tw-text)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>{user?.displayName}</span>
+                          {user?.isAnonymous && (
+                            <span style={{ fontSize: '0.68rem', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                              Guest
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>
                           @{user?.handle}
                         </div>
                       </div>
+
+                      {user?.isAnonymous && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            setAuthModalOpen(true);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '8px 10px',
+                            fontSize: '0.85rem',
+                            fontWeight: 700,
+                            color: 'var(--tw-brand)',
+                            backgroundColor: 'rgba(30, 63, 216, 0.08)',
+                            borderRadius: '8px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            marginBottom: '4px'
+                          }}
+                        >
+                          <Sparkles size={16} />
+                          <span>Save Your Account</span>
+                        </button>
+                      )}
 
                       <Link
                         to={`/profile/${user?.handle}`}
@@ -426,13 +462,26 @@ export function Navbar() {
                   <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--tw-text)' }}>{user?.displayName}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>@{user?.handle}</div>
                 </div>
-                <Link
-                  to={`/profile/${user?.handle}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  style={{ fontSize: '0.8rem', color: 'var(--tw-brand)', fontWeight: 600, textDecoration: 'none' }}
-                >
-                  Profile
-                </Link>
+                {user?.isAnonymous ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setAuthModalOpen(true);
+                    }}
+                    style={{ fontSize: '0.8rem', color: 'var(--tw-brand)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    Save Account
+                  </button>
+                ) : (
+                  <Link
+                    to={`/profile/${user?.handle}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    style={{ fontSize: '0.8rem', color: 'var(--tw-brand)', fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    Profile
+                  </Link>
+                )}
               </div>
             ) : (
               <TracewiseBubbleButton

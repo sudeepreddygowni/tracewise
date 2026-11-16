@@ -11,7 +11,9 @@ import {
   ShieldAlert,
   Cpu,
   Layers,
-  Info
+  Info,
+  Mic,
+  ArrowRight
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -307,6 +309,45 @@ export function BuildGuidePage() {
               ))}
             </tbody>
           </table>
+        </section>
+
+        {/* Pitch Lab Completion Callout */}
+        <section
+          className="glass-card"
+          style={{
+            padding: '28px',
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+            border: '1.5px solid var(--tw-brand-soft)',
+            boxShadow: '0 8px 24px rgba(30, 63, 216, 0.06)'
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--tw-brand)', fontWeight: 700, fontSize: '0.82rem', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <Mic size={16} />
+              <span>Next Step: Presentation Training</span>
+            </div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--tw-text)', margin: '0 0 4px', fontFamily: 'var(--font-heading)' }}>
+              Ready to present {project?.title}?
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', margin: 0, maxWidth: '600px' }}>
+              Practice competition pitches, anticipated judge questions, and live interview responses in the <b>Project Pitch Lab</b>.
+            </p>
+          </div>
+
+          <TracewiseBubbleButton
+            to={`/app/pitch/${project?.id}`}
+            variant="primary"
+            style={{ padding: '10px 22px' }}
+          >
+            <span>Open Pitch Lab</span>
+            <ArrowRight size={15} />
+          </TracewiseBubbleButton>
         </section>
       </main>
     </div>

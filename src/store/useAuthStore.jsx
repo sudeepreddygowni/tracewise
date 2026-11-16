@@ -1,124 +1,199 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  auth,
-  db,
-  googleProvider,
-  isFirebaseConfigured,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  firebaseSignOut,
-  onAuthStateChanged,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp
-} from '../services/firebase';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 const AuthContext = createContext(null);
 
-const LOCAL_STORAGE_AUTH_KEY = 'tracewise_auth_user_v1';
-
-// Seed demo student user for instant classroom / local testing
-const DEMO_STUDENT = {
-  uid: 'student-demo-101',
-  displayName: 'Alex Rivera',
-  handle: 'alex_circuits',
-  bio: 'High school electronics enthusiast building micro-robotics and traffic controllers with Arduino Uno.',
-  skills: ['Arduino Uno', 'Digital I/O', 'Analog Sensors', 'Breadboarding'],
-  joinedAt: 'November 2026',
-  avatarUrl: null,
-  privacy: { showProjects: true }
-};
+const LOCAL_GUEST_STORAGE_KEY = 'tracewise_guest_session_v1';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Initialize auth state
+  // Helper to normalize Supabase auth user + profile into app user shape
+  const buildUserProfile = async (supabaseUser) => {
+    if (!supabaseUser) return null;
+
+    const isAnonymous = Boolean(supabaseUser.is_anonymous);
+
+    if (isAnonymous) {
+      return {
+        uid: supabaseUser.id,
+        displayName: 'Guest',
+        handle: 'guest_' + supabaseUser.id.substring(0, 6),
+        bio: 'Exploring circuits and projects on Tracewise as a guest visitor.',
+        skills: [],
+        avatarUrl: null,
+        isAnonymous: true,
+        joinedAt: 'Today',
+        privacy: { showProjects: true }
+      };
+    }
+
+    // Attempt to load profile from PostgreSQL `profiles` table
+    try {
+      if (supabase) {
+        const { data: profile, error: profileErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', supabaseUser.id)
+          .single();
+
+        if (profile && !profileErr) {
+          return {
+            uid: supabaseUser.id,
+            email: supabaseUser.email,
+            displayName: profile.display_name || supabaseUser.user_metadata?.display_name || 'Student Maker',
+            handle: profile.handle || 'student_' + supabaseUser.id.substring(0, 6),
+            bio: profile.bio || '',
+            skills: profile.skills || [],
+            avatarUrl: profile.avatar_url || supabaseUser.user_metadata?.avatar_url || null,
+            isAnonymous: false,
+            joinedAt: profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recent',
+            privacy: profile.privacy || { showProjects: true }
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Profile fetch from Supabase failed, falling back to metadata:', err);
+    }
+
+    // Fallback to auth metadata
+    const meta = supabaseUser.user_metadata || {};
+    return {
+      uid: supabaseUser.id,
+      email: supabaseUser.email,
+      displayName: meta.display_name || meta.full_name || 'Student Maker',
+      handle: meta.handle || 'student_' + supabaseUser.id.substring(0, 6),
+      bio: 'Electronics explorer building and debugging circuits on Tracewise.',
+      skills: ['Arduino', 'Circuit Design'],
+      avatarUrl: meta.avatar_url || null,
+      isAnonymous: false,
+      joinedAt: 'Recent',
+      privacy: { showProjects: true }
+    };
+  };
+
   useEffect(() => {
-    let unsubscribe = () => {};
+    let authListener = null;
 
-    if (isFirebaseConfigured() && auth) {
-      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        setIsLoading(true);
-        if (firebaseUser) {
-          try {
-            const userRef = doc(db, 'users', firebaseUser.uid);
-            const userSnap = await getDoc(userRef);
+    async function initAuth() {
+      setIsLoading(true);
 
-            if (userSnap.exists()) {
-              setUser({ uid: firebaseUser.uid, ...userSnap.data() });
-            } else {
-              // Create default profile for first-time sign-in
-              const initialHandle = (firebaseUser.displayName || 'student')
-                .toLowerCase()
-                .replace(/[^a-z0-9_]/g, '')
-                .slice(0, 15) + '_' + Math.floor(100 + Math.random() * 900);
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
+          if (sessionErr) throw sessionErr;
 
-              const initialProfile = {
-                uid: firebaseUser.uid,
-                displayName: firebaseUser.displayName || 'Student Maker',
-                handle: initialHandle,
-                bio: 'Electronics explorer building and debugging circuits on Tracewise.',
-                skills: ['Arduino', 'Circuit Simulation'],
-                joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-                avatarUrl: firebaseUser.photoURL || null,
-                privacy: { showProjects: true },
-                createdAt: serverTimestamp()
-              };
-
-              await setDoc(userRef, initialProfile);
-              setUser(initialProfile);
-            }
-          } catch (err) {
-            console.error('Error fetching user profile from Firestore:', err);
-            // Fallback to basic Firebase user info
-            setUser({
-              uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || 'Student Maker',
-              handle: 'student_' + firebaseUser.uid.slice(0, 5),
-              bio: 'Electronics explorer on Tracewise.',
-              skills: ['Arduino'],
-              joinedAt: 'Recent',
-              avatarUrl: firebaseUser.photoURL || null
-            });
+          if (session?.user) {
+            const profile = await buildUserProfile(session.user);
+            setUser(profile);
+          } else {
+            setUser(null);
           }
-        } else {
+        } catch (err) {
+          console.warn('Supabase session initialization note:', err.message);
           setUser(null);
         }
-        setIsLoading(false);
-      });
-    } else {
-      // Local storage fallback for offline / development / demo mode
-      try {
-        const stored = localStorage.getItem(LOCAL_STORAGE_AUTH_KEY);
-        if (stored) {
-          setUser(JSON.parse(stored));
-        } else {
-          // Pre-seed demo user so user is signed in by default in development/demo
-          setUser(DEMO_STUDENT);
-          localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(DEMO_STUDENT));
+
+        // Listen for Supabase session changes
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session?.user) {
+            const profile = await buildUserProfile(session.user);
+            setUser(profile);
+          } else {
+            setUser(null);
+          }
+          setIsLoading(false);
+        });
+        authListener = data.subscription;
+      } else {
+        // Fallback for unconfigured/offline environment: check if explicit guest session exists
+        try {
+          const localGuest = localStorage.getItem(LOCAL_GUEST_STORAGE_KEY);
+          if (localGuest) {
+            setUser(JSON.parse(localGuest));
+          } else {
+            // Visitors start signed-out by default (no automatic fake persona)
+            setUser(null);
+          }
+        } catch (e) {
+          console.warn('Local guest check failed:', e);
+          setUser(null);
         }
-      } catch (e) {
-        console.warn('Local auth restore failed:', e);
       }
+
       setIsLoading(false);
     }
 
-    return () => unsubscribe();
+    initAuth();
+
+    return () => {
+      if (authListener) authListener.unsubscribe();
+    };
   }, []);
 
-  // Sign In with Google
+  // 1. One-click Continue as Guest
+  const continueAsGuest = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error: anonErr } = await supabase.auth.signInAnonymously();
+        if (anonErr) throw anonErr;
+        const profile = await buildUserProfile(data.user);
+        setUser(profile);
+        return profile;
+      } catch (err) {
+        console.error('Supabase anonymous sign in error:', err);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // Local guest session when backend is in preview/unconfigured mode
+      const guestUser = {
+        uid: 'guest_' + Math.random().toString(36).substring(2, 10),
+        displayName: 'Guest',
+        handle: 'guest_' + Math.random().toString(36).substring(2, 6),
+        bio: 'Exploring circuits and projects on Tracewise as a guest visitor.',
+        skills: [],
+        avatarUrl: null,
+        isAnonymous: true,
+        joinedAt: 'Today',
+        privacy: { showProjects: true }
+      };
+      setUser(guestUser);
+      try {
+        localStorage.setItem(LOCAL_GUEST_STORAGE_KEY, JSON.stringify(guestUser));
+      } catch (e) {
+        console.warn('Storage save failed:', e);
+      }
+      setIsLoading(false);
+      return guestUser;
+    }
+  };
+
+  // Backwards compatibility alias for components calling signInAsStudentDemo
+  const signInAsStudentDemo = continueAsGuest;
+
+  // 2. Sign In with Google
   const signInWithGoogle = async () => {
     setError(null);
     setIsLoading(true);
-    if (isFirebaseConfigured() && auth && googleProvider) {
+
+    if (isSupabaseConfigured() && supabase) {
       try {
-        const result = await signInWithPopup(auth, googleProvider);
-        return result.user;
+        const { data, error: oauthErr } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin
+          }
+        });
+        if (oauthErr) throw oauthErr;
+        return data;
       } catch (err) {
         console.error('Google sign in error:', err);
         setError(err.message);
@@ -127,175 +202,217 @@ export function AuthProvider({ children }) {
         setIsLoading(false);
       }
     } else {
-      // Demo fallback
-      const demoUser = {
-        ...DEMO_STUDENT,
-        uid: 'user-google-' + Date.now(),
-        displayName: 'Google Student',
-        handle: 'google_maker'
-      };
-      setUser(demoUser);
-      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(demoUser));
+      setError('Supabase is not configured yet. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
       setIsLoading(false);
-      return demoUser;
+      throw new Error('Supabase is not configured. Please connect your Supabase project.');
     }
   };
 
-  // Sign in with Email / Password
+  // 3. Sign In with Email
   const signInWithEmail = async (email, password) => {
     setError(null);
     setIsLoading(true);
-    if (isFirebaseConfigured() && auth) {
+
+    if (isSupabaseConfigured() && supabase) {
       try {
-        const res = await signInWithEmailAndPassword(auth, email, password);
-        return res.user;
+        const { data, error: signInErr } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (signInErr) throw signInErr;
+        const profile = await buildUserProfile(data.user);
+        setUser(profile);
+        return profile;
       } catch (err) {
+        console.error('Email sign in error:', err);
         setError(err.message);
         throw err;
       } finally {
         setIsLoading(false);
       }
     } else {
-      // Local fallback
-      const localUser = {
-        uid: 'user-email-' + Date.now(),
-        displayName: email.split('@')[0],
-        handle: email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase(),
-        bio: 'Student engineer using Tracewise.',
-        skills: ['Arduino', 'Breadboarding'],
-        joinedAt: 'Today',
-        avatarUrl: null
-      };
-      setUser(localUser);
-      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(localUser));
+      setError('Supabase is not configured yet.');
       setIsLoading(false);
-      return localUser;
+      throw new Error('Supabase is not configured.');
     }
   };
 
-  // Sign Up with Email
+  // 4. Sign Up with Email
   const signUpWithEmail = async (email, password, displayName, handle) => {
     setError(null);
     setIsLoading(true);
-    if (isFirebaseConfigured() && auth) {
+
+    if (isSupabaseConfigured() && supabase) {
       try {
-        const res = await createUserWithEmailAndPassword(auth, email, password);
-        const newProfile = {
-          uid: res.user.uid,
-          displayName: displayName || email.split('@')[0],
-          handle: handle.toLowerCase(),
-          bio: 'Electronics explorer building and debugging circuits.',
-          skills: ['Arduino'],
-          joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-          avatarUrl: null,
-          privacy: { showProjects: true },
-          createdAt: serverTimestamp()
-        };
-        await setDoc(doc(db, 'users', res.user.uid), newProfile);
-        setUser(newProfile);
-        return res.user;
+        // Enforce lowercase handle
+        const cleanHandle = (handle || email.split('@')[0])
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '');
+
+        const { data, error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              display_name: displayName || 'Student Maker',
+              handle: cleanHandle
+            }
+          }
+        });
+        if (signUpErr) throw signUpErr;
+
+        if (data?.user) {
+          // If session is returned immediately (email confirmation disabled or auto-confirmed)
+          const profile = await buildUserProfile(data.user);
+          setUser(profile);
+          return profile;
+        }
+        return data;
       } catch (err) {
+        console.error('Sign up error:', err);
         setError(err.message);
         throw err;
       } finally {
         setIsLoading(false);
       }
     } else {
-      const newUser = {
-        uid: 'user-' + Date.now(),
-        displayName: displayName || email.split('@')[0],
-        handle: (handle || 'student').toLowerCase(),
-        bio: 'Electronics explorer building and debugging circuits.',
-        skills: ['Arduino'],
-        joinedAt: 'Today',
-        avatarUrl: null
-      };
-      setUser(newUser);
-      localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(newUser));
+      setError('Supabase is not configured yet.');
       setIsLoading(false);
-      return newUser;
+      throw new Error('Supabase is not configured.');
     }
   };
 
-  // Switch / Sign in as Student Demo Account
-  const signInAsStudentDemo = () => {
-    setUser(DEMO_STUDENT);
-    localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(DEMO_STUDENT));
-  };
+  // 5. Upgrade Guest to Permanent Account (Identity Linking / Upgrade)
+  const upgradeGuestAccount = async ({ email, password, displayName, handle, provider = 'email' }) => {
+    setError(null);
+    setIsLoading(true);
 
-  // Sign Out
-  const signOut = async () => {
-    if (isFirebaseConfigured() && auth) {
-      await firebaseSignOut(auth);
-    }
-    setUser(null);
-    localStorage.removeItem(LOCAL_STORAGE_AUTH_KEY);
-  };
-
-  // Update Profile
-  const updateProfile = async (updates) => {
-    if (!user) throw new Error('Must be signed in to update profile');
-
-    const cleanHandle = updates.handle
-      ? updates.handle.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30)
-      : user.handle;
-
-    const updated = {
-      ...user,
-      ...updates,
-      handle: cleanHandle,
-      updatedAt: new Date().toISOString()
-    };
-
-    if (isFirebaseConfigured() && db && user.uid) {
+    if (isSupabaseConfigured() && supabase) {
       try {
-        const userRef = doc(db, 'users', user.uid);
-        await updateDoc(userRef, {
-          displayName: updated.displayName,
-          handle: updated.handle,
-          bio: updated.bio || '',
-          skills: updated.skills || [],
-          updatedAt: serverTimestamp()
-        });
-      } catch (e) {
-        console.error('Firestore updateDoc failed:', e);
+        if (provider === 'google') {
+          // Link Google identity to existing anonymous session
+          const { data, error: linkErr } = await supabase.auth.linkIdentity({
+            provider: 'google'
+          });
+          if (linkErr) throw linkErr;
+          return data;
+        } else {
+          // Convert anonymous user to permanent email account
+          const { data, error: updateErr } = await supabase.auth.updateUser({
+            email,
+            password,
+            data: {
+              display_name: displayName,
+              handle: handle?.toLowerCase()
+            }
+          });
+          if (updateErr) throw updateErr;
+          const profile = await buildUserProfile(data.user);
+          setUser(profile);
+          return profile;
+        }
+      } catch (err) {
+        console.error('Account upgrade error:', err);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsLoading(false);
       }
+    } else {
+      // In offline mode, upgrade local guest to named account
+      const upgraded = {
+        uid: 'user_' + Math.random().toString(36).substring(2, 9),
+        displayName: displayName || 'Student Maker',
+        handle: handle || 'student_' + Math.floor(100 + Math.random() * 900),
+        bio: 'Electronics explorer building and debugging circuits on Tracewise.',
+        skills: ['Arduino Uno', 'Circuit Simulation'],
+        isAnonymous: false,
+        joinedAt: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        privacy: { showProjects: true }
+      };
+      setUser(upgraded);
+      try {
+        localStorage.removeItem(LOCAL_GUEST_STORAGE_KEY);
+      } catch (e) {}
+      setIsLoading(false);
+      return upgraded;
     }
-
-    setUser(updated);
-    localStorage.setItem(LOCAL_STORAGE_AUTH_KEY, JSON.stringify(updated));
-    return updated;
   };
 
-  // Check Handle Availability
-  const isHandleAvailable = async (candidateHandle) => {
-    const clean = candidateHandle.toLowerCase().trim();
-    if (!clean || clean.length < 3) return false;
-    if (user && user.handle === clean) return true; // unchanged
-    // Handle uniqueness validation
-    return true;
+  // 6. Sign Out
+  const signOut = async () => {
+    setIsLoading(true);
+    try {
+      if (isSupabaseConfigured() && supabase) {
+        await supabase.auth.signOut();
+      }
+      localStorage.removeItem(LOCAL_GUEST_STORAGE_KEY);
+    } catch (err) {
+      console.warn('Sign out warning:', err);
+    } finally {
+      setUser(null);
+      setIsLoading(false);
+    }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: Boolean(user),
-        isLoading,
-        error,
-        signInWithGoogle,
-        signInWithEmail,
-        signUpWithEmail,
-        signInAsStudentDemo,
-        signOut,
-        updateProfile,
-        isHandleAvailable,
-        isFirebaseConnected: isFirebaseConfigured()
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  // 7. Update Profile
+  const updateProfile = async (updatedFields) => {
+    if (!user) return null;
+
+    try {
+      if (isSupabaseConfigured() && supabase && !user.isAnonymous) {
+        const { error: updateErr } = await supabase
+          .from('profiles')
+          .update({
+            display_name: updatedFields.displayName || user.displayName,
+            bio: updatedFields.bio ?? user.bio,
+            skills: updatedFields.skills || user.skills,
+            avatar_url: updatedFields.avatarUrl ?? user.avatarUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.uid);
+
+        if (updateErr) throw updateErr;
+      }
+
+      const updatedUser = {
+        ...user,
+        displayName: updatedFields.displayName || user.displayName,
+        bio: updatedFields.bio ?? user.bio,
+        skills: updatedFields.skills || user.skills,
+        avatarUrl: updatedFields.avatarUrl ?? user.avatarUrl
+      };
+
+      setUser(updatedUser);
+      if (user.isAnonymous) {
+        try {
+          localStorage.setItem(LOCAL_GUEST_STORAGE_KEY, JSON.stringify(updatedUser));
+        } catch (e) {}
+      }
+      return updatedUser;
+    } catch (err) {
+      console.error('Update profile error:', err);
+      throw err;
+    }
+  };
+
+  const value = {
+    user,
+    isAuthenticated: Boolean(user),
+    isGuest: Boolean(user?.isAnonymous),
+    isLoading,
+    error,
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    continueAsGuest,
+    signInAsStudentDemo,
+    upgradeGuestAccount,
+    signOut,
+    updateProfile
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

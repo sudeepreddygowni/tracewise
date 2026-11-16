@@ -324,8 +324,8 @@ export function HomePage() {
         style={{
           position: 'relative',
           paddingTop: '80px',
-          paddingBottom: '120px',
-          background: 'linear-gradient(180deg, #0a1f40 0%, #153570 12%, #224d94 24%, #4f87d4 38%, #ebf6ff 52%, #f5f9fd 66%, #ebf6ff 80%, #60a5fa 90%, #1e3fd8 96%, #0b2348 99%, #071831 100%)'
+          paddingBottom: '130px',
+          background: 'linear-gradient(180deg, #071831 0%, #0d274e 10%, #1a4175 22%, #316298 34%, #6ba1d6 45%, #c8e2fb 54%, #edf6ff 62%, #e5f1fc 70%, #bcdcf7 78%, #78aedc 86%, #3a75ad 92%, #144075 97%, #071831 100%)'
         }}
         id="workspace"
       >
@@ -621,7 +621,7 @@ export function HomePage() {
       <section
         style={{
           padding: '80px 0 100px',
-          background: 'linear-gradient(180deg, #071831 0%, #0b2348 35%, #183e8a 62%, #3b82f6 82%, #93c5fd 92%, #ebf6ff 97%, #F5F9FD 100%)',
+          background: 'linear-gradient(180deg, #071831 0%, #0d274e 16%, #173d6f 34%, #2e5f94 52%, #588ec5 70%, #9fc9f0 84%, #dbeeff 94%, #F5F9FD 100%)',
           color: '#ffffff',
           position: 'relative'
         }}
@@ -708,7 +708,7 @@ export function HomePage() {
       <section
         style={{
           padding: '80px 0 110px',
-          background: 'linear-gradient(180deg, #F5F9FD 0%, #F5F9FD 50%, #ebf6ff 72%, #93c5fd 86%, #2563eb 94%, #0b2348 98%, #071831 100%)',
+          background: 'linear-gradient(180deg, #F5F9FD 0%, #F5F9FD 48%, #edf6ff 62%, #cbe4fa 74%, #84b8e3 84%, #427cb6 92%, #154278 97%, #071831 100%)',
           position: 'relative'
         }}
         id="faq"

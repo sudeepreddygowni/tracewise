@@ -1,32 +1,18 @@
-import {
-  db,
-  isFirebaseConfigured,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp
-} from './firebase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
-const LOCAL_POSTS_KEY = 'tracewise_community_posts_v2';
-const LOCAL_COMMENTS_KEY = 'tracewise_community_comments_v2';
-const LOCAL_REPORTS_KEY = 'tracewise_community_reports_v2';
+const LOCAL_POSTS_KEY = 'tracewise_community_posts_v3';
+const LOCAL_COMMENTS_KEY = 'tracewise_community_comments_v3';
+const LOCAL_REPORTS_KEY = 'tracewise_community_reports_v3';
 
-// Realistic Student Engineering Initial Posts
-const INITIAL_COMMUNITY_POSTS = [
+// Curated preview discussions (clearly separated from user-created live records)
+const PREVIEW_COMMUNITY_POSTS = [
   {
     id: 'post-traffic-pedestrian',
     title: 'Why did adding a pedestrian button trigger a pin conflict on Pin 2?',
     category: 'Debugging Help',
     body: 'I was remixing the Starter Traffic Light project to add a crosswalk push button. When I hooked up the button to digital pin 7 on the canvas but defined BUTTON_PIN as 2 in my Arduino sketch, Tracewise immediately warned me that Pin 2 was already driving the Red LED anode! After changing `BUTTON_PIN = 7`, everything worked perfectly. Always double-check your code against your breadboard wiring.',
     tags: ['Arduino Uno', 'Pin Collision', 'Traffic Light', 'Debugging'],
-    authorUid: 'student-demo-101',
+    authorUid: 'preview-student-1',
     authorName: 'Alex Rivera',
     authorHandle: 'alex_circuits',
     authorAvatar: null,
@@ -46,7 +32,7 @@ const INITIAL_COMMUNITY_POSTS = [
     category: 'Showcase',
     body: 'A quick tip for beginners building physical circuits after designing in Tracewise: standard red 5mm LEDs drop around 1.8V to 2.1V forward voltage. Connecting it directly from Arduino 5V to GND draws way more than the 20mA limit of ATmega328P pins. Using a 220Ω resistor limits current to approximately (5V - 2V) / 220Ω = 13.6mA, keeping the LED bright and safe forever.',
     tags: ['Circuits 101', 'Ohm\'s Law', 'LED Protection', 'Hardware Safety'],
-    authorUid: 'student-maya-202',
+    authorUid: 'preview-student-2',
     authorName: 'Maya Patel',
     authorHandle: 'maya_robotics',
     authorAvatar: null,
@@ -59,9 +45,9 @@ const INITIAL_COMMUNITY_POSTS = [
     id: 'post-analog-ultrasonic-question',
     title: 'Should I use pulseIn() or interrupts for distance sensor echo pins?',
     category: 'Question',
-    body: 'Working on an obstacle-avoiding rover on a breadboard. `pulseIn(echoPin, HIGH)` blocks the main loop while waiting for sound waves to bounce back. Has anyone implemented timer interrupts on Uno pin D2 or D3 for sensor reads without stuttering motor PWM?',
-    tags: ['Ultrasonic', 'Sensors', 'Arduino Uno', 'Robotics'],
-    authorUid: 'student-devon-303',
+    body: 'I am building an ultrasonic obstacle sensor for a mini rover in Tracewise. `pulseIn()` blocks execution while waiting for the sound bounce, which slows down the motor update loop. Is there a better non-blocking approach for HC-SR04 on an Arduino Uno?',
+    tags: ['Sensors', 'Ultrasonic', 'Timing', 'Robotics'],
+    authorUid: 'preview-student-3',
     authorName: 'Devon Lee',
     authorHandle: 'devon_maker',
     authorAvatar: null,
@@ -72,413 +58,434 @@ const INITIAL_COMMUNITY_POSTS = [
   }
 ];
 
-const INITIAL_COMMENTS = {
-  'post-traffic-pedestrian': [
-    {
-      id: 'cm-1',
-      postId: 'post-traffic-pedestrian',
-      authorUid: 'student-maya-202',
-      authorName: 'Maya Patel',
-      authorHandle: 'maya_robotics',
-      text: 'Great catch! The diff viewer makes it so clear because it highlights the exact wire on D7 next to the code line on D2.',
-      createdAt: new Date(Date.now() - 3600000 * 20).toISOString()
-    },
-    {
-      id: 'cm-2',
-      postId: 'post-traffic-pedestrian',
-      authorUid: 'student-demo-101',
-      authorName: 'Alex Rivera',
-      authorHandle: 'alex_circuits',
-      text: 'Exactly! Before Tracewise I would spend hours looking for loose breadboard jumpers when it was just an inverted pin number in setup().',
-      createdAt: new Date(Date.now() - 3600000 * 16).toISOString()
-    }
-  ],
-  'post-led-resistor-current': [
-    {
-      id: 'cm-3',
-      postId: 'post-led-resistor-current',
-      authorUid: 'student-devon-303',
-      authorName: 'Devon Lee',
-      authorHandle: 'devon_maker',
-      text: 'Thanks for writing out the formula step-by-step. Very helpful reference for our robotics club!',
-      createdAt: new Date(Date.now() - 3600000 * 30).toISOString()
-    }
-  ],
-  'post-analog-ultrasonic-question': [
-    {
-      id: 'cm-4',
-      postId: 'post-analog-ultrasonic-question',
-      authorUid: 'student-demo-101',
-      authorName: 'Alex Rivera',
-      authorHandle: 'alex_circuits',
-      text: 'Check out PinChangeInt or use the NewPing library! It uses hardware timer 2 to trigger non-blocking pings.',
-      createdAt: new Date(Date.now() - 3600000 * 60).toISOString()
-    }
-  ]
-};
-
-// Helper: load local posts
-function loadLocalPosts() {
-  try {
-    const raw = localStorage.getItem(LOCAL_POSTS_KEY);
-    if (!raw) {
-      localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(INITIAL_COMMUNITY_POSTS));
-      return INITIAL_COMMUNITY_POSTS;
-    }
-    return JSON.parse(raw);
-  } catch (e) {
-    return INITIAL_COMMUNITY_POSTS;
-  }
+// Helper to normalize Supabase row into frontend shape
+function mapPostRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    category: row.category,
+    tags: row.tags || [],
+    authorUid: row.author_id,
+    authorName: row.author_name,
+    authorHandle: row.author_handle,
+    projectRef: row.project_reference,
+    moderationStatus: row.moderation_status,
+    commentCount: row.comment_count || 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
 }
 
-function saveLocalPosts(posts) {
-  try {
-    localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(posts));
-  } catch (e) {
-    console.warn('Failed to save local community posts:', e);
-  }
+function mapCommentRow(row) {
+  return {
+    id: row.id,
+    postId: row.post_id,
+    authorUid: row.author_id,
+    authorName: row.author_name,
+    authorHandle: row.author_handle,
+    body: row.body,
+    likes: row.likes || 0,
+    createdAt: row.created_at,
+    moderationStatus: row.moderation_status
+  };
 }
 
-function loadLocalComments() {
-  try {
-    const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
-    if (!raw) {
-      localStorage.setItem(LOCAL_COMMENTS_KEY, JSON.stringify(INITIAL_COMMENTS));
-      return INITIAL_COMMENTS;
-    }
-    return JSON.parse(raw);
-  } catch (e) {
-    return INITIAL_COMMENTS;
-  }
-}
+// -----------------------------------------------------------------------------
+// POST QUERIES & MUTATIONS
+// -----------------------------------------------------------------------------
 
-function saveLocalComments(comments) {
-  try {
-    localStorage.setItem(LOCAL_COMMENTS_KEY, JSON.stringify(comments));
-  } catch (e) {
-    console.warn('Failed to save local comments:', e);
-  }
-}
-
-/**
- * Get Community Posts with filtering
- */
-export async function getCommunityPosts({ category = 'All', authorUid = null, filter = 'Latest' } = {}) {
-  if (isFirebaseConfigured() && db) {
+export async function getCommunityPosts({ category = 'All', authorUid = null, limitCount = 50 } = {}) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const postsRef = collection(db, 'communityPosts');
-      let q = query(postsRef, where('moderationStatus', '==', 'approved'), orderBy('createdAt', 'desc'));
+      let query = supabase
+        .from('community_posts')
+        .select('*')
+        .eq('moderation_status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(limitCount);
 
-      if (authorUid) {
-        q = query(postsRef, where('authorUid', '==', authorUid), orderBy('createdAt', 'desc'));
-      } else if (category && category !== 'All') {
-        q = query(postsRef, where('category', '==', category), where('moderationStatus', '==', 'approved'), orderBy('createdAt', 'desc'));
+      if (category && category !== 'All') {
+        query = query.eq('category', category);
       }
 
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(docSnap => {
-        list.push({ id: docSnap.id, ...docSnap.data() });
-      });
-      return list;
-    } catch (e) {
-      console.warn('Firestore getCommunityPosts failed, using local store fallback:', e);
+      if (authorUid) {
+        query = query.eq('author_id', authorUid);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        return data.map(mapPostRow);
+      }
+    } catch (err) {
+      console.warn('Supabase community posts query error:', err.message);
+    }
+  }
+
+  // Fallback to local storage
+  try {
+    const raw = localStorage.getItem(LOCAL_POSTS_KEY);
+    let posts = raw ? JSON.parse(raw) : PREVIEW_COMMUNITY_POSTS;
+
+    if (category && category !== 'All') {
+      posts = posts.filter(p => p.category === category);
+    }
+    if (authorUid) {
+      posts = posts.filter(p => p.authorUid === authorUid);
+    }
+    return posts;
+  } catch (e) {
+    return PREVIEW_COMMUNITY_POSTS;
+  }
+}
+
+export async function getCommunityPostById(postId) {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_posts')
+        .select('*')
+        .eq('id', postId)
+        .single();
+
+      if (error) throw error;
+      if (data) return mapPostRow(data);
+    } catch (err) {
+      console.warn('Supabase post detail query note:', err.message);
+    }
+  }
+
+  try {
+    const raw = localStorage.getItem(LOCAL_POSTS_KEY);
+    const posts = raw ? JSON.parse(raw) : PREVIEW_COMMUNITY_POSTS;
+    return posts.find(p => p.id === postId) || null;
+  } catch (e) {
+    return PREVIEW_COMMUNITY_POSTS.find(p => p.id === postId) || null;
+  }
+}
+
+export async function createCommunityPost(postData, author) {
+  if (!author) {
+    throw new Error('You must be signed in to post in the community.');
+  }
+
+  if (author.isAnonymous) {
+    throw new Error('Guest visitors cannot create public posts. Please save or connect an account first.');
+  }
+
+  const cleanTags = (postData.tags || [])
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const row = {
+        author_id: author.uid,
+        author_name: author.displayName || 'Student Maker',
+        author_handle: author.handle || 'student',
+        title: postData.title.trim(),
+        body: postData.body.trim(),
+        category: postData.category,
+        tags: cleanTags,
+        project_reference: postData.projectRef || null,
+        moderation_status: 'approved',
+        comment_count: 0
+      };
+
+      const { data, error } = await supabase
+        .from('community_posts')
+        .insert(row)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return mapPostRow(data);
+    } catch (err) {
+      console.error('Supabase post creation failed:', err);
+      throw err;
     }
   }
 
   // Local fallback
-  let posts = loadLocalPosts();
-  if (authorUid) {
-    posts = posts.filter(p => p.authorUid === authorUid);
-  }
-  if (category && category !== 'All') {
-    posts = posts.filter(p => p.category === category);
-  }
-  if (filter === 'Questions') {
-    posts = posts.filter(p => p.category === 'Question' || p.category === 'Debugging Help');
-  } else if (filter === 'Project Updates') {
-    posts = posts.filter(p => p.category === 'Project Update');
-  } else if (filter === 'Showcases') {
-    posts = posts.filter(p => p.category === 'Showcase');
-  }
-
-  return posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-}
-
-/**
- * Get a single post by ID
- */
-export async function getCommunityPostById(postId) {
-  if (isFirebaseConfigured() && db) {
-    try {
-      const postRef = doc(db, 'communityPosts', postId);
-      const snap = await getDoc(postRef);
-      if (snap.exists()) {
-        return { id: snap.id, ...snap.data() };
-      }
-    } catch (e) {
-      console.warn('Firestore getDoc failed:', e);
-    }
-  }
-
-  const posts = loadLocalPosts();
-  return posts.find(p => p.id === postId) || null;
-}
-
-/**
- * Create a new community post
- */
-export async function createCommunityPost({ title, category, body, tags = [], projectRef = null, author }) {
-  if (!author || !author.uid) {
-    throw new Error('You must be signed in to create a post.');
-  }
-
   const newPost = {
-    id: `post-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    title: title.trim(),
-    category: category || 'General Discussion',
-    body: body.trim(),
-    tags: tags.map(t => t.trim()).filter(Boolean),
+    id: 'post-' + Date.now(),
+    title: postData.title.trim(),
+    body: postData.body.trim(),
+    category: postData.category,
+    tags: cleanTags,
     authorUid: author.uid,
     authorName: author.displayName || 'Student Maker',
     authorHandle: author.handle || 'student',
     authorAvatar: author.avatarUrl || null,
-    projectRef: projectRef ? {
-      projectId: projectRef.id || projectRef.projectId,
-      title: projectRef.title || 'Untitled Circuit',
-      version: projectRef.version?.label || projectRef.version || 'v1.0',
-      componentsCount: projectRef.components?.length || projectRef.componentsCount || 0
-    } : null,
+    projectRef: postData.projectRef || null,
     createdAt: new Date().toISOString(),
     moderationStatus: 'approved',
     commentCount: 0
   };
 
-  if (isFirebaseConfigured() && db) {
-    try {
-      const postRef = doc(db, 'communityPosts', newPost.id);
-      await setDoc(postRef, {
-        ...newPost,
-        createdAt: serverTimestamp()
-      });
-    } catch (e) {
-      console.error('Firestore createCommunityPost failed:', e);
-    }
+  try {
+    const raw = localStorage.getItem(LOCAL_POSTS_KEY);
+    const posts = raw ? JSON.parse(raw) : [...PREVIEW_COMMUNITY_POSTS];
+    posts.unshift(newPost);
+    localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(posts));
+  } catch (e) {
+    console.warn('Local post save failed:', e);
   }
 
-  // Always update local storage
-  const posts = loadLocalPosts();
-  const updated = [newPost, ...posts];
-  saveLocalPosts(updated);
   return newPost;
 }
 
-/**
- * Update an existing post
- */
-export async function updateCommunityPost(postId, updates, currentUserUid) {
-  const posts = loadLocalPosts();
-  const post = posts.find(p => p.id === postId);
-  if (!post) throw new Error('Post not found');
-  if (post.authorUid !== currentUserUid) throw new Error('Permission denied: You can only edit your own posts.');
+export async function updateCommunityPost(postId, updates, author) {
+  if (!author) throw new Error('Unauthorized');
+  if (author.isAnonymous) throw new Error('Guest visitors cannot update posts.');
 
-  const updatedPost = {
-    ...post,
-    title: updates.title !== undefined ? updates.title.trim() : post.title,
-    category: updates.category || post.category,
-    body: updates.body !== undefined ? updates.body.trim() : post.body,
-    tags: updates.tags || post.tags,
-    projectRef: updates.projectRef !== undefined ? updates.projectRef : post.projectRef,
-    updatedAt: new Date().toISOString()
-  };
-
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const postRef = doc(db, 'communityPosts', postId);
-      await updateDoc(postRef, {
-        title: updatedPost.title,
-        category: updatedPost.category,
-        body: updatedPost.body,
-        tags: updatedPost.tags,
-        projectRef: updatedPost.projectRef,
-        updatedAt: serverTimestamp()
-      });
-    } catch (e) {
-      console.error('Firestore updateDoc failed:', e);
+      const { data, error } = await supabase
+        .from('community_posts')
+        .update({
+          title: updates.title,
+          body: updates.body,
+          category: updates.category,
+          tags: updates.tags,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', postId)
+        .eq('author_id', author.uid)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return mapPostRow(data);
+    } catch (err) {
+      console.error('Supabase update post failed:', err);
+      throw err;
     }
   }
 
-  const updatedList = posts.map(p => p.id === postId ? updatedPost : p);
-  saveLocalPosts(updatedList);
-  return updatedPost;
+  // Local fallback
+  try {
+    const raw = localStorage.getItem(LOCAL_POSTS_KEY);
+    if (raw) {
+      const posts = JSON.parse(raw);
+      const idx = posts.findIndex(p => p.id === postId);
+      if (idx !== -1 && posts[idx].authorUid === author.uid) {
+        posts[idx] = { ...posts[idx], ...updates, updatedAt: new Date().toISOString() };
+        localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(posts));
+        return posts[idx];
+      }
+    }
+  } catch (e) {}
+  return null;
 }
 
-/**
- * Delete a post
- */
-export async function deleteCommunityPost(postId, currentUserUid) {
-  const posts = loadLocalPosts();
-  const post = posts.find(p => p.id === postId);
-  if (!post) throw new Error('Post not found');
-  if (post.authorUid !== currentUserUid) throw new Error('Permission denied: You can only delete your own posts.');
+export async function deleteCommunityPost(postId, author) {
+  if (!author) throw new Error('Unauthorized');
+  if (author.isAnonymous) throw new Error('Guest visitors cannot delete posts.');
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const postRef = doc(db, 'communityPosts', postId);
-      await deleteDoc(postRef);
-    } catch (e) {
-      console.error('Firestore deleteDoc failed:', e);
+      const { error } = await supabase
+        .from('community_posts')
+        .delete()
+        .eq('id', postId)
+        .eq('author_id', author.uid);
+
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Supabase delete post failed:', err);
+      throw err;
     }
   }
 
-  const updatedList = posts.filter(p => p.id !== postId);
-  saveLocalPosts(updatedList);
+  // Local fallback
+  try {
+    const raw = localStorage.getItem(LOCAL_POSTS_KEY);
+    if (raw) {
+      const posts = JSON.parse(raw);
+      const filtered = posts.filter(p => !(p.id === postId && p.authorUid === author.uid));
+      localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(filtered));
+    }
+  } catch (e) {}
   return true;
 }
 
-/**
- * Get comments for a post
- */
+// -----------------------------------------------------------------------------
+// COMMENTS QUERIES & MUTATIONS
+// -----------------------------------------------------------------------------
+
 export async function getPostComments(postId) {
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const commentsRef = collection(db, 'communityPosts', postId, 'comments');
-      const q = query(commentsRef, orderBy('createdAt', 'asc'));
-      const snap = await getDocs(q);
-      const list = [];
-      snap.forEach(docSnap => {
-        list.push({ id: docSnap.id, ...docSnap.data() });
-      });
-      return list;
-    } catch (e) {
-      console.warn('Firestore getPostComments failed, using local store:', e);
+      const { data, error } = await supabase
+        .from('community_comments')
+        .select('*')
+        .eq('post_id', postId)
+        .eq('moderation_status', 'approved')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      if (data) return data.map(mapCommentRow);
+    } catch (err) {
+      console.warn('Supabase comments query note:', err.message);
     }
   }
 
-  const allComments = loadLocalComments();
-  return allComments[postId] || [];
+  // Local fallback
+  try {
+    const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
+    const comments = raw ? JSON.parse(raw) : [];
+    return comments.filter(c => c.postId === postId);
+  } catch (e) {
+    return [];
+  }
 }
 
-/**
- * Add a comment to a post
- */
-export async function addPostComment(postId, { text, author }) {
-  if (!author || !author.uid) throw new Error('You must be signed in to comment.');
-  if (!text || !text.trim()) throw new Error('Comment cannot be empty.');
+export async function addComment(postId, body, author) {
+  if (!author) {
+    throw new Error('You must be signed in to comment.');
+  }
 
+  if (author.isAnonymous) {
+    throw new Error('Guest visitors cannot post public comments. Please save or connect an account first.');
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const row = {
+        post_id: postId,
+        author_id: author.uid,
+        author_name: author.displayName || 'Student Maker',
+        author_handle: author.handle || 'student',
+        body: body.trim(),
+        moderation_status: 'approved',
+        likes: 0
+      };
+
+      const { data, error } = await supabase
+        .from('community_comments')
+        .insert(row)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update post comment count
+      try {
+        await supabase.rpc('increment_comment_count', { target_post_id: postId });
+      } catch (e) {}
+
+      return mapCommentRow(data);
+    } catch (err) {
+      console.error('Supabase add comment failed:', err);
+      throw err;
+    }
+  }
+
+  // Local fallback
   const newComment = {
-    id: `cm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: 'comm-' + Date.now(),
     postId,
     authorUid: author.uid,
     authorName: author.displayName || 'Student Maker',
     authorHandle: author.handle || 'student',
-    authorAvatar: author.avatarUrl || null,
-    text: text.trim(),
-    createdAt: new Date().toISOString()
+    body: body.trim(),
+    createdAt: new Date().toISOString(),
+    likes: 0
   };
 
-  if (isFirebaseConfigured() && db) {
-    try {
-      const commentRef = doc(db, 'communityPosts', postId, 'comments', newComment.id);
-      await setDoc(commentRef, {
-        ...newComment,
-        createdAt: serverTimestamp()
-      });
-    } catch (e) {
-      console.error('Firestore addComment failed:', e);
-    }
-  }
-
-  // Update local storage comments
-  const allComments = loadLocalComments();
-  const postComments = allComments[postId] || [];
-  allComments[postId] = [...postComments, newComment];
-  saveLocalComments(allComments);
-
-  // Increment post comment count
-  const posts = loadLocalPosts();
-  const updatedPosts = posts.map(p => {
-    if (p.id === postId) {
-      return { ...p, commentCount: (p.commentCount || 0) + 1 };
-    }
-    return p;
-  });
-  saveLocalPosts(updatedPosts);
+  try {
+    const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
+    const comments = raw ? JSON.parse(raw) : [];
+    comments.push(newComment);
+    localStorage.setItem(LOCAL_COMMENTS_KEY, JSON.stringify(comments));
+  } catch (e) {}
 
   return newComment;
 }
 
-/**
- * Delete a comment
- */
-export async function deletePostComment(postId, commentId, currentUserUid) {
-  const allComments = loadLocalComments();
-  const postComments = allComments[postId] || [];
-  const target = postComments.find(c => c.id === commentId);
-  if (!target) throw new Error('Comment not found');
-  if (target.authorUid !== currentUserUid) throw new Error('Permission denied.');
+export async function deleteComment(commentId, author) {
+  if (!author) throw new Error('Unauthorized');
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const commentRef = doc(db, 'communityPosts', postId, 'comments', commentId);
-      await deleteDoc(commentRef);
-    } catch (e) {
-      console.error('Firestore deleteComment failed:', e);
+      const { error } = await supabase
+        .from('community_comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('author_id', author.uid);
+
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Supabase delete comment failed:', err);
+      throw err;
     }
   }
 
-  allComments[postId] = postComments.filter(c => c.id !== commentId);
-  saveLocalComments(allComments);
-
-  // Decrement comment count
-  const posts = loadLocalPosts();
-  const updatedPosts = posts.map(p => {
-    if (p.id === postId) {
-      return { ...p, commentCount: Math.max(0, (p.commentCount || 1) - 1) };
+  // Local fallback
+  try {
+    const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
+    if (raw) {
+      const comments = JSON.parse(raw);
+      const filtered = comments.filter(c => !(c.id === commentId && c.authorUid === author.uid));
+      localStorage.setItem(LOCAL_COMMENTS_KEY, JSON.stringify(filtered));
     }
-    return p;
-  });
-  saveLocalPosts(updatedPosts);
-
+  } catch (e) {}
   return true;
 }
 
-/**
- * Report a post or comment
- */
-export async function submitReport({ targetType, targetId, reason, reporterUid }) {
-  if (!reporterUid) throw new Error('Must be signed in to report content.');
+// -----------------------------------------------------------------------------
+// REPORTING
+// -----------------------------------------------------------------------------
 
-  const reportDoc = {
-    id: `rep-${Date.now()}`,
-    targetType,
-    targetId,
-    reason: reason || 'Inappropriate content',
-    reporterUid,
-    status: 'pending_review',
-    createdAt: new Date().toISOString()
-  };
-
-  if (isFirebaseConfigured() && db) {
+export async function submitContentReport({ targetType, targetId, reason, details, reporterUid }) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const repRef = doc(db, 'reports', reportDoc.id);
-      await setDoc(repRef, {
-        ...reportDoc,
-        createdAt: serverTimestamp()
-      });
-    } catch (e) {
-      console.error('Firestore submitReport failed:', e);
+      const { error } = await supabase
+        .from('community_reports')
+        .insert({
+          target_type: targetType,
+          target_id: targetId,
+          reason,
+          details: details || '',
+          reporter_id: reporterUid || null,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Supabase report submission failed:', err);
+      throw err;
     }
   }
 
+  // Local report save
   try {
     const raw = localStorage.getItem(LOCAL_REPORTS_KEY);
     const list = raw ? JSON.parse(raw) : [];
-    list.push(reportDoc);
+    list.push({ targetType, targetId, reason, details, reporterUid, createdAt: new Date().toISOString() });
     localStorage.setItem(LOCAL_REPORTS_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('Local report save failed:', e);
-  }
+  } catch (e) {}
 
   return true;
 }
+
+// Backwards-compatible aliases
+export const addPostComment = (postId, data, author) => {
+  const body = typeof data === 'string' ? data : (data?.text || data?.body || '');
+  const authUser = author || (typeof data === 'object' ? data?.author : null);
+  return addComment(postId, body, authUser);
+};
+
+export const deletePostComment = (postId, commentId, author) => {
+  const authUser = typeof author === 'object' ? author : { uid: author };
+  return deleteComment(commentId, authUser);
+};
+
+export const submitReport = submitContentReport;
+

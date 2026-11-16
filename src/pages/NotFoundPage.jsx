@@ -1,5 +1,4 @@
 import React from 'react';
-import { Navbar } from '../components/navigation/Navbar';
 import { Home, ArrowRight, Compass } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -10,8 +9,6 @@ export function NotFoundPage() {
   return (
     <TracewiseBubbleArea theme="light">
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-        <Navbar />
-
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '120px 24px 60px' }}>
           <div className="glass-card" style={{ maxWidth: '520px', width: '100%', padding: '40px', textAlign: 'center', background: '#ffffff' }}>
             <div

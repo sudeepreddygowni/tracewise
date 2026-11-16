@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['handle', 'displayName']) &&
+             data.handle is string &&
+             data.handle.size() >= 3 &&
+             data.handle.size() <= 30 &&
+             data.displayName is string &&
+             data.displayName.size() >= 2 &&
+             data.displayName.size() <= 50;
+    }
+
+    function isValidPost() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['title', 'category', 'body', 'authorUid']) &&
+             data.title is string && data.title.size() >= 4 && data.title.size() <= 120 &&
+             data.category in ['Question', 'Debugging Help', 'Project Update', 'Showcase', 'General Discussion'] &&
+             data.body is string && data.body.size() >= 10 && data.body.size() <= 5000 &&
+             data.authorUid == request.auth.uid &&
+             (!('moderationStatus' in data) || data.moderationStatus in ['approved', 'pending_review']);
+    }
+
+    function isValidComment() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['text', 'authorUid']) &&
+             data.text is string && data.text.size() >= 2 && data.text.size() <= 1500 &&
+             data.authorUid == request.auth.uid;
+    }
+
+    // 1. Users collection
+    match /users/{userId} {
+      // Public profile data is readable by anyone
+      allow read: if true;
+      // Only the user themselves can create or update their own profile document
+      allow create, update: if isOwner(userId) && isValidUser();
+      // Users cannot delete their entire core record directly without admin approval
+      allow delete: if false;
+    }
+
+    // 2. Community Posts
+    match /communityPosts/{postId} {
+      // Any user can read approved community posts
+      allow read: if resource == null || resource.data.moderationStatus == 'approved' || (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+      // Authenticated users can create valid posts
+      allow create: if isAuthenticated() && isValidPost();
+      // Only the author can update or delete their post; cannot change ownership
+      allow update: if isOwner(resource.data.authorUid) &&
+                       request.resource.data.authorUid == resource.data.authorUid &&
+                       isValidPost();
+      allow delete: if isOwner(resource.data.authorUid);
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && isValidComment();
+        allow update, delete: if isOwner(resource.data.authorUid);
+      }
+    }
+
+    // 3. Moderation Reports collection
+    match /reports/{reportId} {
+      // Authenticated users can submit a report against a post or comment
+      allow create: if isAuthenticated() &&
+                       request.resource.data.reporterUid == request.auth.uid &&
+                       request.resource.data.reason is string &&
+                       request.resource.data.targetType in ['post', 'comment'];
+      // Only internal system / moderators can read or list reports
+      allow read, update, delete: if false;
+    }
+  }
+}

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Navbar } from '../components/navigation/Navbar';
 import AnimatedContent from '../animations/AnimatedContent';
 import { TracewiseProjectGallery } from '../components/landing/TracewiseProjectGallery';
 import GradientASCII from '../components/gradient-ascii/GradientASCII';
@@ -73,8 +72,6 @@ export function HomePage() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-      <Navbar />
-
       {/* =========================================================================
           SECTION 1: HERO WITH REACT BITS GRADIENTASCII FULL-BLEED BACKGROUND
       ========================================================================= */}
@@ -141,15 +138,15 @@ export function HomePage() {
             left: 0,
             width: '100%',
             height: '100%',
-            background: 'radial-gradient(ellipse 70% 55% at 35% 45%, rgba(7, 24, 49, 0.32) 0%, rgba(7, 24, 49, 0.1) 50%, transparent 80%)',
+            background: 'radial-gradient(ellipse 75% 60% at 50% 45%, rgba(7, 24, 49, 0.32) 0%, rgba(7, 24, 49, 0.1) 50%, transparent 80%)',
             pointerEvents: 'none',
             zIndex: 2
           }}
           aria-hidden="true"
         />
 
-        <div className="container-tw" style={{ position: 'relative', zIndex: 10 }}>
-          <div style={{ maxWidth: '820px' }}>
+        <div className="container-tw" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ maxWidth: '960px', width: '100%', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
             {/* Tag Pill */}
             <AnimatedContent trigger="mount" distance={25} duration={0.6}>
@@ -160,15 +157,15 @@ export function HomePage() {
                   gap: '8px',
                   background: 'rgba(255, 255, 255, 0.12)',
                   border: '1px solid rgba(255, 255, 255, 0.28)',
-                  padding: '6px 16px',
+                  padding: '7px 18px',
                   borderRadius: 'var(--tw-radius-pill)',
                   backdropFilter: 'blur(16px)',
-                  marginBottom: '20px',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)'
+                  marginBottom: '22px',
+                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.25)'
                 }}
               >
                 <Cpu size={15} color="#2DC5E9" />
-                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.02em' }}>
+                <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.02em' }}>
                   Student Electronics & Circuit Engineering
                 </span>
               </div>
@@ -178,15 +175,20 @@ export function HomePage() {
             <AnimatedContent trigger="mount" distance={35} delay={0.1} duration={0.8}>
               <h1
                 style={{
-                  fontSize: 'clamp(2.8rem, 5.2vw, 4.8rem)',
+                  fontSize: 'clamp(2.9rem, 5.6vw, 4.8rem)',
                   fontWeight: 700,
                   color: '#ffffff',
                   letterSpacing: '-0.045em',
                   lineHeight: 1.08,
-                  textShadow: '0 4px 28px rgba(7, 24, 49, 0.7)'
+                  maxWidth: '920px',
+                  margin: '0 auto',
+                  textAlign: 'center',
+                  textShadow: '0 4px 30px rgba(7, 24, 49, 0.7)'
                 }}
               >
-                Make the circuit. Understand every change.
+                Make the circuit.
+                <br />
+                Understand every change.
               </h1>
             </AnimatedContent>
 
@@ -196,33 +198,36 @@ export function HomePage() {
                 style={{
                   fontSize: 'clamp(1.05rem, 1.8vw, 1.25rem)',
                   color: '#e2e8f0',
-                  marginTop: '18px',
-                  maxWidth: '680px',
-                  lineHeight: 1.55,
+                  marginTop: '20px',
+                  maxWidth: '720px',
+                  marginLeft: 'auto',
+                  marginRight: 'auto',
+                  textAlign: 'center',
+                  lineHeight: 1.6,
                   textShadow: '0 2px 14px rgba(7, 24, 49, 0.8)'
                 }}
               >
-                Start with an Arduino project, experiment with its wiring and code, and see exactly what changed. Tracewise helps you learn by building, testing, and improving your projects.
+                Start with a working project, experiment with its code and connections, and understand how every change affects your design. Tracewise brings building, debugging, and learning into one workspace.
               </p>
             </AnimatedContent>
 
             {/* Interactive Project Composer Bar with Bubble UI */}
-            <AnimatedContent trigger="mount" distance={30} delay={0.3} duration={0.8}>
-              <TracewiseBubbleArea theme="light" style={{ maxWidth: '640px', marginTop: '28px' }}>
+            <AnimatedContent trigger="mount" distance={30} delay={0.3} duration={0.8} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+              <TracewiseBubbleArea theme="light" style={{ width: '100%', maxWidth: '760px', marginTop: '32px' }}>
                 <div
                   className="glass-card"
                   style={{
-                    padding: '12px 16px',
-                    background: 'rgba(255, 255, 255, 0.94)',
+                    padding: '14px 18px',
+                    background: 'rgba(255, 255, 255, 0.95)',
                     borderRadius: '24px',
                     boxShadow: '0 20px 48px rgba(7, 24, 49, 0.45)'
                   }}
                 >
                   <form
                     onSubmit={handlePromptSubmit}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
                   >
-                    <Sparkles size={18} color="var(--tw-brand)" style={{ flexShrink: 0 }} />
+                    <Sparkles size={20} color="var(--tw-brand)" style={{ flexShrink: 0, marginLeft: '4px' }} />
                     <input
                       type="text"
                       value={promptText}
@@ -232,7 +237,7 @@ export function HomePage() {
                         flex: 1,
                         border: 'none',
                         outline: 'none',
-                        fontSize: '0.94rem',
+                        fontSize: '1rem',
                         color: 'var(--tw-text)',
                         background: 'transparent'
                       }}
@@ -241,21 +246,21 @@ export function HomePage() {
                       type="submit"
                       variant="primary"
                       size="sm"
-                      style={{ padding: '8px 18px' }}
+                      style={{ padding: '8px 20px', flexShrink: 0 }}
                     >
                       <span>Start</span>
                       <ArrowRight size={14} />
                     </TracewiseBubbleButton>
                   </form>
 
-                  {/* Quick suggestions tags using Bubble buttons */}
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--tw-border)' }}>
-                    <span style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)', alignSelf: 'center' }}>Try starters:</span>
+                  {/* Quick suggestions tags centered */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--tw-border)' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>Try starters:</span>
                     <TracewiseBubbleButton
                       onClick={() => handleQuickPrompt('traffic light')}
                       size="sm"
                       variant="ghost"
-                      style={{ fontSize: '0.74rem', padding: '3px 9px', minHeight: '1.75rem' }}
+                      style={{ fontSize: '0.76rem', padding: '4px 11px', minHeight: '1.75rem' }}
                     >
                       Traffic Light Demo
                     </TracewiseBubbleButton>
@@ -263,7 +268,7 @@ export function HomePage() {
                       onClick={() => handleQuickPrompt('pedestrian')}
                       size="sm"
                       variant="ghost"
-                      style={{ fontSize: '0.74rem', padding: '3px 9px', minHeight: '1.75rem' }}
+                      style={{ fontSize: '0.76rem', padding: '4px 11px', minHeight: '1.75rem' }}
                     >
                       Pedestrian Bug Demo
                     </TracewiseBubbleButton>
@@ -271,7 +276,7 @@ export function HomePage() {
                       onClick={() => handleQuickPrompt('blink')}
                       size="sm"
                       variant="ghost"
-                      style={{ fontSize: '0.74rem', padding: '3px 9px', minHeight: '1.75rem' }}
+                      style={{ fontSize: '0.76rem', padding: '4px 11px', minHeight: '1.75rem' }}
                     >
                       Heartbeat Blink
                     </TracewiseBubbleButton>
@@ -282,7 +287,7 @@ export function HomePage() {
 
             {/* Action Buttons Cluster with Bubble UI */}
             <AnimatedContent trigger="mount" distance={25} delay={0.4} duration={0.8}>
-              <TracewiseBubbleArea theme="light" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '28px', flexWrap: 'wrap' }}>
+              <TracewiseBubbleArea theme="light" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '28px', flexWrap: 'wrap' }}>
                 <TracewiseBubbleButton
                   to="/app/studio/starter-traffic-light"
                   variant="primary"

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Navbar } from '../components/navigation/Navbar';
 import { useProject } from '../store/useProjectStore';
 import { exportProjectsJson } from '../services/projectStorage';
 import { Moon, Sun, Download, Trash2, Shield, Eye, RotateCcw } from 'lucide-react';
@@ -31,8 +30,6 @@ export function SettingsPage() {
   return (
     <TracewiseBubbleArea theme="light">
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-        <Navbar />
-
         <main style={{ maxWidth: '780px', margin: '0 auto', width: '100%', padding: '120px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
           <div>
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>

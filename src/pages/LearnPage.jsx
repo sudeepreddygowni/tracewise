@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Navbar } from '../components/navigation/Navbar';
 import { Link, useNavigate } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
 import { BookOpen, CheckCircle2, ArrowRight, Play, Sparkles, HelpCircle } from 'lucide-react';
@@ -82,8 +81,6 @@ export function LearnPage() {
   return (
     <TracewiseBubbleArea theme="light">
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-        <Navbar />
-
         <main style={{ maxWidth: '960px', margin: '0 auto', width: '100%', padding: '120px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
           <div>
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>

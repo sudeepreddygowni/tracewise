@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Navbar } from '../components/navigation/Navbar';
 import { TracewiseProjectGallery } from '../components/landing/TracewiseProjectGallery';
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { useProject } from '../store/useProjectStore';
@@ -29,8 +28,6 @@ export function ProjectsPage() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-      <Navbar />
-
       {/* Hero Showcase with Modern Technical Gradient */}
       <section
         style={{

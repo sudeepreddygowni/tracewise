@@ -109,18 +109,28 @@ export async function getCommunityPosts({ category = 'All', authorUid = null, li
         query = query.eq('category', category);
       }
 
-      if (authorUid) {
+      const isUuid = authorUid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authorUid);
+
+      if (authorUid && !isUuid) {
+        // If authorUid is a preview ID or guest handle, query preview posts directly
+        return PREVIEW_COMMUNITY_POSTS.filter(p => p.authorUid === authorUid);
+      }
+
+      if (authorUid && isUuid) {
         query = query.eq('author_id', authorUid);
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.warn('Supabase community posts query warning:', error.message);
+        return PREVIEW_COMMUNITY_POSTS.filter(p => !authorUid || p.authorUid === authorUid);
+      }
 
-      // When Supabase is configured, return genuine database posts (empty array if none exist yet)
+      // When Supabase is configured, return genuine database posts
       return (data || []).map(mapPostRow);
     } catch (err) {
-      console.error('Supabase community posts query error:', err.message);
-      throw err;
+      console.warn('Supabase community posts query note:', err.message);
+      return PREVIEW_COMMUNITY_POSTS.filter(p => !authorUid || p.authorUid === authorUid);
     }
   }
 

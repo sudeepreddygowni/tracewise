@@ -40,88 +40,105 @@ export function ProfilePage() {
       setLoading(true);
       const targetHandle = handle || currentUser?.handle;
 
-      if (isOwnProfile && currentUser) {
-        setProfileData(currentUser);
-        const posts = await getCommunityPosts({ authorUid: currentUser.uid });
-        setUserPosts(posts);
-      } else {
-        let found = null;
-
-        // 1. Try querying real profile from Supabase PostgreSQL
-        if (isSupabaseConfigured() && supabase && targetHandle) {
+      try {
+        if (isOwnProfile && currentUser) {
+          setProfileData(currentUser);
           try {
-            const { data: dbProfile, error: dbErr } = await supabase
-              .from('profiles')
-              .select('*')
-              .ilike('handle', targetHandle)
-              .single();
-
-            if (dbProfile && !dbErr) {
-              found = {
-                displayName: dbProfile.display_name,
-                handle: dbProfile.handle,
-                bio: dbProfile.bio || '',
-                skills: dbProfile.skills || [],
-                linkedinUrl: dbProfile.linkedin_url || null,
-                joinedAt: dbProfile.created_at ? new Date(dbProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently',
-                avatarUrl: dbProfile.avatar_url,
-                uid: dbProfile.id,
-                isAnonymous: dbProfile.is_anonymous
-              };
-            }
+            const posts = await getCommunityPosts({ authorUid: currentUser.uid });
+            setUserPosts(posts);
           } catch (e) {
-            console.warn('Supabase profile query note:', e.message);
+            setUserPosts([]);
+          }
+        } else {
+          let found = null;
+
+          // 1. Try querying real profile from Supabase PostgreSQL
+          if (isSupabaseConfigured() && supabase && targetHandle) {
+            try {
+              const { data: dbProfile, error: dbErr } = await supabase
+                .from('profiles')
+                .select('*')
+                .ilike('handle', targetHandle)
+                .single();
+
+              if (dbProfile && !dbErr) {
+                found = {
+                  displayName: dbProfile.display_name,
+                  handle: dbProfile.handle,
+                  bio: dbProfile.bio || '',
+                  skills: dbProfile.skills || [],
+                  linkedinUrl: dbProfile.linkedin_url || null,
+                  joinedAt: dbProfile.created_at ? new Date(dbProfile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently',
+                  avatarUrl: dbProfile.avatar_url,
+                  uid: dbProfile.id,
+                  isAnonymous: dbProfile.is_anonymous
+                };
+              }
+            } catch (e) {
+              console.warn('Supabase profile query note:', e.message);
+            }
+          }
+
+          // 2. Fallback to curated student showcases or dynamic handle
+          if (!found) {
+            const sampleProfiles = {
+              'alex_circuits': {
+                displayName: 'Alex Rivera',
+                handle: 'alex_circuits',
+                bio: 'High school electronics enthusiast building micro-robotics and traffic controllers with Arduino Uno.',
+                skills: ['Arduino Uno', 'Digital I/O', 'Analog Sensors', 'Breadboarding'],
+                linkedinUrl: 'https://www.linkedin.com/in/alex-rivera-circuits',
+                joinedAt: 'November 2026',
+                avatarUrl: null,
+                uid: 'preview-student-1'
+              },
+              'maya_robotics': {
+                displayName: 'Maya Patel',
+                handle: 'maya_robotics',
+                bio: 'STEM club robotics lead. Exploring PWM motor controllers and LED power efficiency.',
+                skills: ['Robotics', 'PWM Control', 'Circuit Math', 'Breadboarding'],
+                linkedinUrl: null,
+                joinedAt: 'October 2026',
+                avatarUrl: null,
+                uid: 'preview-student-2'
+              },
+              'devon_maker': {
+                displayName: 'Devon Lee',
+                handle: 'devon_maker',
+                bio: 'Experimenting with ultrasonic rangefinders and autonomous rovers.',
+                skills: ['Sensors', 'Ultrasonic', 'C++', 'Hardware Debugging'],
+                linkedinUrl: null,
+                joinedAt: 'September 2026',
+                avatarUrl: null,
+                uid: 'preview-student-3'
+              }
+            };
+
+            found = sampleProfiles[targetHandle?.toLowerCase()] || {
+              displayName: targetHandle ? targetHandle.replace(/_/g, ' ') : 'Student Maker',
+              handle: targetHandle || 'student',
+              bio: 'Electronics explorer building and debugging circuits on Tracewise.',
+              skills: ['Arduino Uno', 'Circuit Design'],
+              linkedinUrl: null,
+              joinedAt: 'Recently',
+              avatarUrl: null,
+              uid: 'student-' + targetHandle
+            };
+          }
+
+          setProfileData(found);
+          try {
+            const posts = await getCommunityPosts({ authorUid: found.uid });
+            setUserPosts(posts);
+          } catch (e) {
+            setUserPosts([]);
           }
         }
-
-        // 2. Fallback to curated student showcases or dynamic handle
-        if (!found) {
-          const sampleProfiles = {
-            'alex_circuits': {
-              displayName: 'Alex Rivera',
-              handle: 'alex_circuits',
-              bio: 'High school electronics enthusiast building micro-robotics and traffic controllers with Arduino Uno.',
-              skills: ['Arduino Uno', 'Digital I/O', 'Analog Sensors', 'Breadboarding'],
-              joinedAt: 'November 2026',
-              avatarUrl: null,
-              uid: 'preview-student-1'
-            },
-            'maya_robotics': {
-              displayName: 'Maya Patel',
-              handle: 'maya_robotics',
-              bio: 'STEM club robotics lead. Exploring PWM motor controllers and LED power efficiency.',
-              skills: ['Robotics', 'PWM Control', 'Circuit Math', 'Breadboarding'],
-              joinedAt: 'October 2026',
-              avatarUrl: null,
-              uid: 'preview-student-2'
-            },
-            'devon_maker': {
-              displayName: 'Devon Lee',
-              handle: 'devon_maker',
-              bio: 'Experimenting with ultrasonic rangefinders and autonomous rovers.',
-              skills: ['Sensors', 'Ultrasonic', 'C++', 'Hardware Debugging'],
-              joinedAt: 'September 2026',
-              avatarUrl: null,
-              uid: 'preview-student-3'
-            }
-          };
-
-          found = sampleProfiles[targetHandle?.toLowerCase()] || {
-            displayName: targetHandle ? targetHandle.replace(/_/g, ' ') : 'Student Maker',
-            handle: targetHandle || 'student',
-            bio: 'Electronics explorer building and debugging circuits on Tracewise.',
-            skills: ['Arduino Uno', 'Circuit Design'],
-            joinedAt: 'Recently',
-            avatarUrl: null,
-            uid: 'student-' + targetHandle
-          };
-        }
-
-        setProfileData(found);
-        const posts = await getCommunityPosts({ authorUid: found.uid });
-        setUserPosts(posts);
+      } catch (err) {
+        console.warn('Profile loadData error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     loadData();

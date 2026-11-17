@@ -1360,6 +1360,51 @@ export async function getPublishedProjectById(projectId) {
   return PREVIEW_PROJECTS.find(p => p.id === projectId) || null;
 }
 
+export async function getUserPublishedProjects(authorId, authorHandle) {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      let query = supabase.from('published_projects').select('*');
+      if (authorId) {
+        query = query.eq('author_id', authorId);
+      } else if (authorHandle) {
+        query = query.ilike('author_handle', authorHandle);
+      } else {
+        return [];
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (!error && data && data.length > 0) {
+        return data.map(p => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          category: p.category || 'General',
+          coverUrl: p.cover_url || null,
+          authorId: p.author_id,
+          authorName: p.author_name,
+          authorHandle: p.author_handle,
+          projectData: p.project_data,
+          tags: p.tags || [],
+          likes: p.likes || 0,
+          remixCount: p.remix_count || 0,
+          createdAt: p.created_at
+        }));
+      }
+    } catch (err) {
+      console.warn('Get user published projects error:', err);
+    }
+  }
+
+  // Fallback to sample preview projects if matching showcase author
+  if (authorHandle) {
+    const clean = authorHandle.toLowerCase();
+    const matched = PREVIEW_PROJECTS.filter(p => p.authorHandle?.toLowerCase() === clean);
+    if (matched.length > 0) return matched;
+  }
+
+  return [];
+}
+
 export async function publishCommunityProject(projectPayload, author) {
   if (!author || author.isAnonymous || !isSupabaseConfigured() || !supabase) {
     throw new Error('You must be signed in with an authorized account to publish projects to the Community.');

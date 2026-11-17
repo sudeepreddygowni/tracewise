@@ -1,24 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, X, Shield, Check, AlertCircle, Linkedin } from 'lucide-react';
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  X,
+  Shield,
+  Check,
+  AlertCircle,
+  Linkedin,
+  Github,
+  Globe,
+  Camera,
+  Trash2,
+  Image as ImageIcon,
+  GraduationCap
+} from 'lucide-react';
 import { useAuth } from '../store/useAuthStore';
+import { uploadProfileAvatar, uploadCoverPhoto, validateImageFile } from '../services/mediaStorageService';
 import { TracewiseBubbleButton, TracewiseBubbleArea } from '../components/ui/BubbleActions';
 
 export function EditProfilePage() {
   const navigate = useNavigate();
   const { user, isAuthenticated, updateProfile } = useAuth();
 
+  // Basic Information
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [handle, setHandle] = useState(user?.handle || '');
-  const [bio, setBio] = useState(user?.bio || '');
+  const [headline, setHeadline] = useState(user?.headline || '');
+  const [about, setAbout] = useState(user?.about || user?.bio || '');
+  const [education, setEducation] = useState(user?.education || '');
+
+  // Media
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || null);
+
+  const [coverUrl, setCoverUrl] = useState(user?.coverUrl || null);
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(user?.coverUrl || null);
+
+  // Skills
   const [skills, setSkills] = useState(user?.skills || []);
   const [newSkillText, setNewSkillText] = useState('');
+
+  // External Links
   const [linkedinUrl, setLinkedinUrl] = useState(user?.linkedinUrl || '');
+  const [githubUrl, setGithubUrl] = useState(user?.githubUrl || '');
+  const [websiteUrl, setWebsiteUrl] = useState(user?.websiteUrl || '');
+
+  // State
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Strict HTTPS LinkedIn URL validation helper
+  const avatarInputRef = useRef(null);
+  const coverInputRef = useRef(null);
+
+  // Validation helpers
   const isValidLinkedInUrl = (url) => {
     if (!url || !url.trim()) return true;
     const trimmed = url.trim();
@@ -35,6 +74,30 @@ export function EditProfilePage() {
     }
   };
 
+  const isValidGithubUrl = (url) => {
+    if (!url || !url.trim()) return true;
+    const trimmed = url.trim();
+    if (!trimmed.startsWith('https://')) return false;
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.hostname.toLowerCase();
+      return host === 'github.com' || host.endsWith('.github.com');
+    } catch {
+      return false;
+    }
+  };
+
+  const isValidWebsiteUrl = (url) => {
+    if (!url || !url.trim()) return true;
+    const trimmed = url.trim();
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  };
+
   if (!isAuthenticated || !user) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--tw-bg)', padding: '24px' }}>
@@ -43,7 +106,7 @@ export function EditProfilePage() {
             Sign In Required
           </h2>
           <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', marginBottom: '24px' }}>
-            You need to be signed in to edit your student profile.
+            You need to be signed in to edit your maker profile.
           </p>
           <TracewiseBubbleButton to="/" variant="primary">
             <span>Return to Home</span>
@@ -52,6 +115,54 @@ export function EditProfilePage() {
       </div>
     );
   }
+
+  // Handle Avatar file selection
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const check = validateImageFile(file, 5);
+    if (!check.valid) {
+      setErrorMessage(check.error);
+      return;
+    }
+
+    setAvatarFile(file);
+    const localUrl = URL.createObjectURL(file);
+    setAvatarPreview(localUrl);
+    setErrorMessage(null);
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setAvatarUrl(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  };
+
+  // Handle Cover file selection
+  const handleCoverFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const check = validateImageFile(file, 5);
+    if (!check.valid) {
+      setErrorMessage(check.error);
+      return;
+    }
+
+    setCoverFile(file);
+    const localUrl = URL.createObjectURL(file);
+    setCoverPreview(localUrl);
+    setErrorMessage(null);
+  };
+
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(null);
+    setCoverUrl(null);
+    if (coverInputRef.current) coverInputRef.current.value = '';
+  };
 
   const handleAddSkill = (e) => {
     e?.preventDefault();
@@ -85,15 +196,54 @@ export function EditProfilePage() {
       return;
     }
 
+    if (githubUrl.trim() && !isValidGithubUrl(githubUrl)) {
+      setErrorMessage('Please enter a valid HTTPS GitHub profile URL (e.g. https://github.com/username).');
+      return;
+    }
+
+    if (websiteUrl.trim() && !isValidWebsiteUrl(websiteUrl)) {
+      setErrorMessage('Please enter a valid website URL starting with https:// or http://.');
+      return;
+    }
+
     try {
       setSaving(true);
+
+      let finalAvatarUrl = avatarUrl;
+      let finalCoverUrl = coverUrl;
+
+      // 1. Upload avatar if changed
+      if (avatarFile) {
+        const uploadRes = await uploadProfileAvatar(avatarFile, user.uid);
+        if (uploadRes?.url) {
+          finalAvatarUrl = uploadRes.url;
+        }
+      }
+
+      // 2. Upload cover if changed
+      if (coverFile) {
+        const coverRes = await uploadCoverPhoto(coverFile, user.uid);
+        if (coverRes?.url) {
+          finalCoverUrl = coverRes.url;
+        }
+      }
+
+      // 3. Save profile update
       await updateProfile({
         displayName: displayName.trim(),
         handle: handle.trim(),
-        bio: bio.trim(),
+        headline: headline.trim(),
+        about: about.trim(),
+        bio: about.trim(),
+        education: education.trim(),
+        avatarUrl: finalAvatarUrl,
+        coverUrl: finalCoverUrl,
         skills,
-        linkedinUrl: linkedinUrl.trim() || null
+        linkedinUrl: linkedinUrl.trim() || null,
+        githubUrl: githubUrl.trim() || null,
+        websiteUrl: websiteUrl.trim() || null
       });
+
       setSavedSuccess(true);
       setTimeout(() => {
         navigate(`/profile/${handle}`);
@@ -105,10 +255,14 @@ export function EditProfilePage() {
     }
   };
 
+  const initials = displayName
+    ? displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'TW';
+
   return (
     <TracewiseBubbleArea theme="light">
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', padding: '120px 24px 80px' }}>
-        <div style={{ maxWidth: '680px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', padding: '110px 24px 80px' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Back link */}
           <Link
@@ -131,13 +285,13 @@ export function EditProfilePage() {
           >
             <div style={{ marginBottom: '28px' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Profile Settings
+                Engineering Portfolio
               </span>
               <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '4px', fontFamily: 'var(--font-heading)' }}>
-                Edit Student Profile
+                Edit Professional Profile
               </h1>
               <p style={{ fontSize: '0.9rem', color: 'var(--tw-text-secondary)', marginTop: '4px' }}>
-                Update how your name, handle, and circuit skills appear across Tracewise discussions.
+                Showcase your electronics projects, headline, verified skills, and engineering journey.
               </p>
             </div>
 
@@ -145,7 +299,7 @@ export function EditProfilePage() {
             {savedSuccess && (
               <div style={{ padding: '12px 16px', borderRadius: '12px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: 'var(--tw-success)', fontSize: '0.88rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                 <Check size={18} />
-                <span>Profile updated successfully! Redirecting...</span>
+                <span>Profile updated successfully! Redirecting to your portfolio...</span>
               </div>
             )}
 
@@ -157,43 +311,221 @@ export function EditProfilePage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
-                  Display Name
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+              
+              {/* =========================================================
+                  COVER PHOTO & AVATAR UPLOAD SECTION
+              ========================================================= */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <label style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                  Cover Banner & Profile Photo
                 </label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Alex Rivera"
+
+                {/* Banner Preview Area */}
+                <div
                   style={{
+                    position: 'relative',
                     width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--tw-border)',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
+                    height: '170px',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    backgroundColor: '#071831',
+                    backgroundImage: coverPreview
+                      ? `url(${coverPreview})`
+                      : 'radial-gradient(ellipse at top left, #1e3fd8 0%, #071831 70%)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    border: '1px solid var(--tw-border)'
                   }}
-                  required
-                />
+                >
+                  {/* Cover Action Buttons */}
+                  <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: '8px', zIndex: 2 }}>
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 'var(--tw-radius-pill)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        color: 'var(--tw-text)',
+                        border: 'none',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                      }}
+                    >
+                      <ImageIcon size={14} />
+                      <span>{coverPreview ? 'Change Banner' : 'Upload Banner'}</span>
+                    </button>
+
+                    {coverPreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveCover}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 'var(--tw-radius-pill)',
+                          backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                          color: '#ffffff',
+                          border: 'none',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                        title="Reset to default banner"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={coverInputRef}
+                    onChange={handleCoverFileChange}
+                    accept="image/jpeg,image/png,image/webp"
+                    style={{ display: 'none' }}
+                  />
+
+                  {/* Overlapping Profile Photo */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 12,
+                      left: 20,
+                      display: 'flex',
+                      alignItems: 'flex-end',
+                      gap: '12px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: '84px',
+                        height: '84px',
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: '3px solid #ffffff',
+                        backgroundColor: 'var(--tw-brand)',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="Avatar preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <span style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: 800 }}>
+                          {initials}
+                        </span>
+                      )}
+
+                      {/* Camera Overlay Icon */}
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#ffffff',
+                          opacity: 0,
+                          transition: 'opacity 0.2s ease',
+                          cursor: 'pointer',
+                          border: 'none'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                        onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                        title="Upload profile photo"
+                      >
+                        <Camera size={22} />
+                      </button>
+                    </div>
+
+                    <input
+                      type="file"
+                      ref={avatarInputRef}
+                      onChange={handleAvatarFileChange}
+                      accept="image/jpeg,image/png,image/webp"
+                      style={{ display: 'none' }}
+                    />
+
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          color: 'var(--tw-text)',
+                          border: '1px solid var(--tw-border)',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {avatarPreview ? 'Change Photo' : 'Upload Photo'}
+                      </button>
+
+                      {avatarPreview && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          style={{
+                            padding: '5px 8px',
+                            borderRadius: '8px',
+                            backgroundColor: '#fef2f2',
+                            color: '#ef4444',
+                            border: '1px solid #fecaca',
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)' }}>
+                  Accepts JPEG, PNG, or WebP up to 5MB. Covers crop responsively to wide banner ratios.
+                </span>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
-                  Unique Handle
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', color: 'var(--tw-text-muted)', fontSize: '0.95rem' }}>@</span>
+              {/* =========================================================
+                  PRIMARY IDENTITY FIELDS
+              ========================================================= */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                    Display Name
+                  </label>
                   <input
                     type="text"
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                    placeholder="alex_circuits"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Alex Rivera"
                     style={{
                       width: '100%',
-                      padding: '10px 14px 10px 30px',
+                      padding: '10px 14px',
                       borderRadius: '12px',
                       border: '1px solid var(--tw-border)',
                       fontSize: '0.95rem',
@@ -203,38 +535,99 @@ export function EditProfilePage() {
                     required
                   />
                 </div>
-                <span style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)', marginTop: '4px', display: 'block' }}>
-                  Used in community mentions and your public profile URL: tracewise.app/profile/{handle || 'username'}
-                </span>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                    Unique Handle
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', color: 'var(--tw-text-muted)', fontSize: '0.95rem' }}>@</span>
+                    <input
+                      type="text"
+                      value={handle}
+                      onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      placeholder="alex_circuits"
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px 10px 30px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--tw-border)',
+                        fontSize: '0.95rem',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
+              {/* =========================================================
+                  PROFESSIONAL HEADLINE
+              ========================================================= */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
-                  Bio (max 280 characters)
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value.slice(0, 280))}
-                  placeholder="Tell other students what you enjoy building with electronics..."
-                  rows={3}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                    Professional Headline
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
+                    {headline.length} / 120
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={headline}
+                  onChange={(e) => setHeadline(e.target.value.slice(0, 120))}
+                  placeholder="e.g. Student Maker | Arduino | Embedded Systems | Robotics"
                   style={{
                     width: '100%',
                     padding: '10px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--tw-border)',
+                    fontSize: '0.95rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', marginTop: '4px', display: 'block' }}>
+                  A concise professional tagline shown directly below your name in your profile and cards.
+                </span>
+              </div>
+
+              {/* =========================================================
+                  ABOUT / BIO
+              ========================================================= */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                    About (Engineering Journey & Maker Interests)
+                  </label>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
+                    {about.length} / 1000
+                  </span>
+                </div>
+                <textarea
+                  value={about}
+                  onChange={(e) => setAbout(e.target.value.slice(0, 1000))}
+                  placeholder="Describe your background, what electronic circuits and microcontrollers you build, what you are looking to learn, and projects you're passionate about..."
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
                     borderRadius: '12px',
                     border: '1px solid var(--tw-border)',
                     fontSize: '0.92rem',
                     outline: 'none',
                     resize: 'vertical',
                     boxSizing: 'border-box',
-                    lineHeight: 1.5
+                    lineHeight: 1.55
                   }}
                 />
-                <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', textAlign: 'right', display: 'block', marginTop: '2px' }}>
-                  {bio.length} / 280
-                </span>
               </div>
 
-              {/* Skills Tags Manager */}
+              {/* =========================================================
+                  SKILLS TAGS MANAGER
+              ========================================================= */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
                   Skills & Focus Areas
@@ -250,7 +643,7 @@ export function EditProfilePage() {
                         handleAddSkill();
                       }
                     }}
-                    placeholder="e.g. Servo Motors, I2C, ATmega328P"
+                    placeholder="e.g. Arduino, C++, ESP32, Circuit Design, PWM"
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -278,7 +671,7 @@ export function EditProfilePage() {
                       style={{
                         fontSize: '0.8rem',
                         fontWeight: 600,
-                        padding: '4px 10px',
+                        padding: '5px 12px',
                         borderRadius: '12px',
                         backgroundColor: 'var(--tw-brand-soft)',
                         color: 'var(--tw-brand)',
@@ -298,66 +691,156 @@ export function EditProfilePage() {
                 </div>
               </div>
 
-              {/* LinkedIn Profile (Optional) */}
+              {/* =========================================================
+                  EDUCATION & LEARNING (OPTIONAL)
+              ========================================================= */}
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Linkedin size={15} color="#0a66c2" />
-                    <span>LinkedIn Profile URL</span>
-                    <span style={{ fontSize: '0.74rem', fontWeight: 500, color: 'var(--tw-text-muted)' }}>(Optional)</span>
-                  </label>
-                  {linkedinUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setLinkedinUrl('')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#ef4444',
-                        fontSize: '0.74rem',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        padding: 0
-                      }}
-                    >
-                      Clear URL
-                    </button>
-                  )}
-                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  <GraduationCap size={16} color="var(--tw-brand)" />
+                  <span>Education & Learning Interests</span>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 500, color: 'var(--tw-text-muted)' }}>(Optional)</span>
+                </label>
                 <input
-                  type="url"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  placeholder="https://www.linkedin.com/in/username"
+                  type="text"
+                  value={education}
+                  onChange={(e) => setEducation(e.target.value.slice(0, 150))}
+                  placeholder="e.g. B.Tech in Electronics & Communication, High School Robotics Club, or Self-Taught Maker"
                   style={{
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '12px',
-                    border: linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl)
-                      ? '1px solid #ef4444'
-                      : '1px solid var(--tw-border)',
+                    border: '1px solid var(--tw-border)',
                     fontSize: '0.92rem',
                     outline: 'none',
                     boxSizing: 'border-box'
                   }}
                 />
-                <span style={{ fontSize: '0.76rem', color: linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl) ? '#ef4444' : 'var(--tw-text-muted)', marginTop: '4px', display: 'block' }}>
-                  {linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl)
-                    ? 'Enter a valid HTTPS link starting with https://www.linkedin.com/in/ (or /company/, /school/, /pub/).'
-                    : 'Showcase your engineering projects and experience to judges and mentors.'}
+                <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', marginTop: '4px', display: 'block' }}>
+                  Students are never required to disclose school, age, location, or private contacts.
                 </span>
+              </div>
+
+              {/* =========================================================
+                  EXTERNAL LINKS (LINKEDIN, GITHUB, WEBSITE)
+              ========================================================= */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderTop: '1px solid var(--tw-border)', paddingTop: '20px' }}>
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                  External Portfolios & Social Links (Optional)
+                </span>
+
+                {/* LinkedIn */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--tw-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Linkedin size={15} color="#0a66c2" />
+                      <span>LinkedIn Profile</span>
+                    </label>
+                    {linkedinUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setLinkedinUrl('')}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="https://www.linkedin.com/in/username"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '10px',
+                      border: linkedinUrl.trim() && !isValidLinkedInUrl(linkedinUrl) ? '1px solid #ef4444' : '1px solid var(--tw-border)',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* GitHub */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--tw-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Github size={15} color="#172033" />
+                      <span>GitHub Profile</span>
+                    </label>
+                    {githubUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setGithubUrl('')}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={githubUrl}
+                    onChange={(e) => setGithubUrl(e.target.value)}
+                    placeholder="https://github.com/username"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '10px',
+                      border: githubUrl.trim() && !isValidGithubUrl(githubUrl) ? '1px solid #ef4444' : '1px solid var(--tw-border)',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Personal Website */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--tw-text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Globe size={15} color="var(--tw-brand)" />
+                      <span>Personal Portfolio / Website</span>
+                    </label>
+                    {websiteUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setWebsiteUrl('')}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.74rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="https://myportfolio.dev"
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '10px',
+                      border: websiteUrl.trim() && !isValidWebsiteUrl(websiteUrl) ? '1px solid #ef4444' : '1px solid var(--tw-border)',
+                      fontSize: '0.88rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Privacy Safeguards info */}
               <div style={{ padding: '14px 16px', borderRadius: '12px', backgroundColor: 'var(--tw-bg)', border: '1px solid var(--tw-border)', display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '0.8rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5 }}>
                 <Shield size={16} color="var(--tw-brand)" style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span>
-                  <b>Student Privacy Guarantee:</b> Your profile does not expose your email address, phone, school, or location. Circuit projects remain private until explicitly shared.
+                  <b>Student Privacy Guarantee:</b> Your profile does not expose your email address, phone, school, or location. Circuit projects remain private on your device until explicitly published.
                 </span>
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '4px' }}>
                 <TracewiseBubbleButton
                   to={`/profile/${user.handle}`}
                   variant="ghost"
@@ -371,10 +854,10 @@ export function EditProfilePage() {
                   variant="primary"
                   size="md"
                   disabled={saving}
-                  style={{ gap: '8px', minWidth: '140px' }}
+                  style={{ gap: '8px', minWidth: '150px' }}
                 >
                   <Save size={16} />
-                  <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+                  <span>{saving ? 'Saving...' : 'Save Portfolio'}</span>
                 </TracewiseBubbleButton>
               </div>
             </form>

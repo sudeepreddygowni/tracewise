@@ -247,10 +247,20 @@ export function PostDetailPage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '1rem',
-                    fontWeight: 700
+                    fontWeight: 700,
+                    overflow: 'hidden',
+                    flexShrink: 0
                   }}
                 >
-                  {authorInitial}
+                  {post.authorAvatar ? (
+                    <img
+                      src={post.authorAvatar}
+                      alt={post.authorName || 'User'}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    authorInitial
+                  )}
                 </div>
                 <div>
                   <Link

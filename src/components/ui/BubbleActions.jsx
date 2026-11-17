@@ -10,22 +10,22 @@ import {
   SoapBubbleToggle
 } from '../soap-bubble';
 
-// Approved Light Material Preset
+// Approved Light Material Preset (Subtle, elegant glass with soft highlights)
 export const LIGHT_BUBBLE_PRESET = {
-  glass: 0.95,
-  iridescence: 0.5,
+  glass: 0.92,
+  iridescence: 0.28,
   filmScale: 4.85,
-  oilOpacity: 1,
-  oilCoverage: 0.73,
-  oilEdge: 18,
-  oilEdgeFade: 2.33,
-  clearCenter: 0.57,
+  oilOpacity: 0.55,
+  oilCoverage: 0.45,
+  oilEdge: 16,
+  oilEdgeFade: 2.5,
+  clearCenter: 0.68,
   thickness: 480,
   drainage: 0.35,
-  swirl: 0.5,
-  reflectivity: 1.3,
-  refraction: 0.15,
-  dispersion: 1,
+  swirl: 0.4,
+  reflectivity: 1.15,
+  refraction: 0.12,
+  dispersion: 0.35,
   bevel: 14,
   windowLength: 1.3,
   windowMargin: 0.85,
@@ -44,22 +44,22 @@ export const LIGHT_BUBBLE_PRESET = {
   bottomShadeColor: '#ffffff'
 };
 
-// Approved Rainbow Material Preset (Dark pages)
+// Subtle Dark Material Preset (Gentle translucent glass with delicate pearlescent edge on dark backgrounds)
 export const RAINBOW_BUBBLE_PRESET = {
-  glass: 0.95,
-  iridescence: 2,
+  glass: 0.92,
+  iridescence: 0.32,
   filmScale: 4.85,
-  oilOpacity: 1,
-  oilCoverage: 1,
+  oilOpacity: 0.5,
+  oilCoverage: 0.45,
   oilEdge: 18,
-  oilEdgeFade: 1,
-  clearCenter: 0.73,
+  oilEdgeFade: 2.5,
+  clearCenter: 0.72,
   thickness: 480,
   drainage: 0.35,
-  swirl: 0.5,
-  reflectivity: 1.3,
-  refraction: 0.15,
-  dispersion: 1,
+  swirl: 0.4,
+  reflectivity: 1.2,
+  refraction: 0.12,
+  dispersion: 0.35,
   bevel: 14,
   windowLength: 1.3,
   windowMargin: 0.85,
@@ -77,6 +77,8 @@ export const RAINBOW_BUBBLE_PRESET = {
   windowTwin: false,
   bottomShadeColor: '#071831'
 };
+
+export const SUBTLE_DARK_BUBBLE_PRESET = RAINBOW_BUBBLE_PRESET;
 
 class BubbleErrorBoundary extends Component {
   constructor(props) {

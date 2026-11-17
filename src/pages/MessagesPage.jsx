@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   MessageSquare,
   Search,
@@ -79,6 +79,16 @@ export function MessagesPage() {
   // Block modal state
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [blockReason, setBlockReason] = useState('');
+
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const userParam = searchParams.get('user');
+    if (userParam && isAuthenticated) {
+      setTargetHandle(userParam.replace(/^@/, ''));
+      setNewModalOpen(true);
+    }
+  }, [searchParams, isAuthenticated]);
 
   const messagesEndRef = useRef(null);
   const activeConv = conversations.find(c => c.id === activeConvId);
@@ -538,10 +548,19 @@ export function MessagesPage() {
                             fontSize: '0.95rem',
                             fontWeight: 700,
                             color: isSelected ? '#FFFFFF' : '#172033',
-                            flexShrink: 0
+                            flexShrink: 0,
+                            overflow: 'hidden'
                           }}
                         >
-                          {conv.otherUser?.name?.[0]?.toUpperCase() || 'M'}
+                          {conv.otherUser?.avatarUrl ? (
+                            <img
+                              src={conv.otherUser.avatarUrl}
+                              alt={conv.otherUser.name || 'User'}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            conv.otherUser?.name?.[0]?.toUpperCase() || 'M'
+                          )}
                         </div>
 
                         {/* Content */}
@@ -644,10 +663,19 @@ export function MessagesPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontWeight: 700
+                          fontWeight: 700,
+                          overflow: 'hidden'
                         }}
                       >
-                        {activeConv.otherUser?.name?.[0]?.toUpperCase() || 'M'}
+                        {activeConv.otherUser?.avatarUrl ? (
+                          <img
+                            src={activeConv.otherUser.avatarUrl}
+                            alt={activeConv.otherUser.name || 'User'}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          activeConv.otherUser?.name?.[0]?.toUpperCase() || 'M'
+                        )}
                       </div>
                       <div>
                         <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#172033', margin: 0 }}>

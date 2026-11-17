@@ -155,3 +155,122 @@ export async function deleteMediaAttachment(filePath) {
     return false;
   }
 }
+
+/**
+ * Validate an avatar or cover image file (JPEG, PNG, WebP up to 5MB)
+ */
+export function validateImageFile(file, maxMb = 5) {
+  if (!file) return { valid: false, error: 'No image file selected.' };
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  const extMatch = file.name.match(/\.([0-9a-z]+)$/i);
+  const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
+  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+
+  if (!allowedExts.includes(ext) || (file.type && !allowed.includes(file.type))) {
+    return {
+      valid: false,
+      error: 'Please upload a valid JPEG, PNG, or WebP image.'
+    };
+  }
+
+  if (file.size > maxMb * 1024 * 1024) {
+    return {
+      valid: false,
+      error: `Image exceeds the ${maxMb}MB size limit (${(file.size / 1024 / 1024).toFixed(1)}MB).`
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Upload a user avatar to Supabase Storage in the user's secure folder.
+ */
+export async function uploadProfileAvatar(file, userId) {
+  const check = validateImageFile(file, 5);
+  if (!check.valid) {
+    throw new Error(check.error);
+  }
+
+  const sanitized = file.name.toLowerCase().replace(/[^a-z0-9.-]/g, '_').slice(0, 60);
+  const ext = sanitized.split('.').pop() || 'png';
+  const timestamp = Date.now();
+  const filePath = `${userId || 'guest'}/avatars/avatar_${timestamp}.${ext}`;
+  const localPreview = URL.createObjectURL(file);
+
+  if (isSupabaseConfigured() && supabase && userId) {
+    try {
+      const { data, error } = await supabase.storage
+        .from('community-media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) {
+        console.warn('Avatar upload to storage note:', error.message);
+        return { url: localPreview, path: filePath };
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('community-media')
+        .getPublicUrl(data.path);
+
+      return {
+        url: urlData?.publicUrl || localPreview,
+        path: data.path
+      };
+    } catch (err) {
+      console.warn('Avatar storage exception:', err.message);
+      return { url: localPreview, path: filePath };
+    }
+  }
+
+  return { url: localPreview, path: filePath };
+}
+
+/**
+ * Upload a profile cover banner to Supabase Storage in the user's secure folder.
+ */
+export async function uploadCoverPhoto(file, userId) {
+  const check = validateImageFile(file, 5);
+  if (!check.valid) {
+    throw new Error(check.error);
+  }
+
+  const sanitized = file.name.toLowerCase().replace(/[^a-z0-9.-]/g, '_').slice(0, 60);
+  const ext = sanitized.split('.').pop() || 'png';
+  const timestamp = Date.now();
+  const filePath = `${userId || 'guest'}/covers/cover_${timestamp}.${ext}`;
+  const localPreview = URL.createObjectURL(file);
+
+  if (isSupabaseConfigured() && supabase && userId) {
+    try {
+      const { data, error } = await supabase.storage
+        .from('community-media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) {
+        console.warn('Cover photo upload note:', error.message);
+        return { url: localPreview, path: filePath };
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('community-media')
+        .getPublicUrl(data.path);
+
+      return {
+        url: urlData?.publicUrl || localPreview,
+        path: data.path
+      };
+    } catch (err) {
+      console.warn('Cover storage exception:', err.message);
+      return { url: localPreview, path: filePath };
+    }
+  }
+
+  return { url: localPreview, path: filePath };
+}

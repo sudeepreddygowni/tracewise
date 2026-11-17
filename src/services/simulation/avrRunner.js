@@ -27,7 +27,41 @@ import {
   PinState,
   avrInstruction
 } from 'avr8js';
-import intelHex from 'intel-hex';
+
+/**
+ * Browser-native Intel HEX parser (zero Node Buffer dependency)
+ */
+export function loadIntelHexIntoFlash(hexString, u8) {
+  const lines = (hexString || '').split(/\r?\n/);
+  let highAddress = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith(':')) continue;
+
+    const byteCount = parseInt(trimmed.substring(1, 3), 16);
+    const lowAddress = parseInt(trimmed.substring(3, 7), 16);
+    const recordType = parseInt(trimmed.substring(7, 9), 16);
+    const dataStr = trimmed.substring(9, 9 + byteCount * 2);
+
+    if (recordType === 0x01) {
+      break; // End of File
+    } else if (recordType === 0x00) {
+      const baseAddress = highAddress + lowAddress;
+      for (let i = 0; i < byteCount; i++) {
+        const byteVal = parseInt(dataStr.substring(i * 2, i * 2 + 2), 16);
+        const addr = baseAddress + i;
+        if (addr < u8.length) {
+          u8[addr] = byteVal;
+        }
+      }
+    } else if (recordType === 0x02) {
+      highAddress = parseInt(dataStr, 16) << 4;
+    } else if (recordType === 0x04) {
+      highAddress = parseInt(dataStr, 16) << 16;
+    }
+  }
+}
 
 // Arduino Uno Pin to ATmega328P Register Mapping
 // Port D: D0 (PD0) to D7 (PD7)
@@ -91,13 +125,10 @@ export class AvrSimulationRunner {
 
   initMcu() {
     try {
-      const { data } = intelHex.parse(this.hexString);
       // ATmega328P flash is 32KB (16384 16-bit words)
       const flashWords = new Uint16Array(16384);
       const u8 = new Uint8Array(flashWords.buffer);
-      for (let i = 0; i < data.length; i++) {
-        u8[i] = data[i];
-      }
+      loadIntelHexIntoFlash(this.hexString, u8);
 
       this.cpu = new CPU(flashWords);
 

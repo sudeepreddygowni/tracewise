@@ -103,12 +103,17 @@ export function StudioPage() {
   }, [location.state, isMobile, isTablet]);
 
   useEffect(() => {
-    if (projectId && (!activeProject || activeProject.id !== projectId)) {
-      const loaded = loadProject(projectId);
-      if (!loaded) {
-        // Fallback to first starter if not found
-        loadProject('starter-traffic-light');
+    if (projectId) {
+      if (!activeProject || activeProject.id !== projectId) {
+        const loaded = loadProject(projectId);
+        if (!loaded) {
+          // Fallback to first starter if not found
+          loadProject('starter-traffic-light');
+        }
       }
+    } else if (!activeProject) {
+      // Direct bare /app/studio access defaults to starter traffic light
+      loadProject('starter-traffic-light');
     }
   }, [projectId, activeProject, loadProject]);
 

@@ -5,6 +5,7 @@ import { useAuth } from '../store/useAuthStore';
 import { StudioToolbar } from '../components/studio/StudioToolbar';
 import { ComponentLibrary } from '../components/studio/ComponentLibrary';
 import { CircuitCanvas } from '../components/studio/CircuitCanvas';
+import { PhysicalLayoutView } from '../components/studio/PhysicalLayoutView';
 import { CodeEditor } from '../components/studio/CodeEditor';
 import { ComponentInspector } from '../components/studio/ComponentInspector';
 import { DemoAssistant } from '../components/studio/DemoAssistant';
@@ -52,6 +53,7 @@ export function StudioPage() {
     addConnection,
     removeConnection,
     updateFirmware,
+    updatePhysicalLayout,
     updateActiveProject,
     commitHistory
   } = useProject();
@@ -60,6 +62,7 @@ export function StudioPage() {
   const { isSerialOpen, toggleSerial } = useSimulation();
   const [selectedCompId, setSelectedCompId] = useState(null);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [canvasViewMode, setCanvasViewMode] = useState('circuit'); // 'circuit' | 'physical'
   const [rightTab, setRightTab] = useState(
     location.state?.initialQuery || location.state?.openAssistant ? 'assistant' : 'code'
   ); // 'code' | 'inspector' | 'assistant'
@@ -338,17 +341,77 @@ export function StudioPage() {
           />
 
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            <CircuitCanvas
-              project={activeProject}
-              selectedComponentId={selectedCompId}
-              onSelectComponent={handleSelectComponent}
-              onMoveComponent={moveComponent}
-              onRemoveComponent={removeComponent}
-              onAddConnection={addConnection}
-              onRemoveConnection={removeConnection}
-              onCommitHistory={commitHistory}
-              onViewportChange={setViewport}
-            />
+            {/* View Mode Switcher for Robotics & Physical Builds */}
+            {(activeProject?.physicalLayout || (activeProject?.category || '').includes('robot') || (activeProject?.title || '').toLowerCase().includes('car')) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 16,
+                  zIndex: 40,
+                  display: 'flex',
+                  gap: '4px',
+                  backgroundColor: 'rgba(7, 24, 49, 0.85)',
+                  backdropFilter: 'blur(8px)',
+                  padding: '4px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setCanvasViewMode('circuit')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: canvasViewMode === 'circuit' ? '#38bdf8' : 'transparent',
+                    color: canvasViewMode === 'circuit' ? '#071831' : '#cbd5e1',
+                    border: 'none',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Circuit Schematic
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCanvasViewMode('physical')}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    backgroundColor: canvasViewMode === 'physical' ? '#38bdf8' : 'transparent',
+                    color: canvasViewMode === 'physical' ? '#071831' : '#cbd5e1',
+                    border: 'none',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Physical Chassis (2D)
+                </button>
+              </div>
+            )}
+
+            {canvasViewMode === 'physical' ? (
+              <PhysicalLayoutView
+                project={activeProject}
+                onUpdateLayout={updatePhysicalLayout}
+              />
+            ) : (
+              <CircuitCanvas
+                project={activeProject}
+                selectedComponentId={selectedCompId}
+                onSelectComponent={handleSelectComponent}
+                onMoveComponent={moveComponent}
+                onRemoveComponent={removeComponent}
+                onAddConnection={addConnection}
+                onRemoveConnection={removeConnection}
+                onCommitHistory={commitHistory}
+                onViewportChange={setViewport}
+              />
+            )}
 
             {/* Serial Monitor Collapsible Drawer */}
             <SerialMonitor isOpen={isSerialOpen} onClose={toggleSerial} />
@@ -489,7 +552,7 @@ export function StudioPage() {
                   style={{ flex: 1, fontSize: '0.78rem', padding: '6px 8px', gap: '6px' }}
                 >
                   <Code size={14} />
-                  <span>Arduino C++</span>
+                  <span>Firmware</span>
                 </TracewiseBubbleButton>
 
                 <TracewiseBubbleButton
@@ -522,6 +585,8 @@ export function StudioPage() {
                   onChange={updateFirmware}
                   onRunCheck={handleValidateCode}
                   validationResults={validation.checks}
+                  project={activeProject}
+                  onUpdateProject={updateActiveProject}
                 />
               )}
 
@@ -650,6 +715,8 @@ export function StudioPage() {
                     onChange={updateFirmware}
                     onRunCheck={handleValidateCode}
                     validationResults={validation.checks}
+                    project={activeProject}
+                    onUpdateProject={updateActiveProject}
                   />
                 )}
                 {rightTab === 'inspector' && (
@@ -753,7 +820,7 @@ export function StudioPage() {
                   }}
                 >
                   {mobileActiveTab === 'components' && 'Component Library'}
-                  {mobileActiveTab === 'code' && 'Arduino C++ Code'}
+                  {mobileActiveTab === 'code' && 'Firmware & Code'}
                   {mobileActiveTab === 'inspector' && 'Component Inspector'}
                   {mobileActiveTab === 'assistant' && 'Engineering Assistant'}
                 </span>
@@ -798,6 +865,8 @@ export function StudioPage() {
                   onChange={updateFirmware}
                   onRunCheck={handleValidateCode}
                   validationResults={validation.checks}
+                  project={activeProject}
+                  onUpdateProject={updateActiveProject}
                 />
               )}
 

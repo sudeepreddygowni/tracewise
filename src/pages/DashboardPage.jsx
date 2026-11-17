@@ -18,7 +18,8 @@ import {
   ArrowRight,
   Clock,
   Play,
-  Mic
+  Mic,
+  Camera
 } from 'lucide-react';
 import {
   TracewiseBubbleArea,
@@ -133,6 +134,17 @@ export function DashboardPage() {
         {/* Create Project Buttons with Soap Bubble UI */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <TracewiseBubbleArea theme="light">
+            <TracewiseBubbleButton
+              to="/app/reconstruct"
+              variant="secondary"
+              size="sm"
+              title="Analyze photographs to draft an editable project"
+              style={{ gap: '6px' }}
+            >
+              <Camera size={14} color="#0284c7" />
+              <span>Reconstruct from Photos</span>
+            </TracewiseBubbleButton>
+
             <TracewiseBubbleButton
               to="/app/projects/new-existing"
               variant="secondary"

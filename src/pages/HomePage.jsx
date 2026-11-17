@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   ChevronDown,
   ExternalLink,
+  Github,
   X
 } from 'lucide-react';
 import { STARTER_PROJECTS } from '../data/starterProjects';
@@ -951,29 +952,103 @@ export function HomePage() {
       </section>
 
       {/* =========================================================================
-          SECTION 8: FOOTER
+          SECTION 8: FOOTER — BRANDING, NAVIGATION, CREATOR & COPYRIGHT
       ========================================================================= */}
-      <footer style={{ backgroundColor: '#071831', borderTop: '1px solid rgba(74, 167, 242, 0.15)', padding: '50px 0 30px', color: '#94a3b8' }}>
-        <div className="container-tw" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <img src="/assets/brand/tracewise-logo.png" alt="Tracewise" style={{ height: '28px' }} />
+      <footer style={{ backgroundColor: '#071831', borderTop: '1px solid rgba(74, 167, 242, 0.18)', padding: '54px 0 34px', color: '#94a3b8' }}>
+        <div className="container-tw" style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+          
+          {/* Main Footer Row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '32px' }}>
+            
+            {/* Left: Brand & Description */}
+            <div style={{ maxWidth: '380px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                <img
+                  src="/assets/brand/tracewise-logo-light.png"
+                  alt="Tracewise"
+                  style={{ height: '34px', width: 'auto', display: 'block', objectFit: 'contain' }}
+                />
+              </div>
+              <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.6, margin: 0 }}>
+                AI-assisted electronics, robotics, and circuit engineering platform for students. Prototype, simulate, code, and prepare winning science fair presentations.
+              </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '24px', fontSize: '0.88rem', fontWeight: 500 }}>
-              <Link to="/app" style={{ color: '#cbd5e1' }}>Studio</Link>
-              <Link to="/projects" style={{ color: '#cbd5e1' }}>Projects</Link>
-              <Link to="/learn" style={{ color: '#cbd5e1' }}>Practice Lab</Link>
-              <Link to="/settings" style={{ color: '#cbd5e1' }}>Settings</Link>
+            {/* Center: Real Working Navigation */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Engineering Platform
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem' }}>
+                <Link to="/app" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
+                  Studio & Simulation
+                </Link>
+                <Link to="/projects" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
+                  Student Projects
+                </Link>
+                <Link to="/community" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
+                  Community & Groups
+                </Link>
+                <Link to="/app/pitch" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
+                  Pitch Lab & Rehearsal
+                </Link>
+              </div>
+            </div>
+
+            {/* Right: Creator & Verified Contacts */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Creator & Authorship
+              </div>
+              <div style={{ fontSize: '0.94rem', fontWeight: 700, color: '#ffffff' }}>
+                Created by Sudeep Reddy
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '2px' }}>
+                <a
+                  href="https://github.com/sudeepreddygowni"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.16)',
+                    color: '#f8fafc',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Github size={14} />
+                  <span>GitHub @sudeepreddygowni</span>
+                </a>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '20px', fontSize: '0.78rem', flexWrap: 'wrap', gap: '12px' }}>
+          {/* Bottom Copyright & Rights Row */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              paddingTop: '20px',
+              fontSize: '0.78rem',
+              flexWrap: 'wrap',
+              gap: '12px',
+              color: '#64748b'
+            }}
+          >
             <div>
-              © 2026 Tracewise. Skybound educational electronics engineering for students.
+              © 2026 Sudeep Reddy. All rights reserved.
             </div>
             <div>
-              Designed with Space Grotesk, Manrope, and JetBrains Mono typography.
+              Tracewise original software & architecture. Third-party open-source components and simulator runtimes remain property of their respective authors.
             </div>
           </div>
         </div>

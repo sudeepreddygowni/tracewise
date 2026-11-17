@@ -5,13 +5,17 @@ import {
   saveProject as storageSaveProject,
   deleteProject as storageDeleteProject,
   forkAndSaveProject,
+  convertAndSaveProject,
   getPreferences,
   savePreferences as storageSavePreferences
 } from '../services/projectStorage';
 import {
   createBlankProject,
   createDocumentedPhysicalProject,
+  convertPhysicalToEditableProject,
+  createObstacleAvoidingCarProject,
   isPhysicalProject,
+  hasEditableCircuit,
   generateId
 } from '../domain/projectSchema';
 import { validateCircuit } from '../domain/circuitRules';
@@ -159,6 +163,36 @@ export function ProjectProvider({ children }) {
     historyIndexRef.current = 0;
     setIsSaved(true);
     return saved;
+  }, []);
+
+  const convertToEditable = useCallback((projectId) => {
+    const targetId = projectId || activeProject?.id;
+    if (!targetId) return null;
+    const converted = convertAndSaveProject(targetId);
+    setProjects(getAllProjects());
+    if (activeProject?.id === targetId || !activeProject) {
+      setActiveProject(converted);
+      historyRef.current = [JSON.parse(JSON.stringify(converted))];
+      historyIndexRef.current = 0;
+    }
+    setIsSaved(true);
+    return converted;
+  }, [activeProject]);
+
+  const updatePhysicalLayout = useCallback((updater) => {
+    setActiveProject(prev => {
+      if (!prev) return prev;
+      const currentLayout = prev.physicalLayout || { enabled: true, chassis: {}, parts: [] };
+      const nextLayout = typeof updater === 'function' ? updater(currentLayout) : { ...currentLayout, ...updater };
+      const updated = {
+        ...prev,
+        physicalLayout: nextLayout,
+        updatedAt: new Date().toISOString()
+      };
+      pushHistory(updated);
+      setIsSaved(false);
+      return updated;
+    });
   }, []);
 
   const remixProject = useCallback((baseProject, customTitle) => {
@@ -315,19 +349,36 @@ export function ProjectProvider({ children }) {
     }));
   }, [updateActiveProject]);
 
-  const updateFirmware = useCallback((content) => {
+  const updateFirmware = useCallback((content, filePath = null) => {
     updateActiveProject(prev => {
-      const files = [...(prev.firmware?.files || [])];
+      const currentFirmware = prev.firmware || { language: 'arduino-cpp', files: [] };
+      const files = [...(currentFirmware.files || [])];
       if (files.length > 0) {
-        files[0] = { ...files[0], content };
+        const targetIndex = filePath ? files.findIndex(f => f.path === filePath) : 0;
+        const idx = targetIndex >= 0 ? targetIndex : 0;
+        files[idx] = { ...files[idx], content };
       } else {
-        files.push({ path: 'sketch.ino', content });
+        files.push({ path: filePath || 'sketch.ino', content, language: 'arduino-cpp' });
       }
       return {
         ...prev,
         firmware: {
-          ...(prev.firmware || { language: 'arduino-cpp' }),
+          ...currentFirmware,
           files
+        }
+      };
+    });
+  }, [updateActiveProject]);
+
+  const updateFirmwareFiles = useCallback((filesUpdater) => {
+    updateActiveProject(prev => {
+      const currentFirmware = prev.firmware || { language: 'arduino-cpp', files: [] };
+      const nextFiles = typeof filesUpdater === 'function' ? filesUpdater(currentFirmware.files || []) : filesUpdater;
+      return {
+        ...prev,
+        firmware: {
+          ...currentFirmware,
+          files: nextFiles
         }
       };
     });
@@ -354,6 +405,9 @@ export function ProjectProvider({ children }) {
         forkActive,
         createNewProject,
         createPhysicalProject,
+        convertToEditable,
+        updatePhysicalLayout,
+        hasEditableCircuit: hasEditableCircuit(activeProject),
         remixProject,
         buildProjectFromPlan,
         applyModification,
@@ -366,6 +420,7 @@ export function ProjectProvider({ children }) {
         addConnection,
         removeConnection,
         updateFirmware,
+        updateFirmwareFiles,
         undo,
         redo,
         commitHistory,

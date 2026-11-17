@@ -22,6 +22,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { NewExistingProjectPage } from './pages/NewExistingProjectPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
+import { PhotoReconstructionPage } from './pages/PhotoReconstructionPage';
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
 
             {/* Dedicated Workspace Routes (Fullscreen engineering canvases) */}
             <Route path="/app" element={<DashboardPage />} />
+            <Route path="/app/reconstruct" element={<PhotoReconstructionPage />} />
             <Route path="/app/projects/new-existing" element={<NewExistingProjectPage />} />
             <Route path="/app/projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="/app/studio" element={<StudioPage />} />

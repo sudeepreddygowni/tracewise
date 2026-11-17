@@ -30,14 +30,21 @@ export function buildAssistantContext(project, validation) {
     pinMatches.push({ name: match[1], pin: match[2] });
   }
 
+  const targetBoard = project.hardwarePlatform || project.firmware?.targetBoard || 'Arduino Uno R3';
+  const language = project.firmware?.files?.[0]?.path?.endsWith('.py') ? 'micropython' : (project.firmware?.language || 'arduino-cpp');
+
   return {
     projectId: project.id,
     title: project.title,
     version: project.version?.label || 'v1.0',
+    targetBoard,
+    language,
+    isPhysical: Boolean(project.isPhysical),
     components,
     connections,
     declaredPins: pinMatches,
     rawCode: firmwareContent,
+    firmwareFiles: (project.firmware?.files || []).map(f => ({ path: f.path, language: f.language })),
     validationStatus: validation?.overallStatus || 'UNKNOWN',
     validationChecks: (validation?.checks || []).map(c => ({
       id: c.id,

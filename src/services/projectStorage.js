@@ -3,7 +3,7 @@
  */
 
 import { STARTER_PROJECTS } from '../data/starterProjects';
-import { createBlankProject, forkProject } from '../domain/projectSchema';
+import { createBlankProject, forkProject, convertPhysicalToEditableProject, createObstacleAvoidingCarProject } from '../domain/projectSchema';
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
 const STORAGE_KEY = 'tracewise_projects_v1';
@@ -129,9 +129,25 @@ export function getProjectById(id) {
   const all = getAllProjects();
   let found = all.find(p => p.id === id);
   if (!found) {
+    if (id === 'starter-obstacle-car' || id === 'proj-obstacle-car-canonical') {
+      return createObstacleAvoidingCarProject();
+    }
     found = STARTER_PROJECTS.find(p => p.id === id);
   }
   return found ? JSON.parse(JSON.stringify(found)) : null;
+}
+
+/**
+ * Converts a documented physical project into an editable engineering project
+ * and persists it to storage.
+ */
+export function convertAndSaveProject(projectId) {
+  const source = getProjectById(projectId);
+  if (!source) throw new Error('Source project not found');
+
+  const converted = convertPhysicalToEditableProject(source);
+  saveProject(converted);
+  return converted;
 }
 
 /**

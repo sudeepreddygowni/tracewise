@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { COMPONENT_CATALOG } from '../../data/componentCatalog';
-import { getAllComponents } from '../../domain/componentRegistry';
+import { getAllComponents, getComponentCapabilityLevel, CAPABILITY_LEVELS } from '../../domain/componentRegistry';
 import { RequestComponentModal } from './RequestComponentModal';
-import { Search, Plus, Cpu, Check, Layers, AlertCircle, X, Sparkles } from 'lucide-react';
+import { CustomComponentWizardModal } from './CustomComponentWizardModal';
+import { Search, Plus, Cpu, Check, Layers, AlertCircle, X, Sparkles, Filter, Wrench } from 'lucide-react';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleIconButton,
@@ -12,8 +13,10 @@ import {
 export function ComponentLibrary({ onAddComponent, onClose }) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedLevel, setSelectedLevel] = useState('All');
   const [lastAddedName, setLastAddedName] = useState(null);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [catalogList, setCatalogList] = useState(COMPONENT_CATALOG);
 
   // Load all components including locally registered imports
@@ -47,11 +50,14 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
       const matchesSearch = !term ||
         comp.name.toLowerCase().includes(term) ||
         comp.description.toLowerCase().includes(term) ||
+        (comp.partNumber && comp.partNumber.toLowerCase().includes(term)) ||
         (comp.aliases && comp.aliases.some(a => a.toLowerCase().includes(term)));
       const matchesCategory = selectedCategory === 'All' || comp.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const compLevel = getComponentCapabilityLevel(comp);
+      const matchesLevel = selectedLevel === 'All' || compLevel === selectedLevel;
+      return matchesSearch && matchesCategory && matchesLevel;
     });
-  }, [search, selectedCategory, catalogList]);
+  }, [search, selectedCategory, selectedLevel, catalogList]);
 
   const handleAdd = (comp) => {
     onAddComponent(comp);
@@ -96,6 +102,16 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
                 {filteredComponents.length} parts
               </span>
               <TracewiseBubbleButton
+                onClick={() => setIsWizardOpen(true)}
+                variant="primary"
+                size="sm"
+                title="Create a Custom Component visually"
+                style={{ fontSize: '0.74rem', padding: '4px 10px', minHeight: '32px' }}
+              >
+                <Plus size={13} />
+                <span>+ Custom Part</span>
+              </TracewiseBubbleButton>
+              <TracewiseBubbleButton
                 onClick={() => setIsRequestModalOpen(true)}
                 variant="ghost"
                 size="sm"
@@ -103,7 +119,7 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
                 style={{ fontSize: '0.74rem', padding: '4px 10px', minHeight: '32px' }}
               >
                 <Sparkles size={13} color="var(--tw-brand)" />
-                <span>Request / Import</span>
+                <span>Import JSON</span>
               </TracewiseBubbleButton>
               {onClose && (
                 <TracewiseBubbleIconButton
@@ -166,6 +182,51 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
               >
                 {cat}
               </TracewiseBubbleButton>
+            ))}
+          </div>
+
+          {/* Capability Tier Filter Row */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              overflowX: 'auto',
+              marginTop: '6px',
+              paddingBottom: '2px',
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none'
+            }}
+          >
+            <span style={{ fontSize: '0.68rem', color: 'var(--tw-text-muted)', fontWeight: 600, flexShrink: 0, marginRight: '2px' }}>
+              Capability:
+            </span>
+            {[
+              { id: 'All', label: 'All Levels' },
+              { id: 'E', label: 'Level E (Simulated)' },
+              { id: 'D', label: 'Level D (Rule-Validated)' },
+              { id: 'C', label: 'Level C (Connectable)' },
+              { id: 'A', label: 'Level A (Documented)' }
+            ].map(lvl => (
+              <button
+                key={lvl.id}
+                type="button"
+                onClick={() => setSelectedLevel(lvl.id)}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: selectedLevel === lvl.id ? '1px solid var(--tw-brand)' : '1px solid var(--tw-border)',
+                  backgroundColor: selectedLevel === lvl.id ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+                  color: selectedLevel === lvl.id ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+                  fontWeight: selectedLevel === lvl.id ? 700 : 500,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                {lvl.label}
+              </button>
             ))}
           </div>
 
@@ -239,7 +300,11 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
               </div>
             </div>
           ) : (
-            filteredComponents.map((comp) => (
+            filteredComponents.map((comp) => {
+              const capLevel = getComponentCapabilityLevel(comp);
+              const capMeta = CAPABILITY_LEVELS[capLevel] || CAPABILITY_LEVELS.A;
+
+              return (
               <div
                 key={comp.type}
                 style={{
@@ -261,17 +326,21 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
                         {comp.category}
                       </span>
 
-                      {/* Capability Badges */}
-                      {comp.wiringSupported && (
-                        <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(45, 197, 233, 0.15)', color: '#0284c7', fontWeight: 600 }}>
-                          Wiring Supported
-                        </span>
-                      )}
-                      {comp.codeAvailable && (
-                        <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(168, 85, 247, 0.15)', color: '#7c3aed', fontWeight: 600 }}>
-                          Code Available
-                        </span>
-                      )}
+                      {/* Verified Capability Level Badge */}
+                      <span
+                        style={{
+                          fontSize: '0.64rem',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          background: capMeta.badgeBg,
+                          color: capMeta.color,
+                          border: `1px solid ${capMeta.badgeBorder}`,
+                          fontWeight: 700
+                        }}
+                      >
+                        {capMeta.tier}: {capMeta.label}
+                      </span>
+
                       {comp.isCustom && (
                         <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(234, 179, 8, 0.18)', color: '#b45309', fontWeight: 700 }}>
                           Custom
@@ -331,7 +400,8 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
                   )}
                 </div>
               </div>
-            ))
+            );
+            })
           )}
         </div>
       </div>
@@ -341,6 +411,13 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
         onComponentImported={handleComponentImported}
+      />
+
+      {/* Visual Custom Component Wizard Modal */}
+      <CustomComponentWizardModal
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onComponentCreated={handleComponentImported}
       />
     </TracewiseBubbleArea>
   );

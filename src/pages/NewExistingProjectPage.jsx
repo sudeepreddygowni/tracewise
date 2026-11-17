@@ -653,27 +653,49 @@ export function NewExistingProjectPage() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleRunAiExtraction}
-                  disabled={aiAnalyzing}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                    color: '#38bdf8',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Sparkles size={14} />
-                  <span>{aiAnalyzing ? 'Analyzing...' : 'AI Auto-Draft BOM'}</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Link
+                    to="/app/reconstruct"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      color: '#38bdf8',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <Camera size={14} />
+                    <span>Reconstruct from Photo</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={handleRunAiExtraction}
+                    disabled={aiAnalyzing}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.18)',
+                      color: '#ffffff',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Sparkles size={14} />
+                    <span>{aiAnalyzing ? 'Analyzing...' : 'Code-to-BOM'}</span>
+                  </button>
+                </div>
               </div>
 
               {showAiSuggestions && (

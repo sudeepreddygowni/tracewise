@@ -27,11 +27,12 @@ import { useAuth } from '../store/useAuthStore';
 import { TracewiseBubbleButton, TracewiseBubbleIconButton, TracewiseBubbleArea } from '../components/ui/BubbleActions';
 import { generateScienceFairChecklist, extractProjectContext } from '../domain/pitch/pitchEngine';
 import { uploadMediaAttachment, validateMediaFile } from '../services/mediaStorageService';
+import { hasEditableCircuit } from '../domain/projectSchema';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { projects, activeProject, loadProject, updateActiveProject, deleteProject, saveCurrent } = useProject();
+  const { projects, activeProject, loadProject, updateActiveProject, deleteProject, saveCurrent, convertToEditable } = useProject();
   const { user } = useAuth();
 
   const [project, setProject] = useState(null);
@@ -289,6 +290,56 @@ export function ProjectDetailPage() {
             <Edit3 size={14} />
             <span>Edit Project</span>
           </button>
+
+          <TracewiseBubbleButton
+            to={`/app/reconstruct?projectId=${project.id}`}
+            variant="secondary"
+            size="sm"
+            title="Reconstruct editable circuit from photographs"
+            style={{ gap: '6px' }}
+          >
+            <Camera size={14} color="#38bdf8" />
+            <span>Reconstruct Photos</span>
+          </TracewiseBubbleButton>
+
+          {hasEditableCircuit(project) ? (
+            <TracewiseBubbleButton
+              to={`/app/studio/${project.id}`}
+              variant="accent"
+              size="sm"
+              style={{ gap: '6px' }}
+            >
+              <Cpu size={14} />
+              <span>Open in Studio →</span>
+            </TracewiseBubbleButton>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const converted = convertToEditable(project.id);
+                if (converted) {
+                  navigate(`/app/studio/${converted.id}`);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.18)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                color: '#34d399',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Attach an editable circuit & code workspace"
+            >
+              <Cpu size={14} />
+              <span>Convert to Editable</span>
+            </button>
+          )}
 
           <TracewiseBubbleButton
             to={`/app/pitch/${project.id}`}

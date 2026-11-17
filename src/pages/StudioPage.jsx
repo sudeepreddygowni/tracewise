@@ -346,12 +346,12 @@ export function StudioPage() {
               <div
                 style={{
                   position: 'absolute',
-                  top: 12,
-                  left: 16,
+                  top: 66,
+                  left: 14,
                   zIndex: 40,
                   display: 'flex',
                   gap: '4px',
-                  backgroundColor: 'rgba(7, 24, 49, 0.85)',
+                  backgroundColor: 'rgba(7, 24, 49, 0.9)',
                   backdropFilter: 'blur(8px)',
                   padding: '4px',
                   borderRadius: '10px',

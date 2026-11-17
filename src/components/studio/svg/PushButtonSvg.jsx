@@ -3,6 +3,9 @@ import React from 'react';
 export function PushButtonSvg({
   width = 65,
   height = 65,
+  isPressed = false,
+  onButtonDown,
+  onButtonUp,
   pins = [],
   activePinId = null,
   highlightedPins = [],
@@ -34,8 +37,34 @@ export function PushButtonSvg({
       {/* Silver Outer Metal Shroud */}
       <rect x="18" y="16" width="30" height="32" rx="4" fill="#cbd5e1" stroke="#64748b" strokeWidth="1" />
 
-      {/* Central Round Black Button Plunger */}
-      <circle cx="33" cy="32" r="9" fill="url(#btnActuatorGrad)" stroke="#1e293b" strokeWidth="1" />
+      {/* Central Round Black Button Plunger with Interactive Press */}
+      <g
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onButtonDown && onButtonDown();
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          onButtonUp && onButtonUp();
+        }}
+        onPointerLeave={() => {
+          if (isPressed && onButtonUp) onButtonUp();
+        }}
+        style={{ cursor: 'pointer' }}
+        title="Click or press and hold to actuate button"
+      >
+        <circle
+          cx="33"
+          cy={isPressed ? 33.5 : 32}
+          r={isPressed ? 8 : 9}
+          fill="url(#btnActuatorGrad)"
+          stroke={isPressed ? '#2dc5e9' : '#1e293b'}
+          strokeWidth={isPressed ? 1.5 : 1}
+        />
+        {isPressed && (
+          <circle cx="33" cy="33.5" r="12" fill="none" stroke="rgba(45, 197, 233, 0.4)" strokeWidth="1" />
+        )}
+      </g>
 
       {/* 4 Corner Pins */}
       {pins.map((pin) => {

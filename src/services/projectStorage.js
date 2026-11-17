@@ -4,6 +4,7 @@
 
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { createBlankProject, forkProject } from '../domain/projectSchema';
+import { supabase, isSupabaseConfigured } from './supabase.js';
 
 const STORAGE_KEY = 'tracewise_projects_v1';
 const PREFERENCES_KEY = 'tracewise_preferences_v1';
@@ -27,6 +28,83 @@ export function initStorage() {
   } catch (err) {
     console.warn('LocalStorage unavailable, using in-memory starters:', err);
     return STARTER_PROJECTS;
+  }
+}
+
+/**
+ * Fetches private user projects from Supabase cloud storage (with RLS isolation)
+ */
+export async function fetchUserCloudProjects(userId) {
+  if (!userId || !isSupabaseConfigured() || !supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('user_projects')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.warn('Fetch cloud projects note:', error.message);
+      return [];
+    }
+
+    return (data || []).map(row => ({
+      ...row.project_data,
+      id: row.id,
+      title: row.title,
+      updatedAt: row.updated_at
+    }));
+  } catch (err) {
+    console.warn('Cloud project fetch exception:', err);
+    return [];
+  }
+}
+
+/**
+ * Saves a project to Supabase Cloud for authenticated students (isolated per user)
+ */
+export async function saveUserCloudProject(project, userId) {
+  if (!project || !userId || !isSupabaseConfigured() || !supabase) return null;
+  try {
+    const payload = {
+      id: project.id,
+      user_id: userId,
+      title: project.title || 'Untitled Project',
+      description: project.description || '',
+      project_data: project,
+      version: Number(project.version?.number || 1),
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('user_projects')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Cloud project save note:', error.message);
+      return null;
+    }
+    return payload;
+  } catch (err) {
+    console.warn('Cloud project save exception:', err);
+    return null;
+  }
+}
+
+/**
+ * Deletes a project from Supabase Cloud
+ */
+export async function deleteUserCloudProject(projectId, userId) {
+  if (!projectId || !userId || !isSupabaseConfigured() || !supabase) return false;
+  try {
+    const { error } = await supabase
+      .from('user_projects')
+      .delete()
+      .eq('id', projectId)
+      .eq('user_id', userId);
+    return !error;
+  } catch {
+    return false;
   }
 }
 
@@ -75,6 +153,16 @@ export function saveProject(project) {
     }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+
+    // Background cloud sync for authenticated users
+    if (isSupabaseConfigured() && supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session?.user?.id) {
+          saveUserCloudProject(updatedProject, data.session.user.id);
+        }
+      }).catch(() => {});
+    }
+
     return updatedProject;
   } catch (err) {
     console.error('Failed to save project:', err);
@@ -90,6 +178,16 @@ export function deleteProject(id) {
     const all = getAllProjects();
     const filtered = all.filter(p => p.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+
+    // Background cloud deletion for authenticated users
+    if (isSupabaseConfigured() && supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data?.session?.user?.id) {
+          deleteUserCloudProject(id, data.session.user.id);
+        }
+      }).catch(() => {});
+    }
+
     return true;
   } catch (err) {
     console.error('Failed to delete project:', err);

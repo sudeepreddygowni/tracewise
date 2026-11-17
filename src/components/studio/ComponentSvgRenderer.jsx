@@ -87,6 +87,8 @@ export function ComponentSvgRenderer({
   comp,
   def,
   activePinId,
+  simState = {},
+  onSimAction = null,
   onPinClick,
   onPinHover
 }) {
@@ -97,6 +99,10 @@ export function ComponentSvgRenderer({
     case 'arduino-uno':
       return (
         <ArduinoUnoSvg
+          powerOn={simState.powerOn}
+          led13={simState.led13}
+          tx={simState.tx}
+          rx={simState.rx}
           pins={def.pins}
           activePinId={activePinId}
           onPinClick={onPinClick}
@@ -116,6 +122,8 @@ export function ComponentSvgRenderer({
       return (
         <LedSvg
           color={comp.props?.color || 'red'}
+          isLit={simState.isLit}
+          isUnprotected={simState.isUnprotected}
           pins={def.pins}
           activePinId={activePinId}
           onPinClick={onPinClick}
@@ -135,6 +143,9 @@ export function ComponentSvgRenderer({
     case 'push-button':
       return (
         <PushButtonSvg
+          isPressed={simState.isPressed}
+          onButtonDown={() => onSimAction && onSimAction('BUTTON_DOWN', comp.id)}
+          onButtonUp={() => onSimAction && onSimAction('BUTTON_UP', comp.id)}
           pins={def.pins}
           activePinId={activePinId}
           onPinClick={onPinClick}
@@ -144,9 +155,9 @@ export function ComponentSvgRenderer({
     case 'rgb-led':
       return (
         <RgbLedSvg
-          red={comp.props?.red ?? 255}
-          green={comp.props?.green ?? 0}
-          blue={comp.props?.blue ?? 128}
+          red={simState.r ? 255 : (comp.props?.red ?? 255)}
+          green={simState.g ? 255 : (comp.props?.green ?? 0)}
+          blue={simState.b ? 255 : (comp.props?.blue ?? 128)}
           pins={def.pins}
           activePinId={activePinId}
           onPinClick={onPinClick}
@@ -156,7 +167,7 @@ export function ComponentSvgRenderer({
     case 'potentiometer':
       return (
         <PotentiometerSvg
-          value={comp.props?.value ?? 512}
+          value={simState.value ?? comp.props?.value ?? 512}
           pins={def.pins}
           activePinId={activePinId}
           onPinClick={onPinClick}
@@ -185,6 +196,7 @@ export function ComponentSvgRenderer({
     case 'buzzer':
       return (
         <BuzzerSvg
+          isSounding={simState.isSounding}
           pins={def.pins}
           activePinId={activePinId}
           onPinClick={onPinClick}

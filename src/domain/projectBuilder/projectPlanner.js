@@ -7,33 +7,22 @@ import {
   createDiscoLightBuildPlan,
   createRgbMoodLightBuildPlan,
   createPotentiometerDimmerBuildPlan,
-  createBuzzerAlarmBuildPlan
+  createBuzzerAlarmBuildPlan,
+  createTrafficLightBuildPlan
 } from './projectTemplates.js';
 import { compileBuildPlan } from './catalogCompiler.js';
 import { planAddLedModification } from './projectModifier.js';
+import { getComponentCapability, CAPABILITY_LEVEL } from '../capabilityRegistry.js';
 
-// Components known to be unsupported in the current basic catalog
-const UNSUPPORTED_KEYWORDS = [
-  { keyword: 'servo', name: 'Servo Motor' },
-  { keyword: 'stepper', name: 'Stepper Motor' },
-  { keyword: 'ultrasonic', name: 'Ultrasonic Distance Sensor (HC-SR04)' },
-  { keyword: 'distance sensor', name: 'Ultrasonic Distance Sensor' },
-  { keyword: 'hc-sr04', name: 'Ultrasonic Sensor (HC-SR04)' },
-  { keyword: 'oled', name: 'OLED Display (I2C/SPI)' },
-  { keyword: 'lcd', name: 'Liquid Crystal Display (LCD 1602)' },
-  { keyword: 'display', name: 'Digital Display Screen' },
-  { keyword: 'bluetooth', name: 'Bluetooth Transceiver (HC-05/06)' },
-  { keyword: 'ble', name: 'Bluetooth Low Energy Module' },
-  { keyword: 'wifi', name: 'Wi-Fi Module' },
-  { keyword: 'esp32', name: 'ESP32 Microcontroller' },
-  { keyword: 'esp8266', name: 'ESP8266 Wi-Fi Chip' },
+// Hardware that is genuinely absent from the 33-component Tracewise catalog
+const TRULY_UNSUPPORTED_HARDWARE = [
+  { keyword: 'stepper', name: 'Stepper Motor & Driver' },
+  { keyword: 'rfid', name: 'RFID RC522 Card Reader' },
   { keyword: 'relay', name: 'Electromechanical Relay Module' },
-  { keyword: 'dht11', name: 'DHT11 Humidity & Temperature Sensor' },
-  { keyword: 'dht22', name: 'DHT22 Temperature Sensor' },
-  { keyword: 'temperature sensor', name: 'Temperature Sensor (DHT/DS18B20)' },
-  { keyword: 'pir', name: 'PIR Motion Sensor' },
-  { keyword: 'motion sensor', name: 'PIR Motion Sensor' },
-  { keyword: 'rfid', name: 'RFID RC522 Reader' }
+  { keyword: 'camera', name: 'OV7670 / ESP32-CAM Camera' },
+  { keyword: 'gps', name: 'GPS Receiver Module' },
+  { keyword: 'solar', name: 'Solar Cell / Energy Harvester' },
+  { keyword: 'fingerprint', name: 'Optical Fingerprint Scanner' }
 ];
 
 export const BUILD_INTENT = {
@@ -43,14 +32,14 @@ export const BUILD_INTENT = {
 };
 
 /**
- * Checks if a user prompt mentions hardware capabilities not in the Tracewise catalog.
+ * Checks if a user prompt mentions hardware completely absent from the Tracewise catalog.
  */
 export function detectUnsupportedHardware(text) {
   if (!text) return [];
   const lower = text.toLowerCase();
   const detected = [];
 
-  for (const item of UNSUPPORTED_KEYWORDS) {
+  for (const item of TRULY_UNSUPPORTED_HARDWARE) {
     if (lower.includes(item.keyword)) {
       if (!detected.includes(item.name)) {
         detected.push(item.name);
@@ -146,6 +135,22 @@ export function planProjectFromPrompt(promptText, activeProject = null) {
 
   // 3. New Project Build Intent
   if (intent === BUILD_INTENT.BUILD_PROJECT) {
+    // Traffic Light Project
+    if (lower.includes('traffic') || lower.includes('stoplight') || (lower.includes('red') && lower.includes('green') && lower.includes('yellow') && lower.includes('led'))) {
+      const buildPlan = createTrafficLightBuildPlan();
+      const compiled = compileBuildPlan(buildPlan);
+      return {
+        status: 'BUILT',
+        intent: BUILD_INTENT.BUILD_PROJECT,
+        plan: buildPlan,
+        buildPlan,
+        project: compiled.project,
+        validation: compiled.validation,
+        summary: compiled.summary,
+        message: `Built Automated 3-Color Traffic Light Controller with ${compiled.summary.componentCount} components, ${compiled.summary.connectionCount} wires, and 3-stage timing firmware.`
+      };
+    }
+
     // RGB Mood Light
     if (lower.includes('rgb') || lower.includes('color mixer') || lower.includes('mood light')) {
       const buildPlan = createRgbMoodLightBuildPlan();

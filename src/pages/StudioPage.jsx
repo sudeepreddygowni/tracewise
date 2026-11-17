@@ -10,6 +10,9 @@ import { ComponentInspector } from '../components/studio/ComponentInspector';
 import { DemoAssistant } from '../components/studio/DemoAssistant';
 import { ValidationDrawer } from '../components/studio/ValidationDrawer';
 import { PublishProjectModal } from '../components/studio/PublishProjectModal';
+import { SimulationControlBar } from '../components/studio/SimulationControlBar';
+import { SerialMonitor } from '../components/studio/SerialMonitor';
+import { useSimulation } from '../store/useSimulationStore';
 import { applyProjectModification } from '../domain/projectBuilder/projectModifier';
 import {
   Code,
@@ -54,6 +57,7 @@ export function StudioPage() {
   } = useProject();
 
   const { user } = useAuth();
+  const { isSerialOpen, toggleSerial } = useSimulation();
   const [selectedCompId, setSelectedCompId] = useState(null);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [rightTab, setRightTab] = useState(
@@ -321,19 +325,28 @@ export function StudioPage() {
           </>
         )}
 
-        {/* CENTER: Circuit Canvas */}
-        <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
-          <CircuitCanvas
+        {/* CENTER: Circuit Canvas & Real MCU Simulation */}
+        <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <SimulationControlBar
             project={activeProject}
-            selectedComponentId={selectedCompId}
-            onSelectComponent={handleSelectComponent}
-            onMoveComponent={moveComponent}
-            onRemoveComponent={removeComponent}
-            onAddConnection={addConnection}
-            onRemoveConnection={removeConnection}
-            onCommitHistory={commitHistory}
-            onViewportChange={setViewport}
+            onOpenValidation={() => setIsValidationOpen(true)}
           />
+
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <CircuitCanvas
+              project={activeProject}
+              selectedComponentId={selectedCompId}
+              onSelectComponent={handleSelectComponent}
+              onMoveComponent={moveComponent}
+              onRemoveComponent={removeComponent}
+              onAddConnection={addConnection}
+              onRemoveConnection={removeConnection}
+              onCommitHistory={commitHistory}
+              onViewportChange={setViewport}
+            />
+
+            {/* Serial Monitor Collapsible Drawer */}
+            <SerialMonitor isOpen={isSerialOpen} onClose={toggleSerial} />
 
           {/* TABLET FLOATING TOGGLE BUTTONS (Canvas Edges) */}
           {isTablet && (
@@ -435,6 +448,7 @@ export function StudioPage() {
               </button>
             </div>
           )}
+          </div>
         </div>
 
         {/* DESKTOP RIGHT: Engineering Hub (380px) */}

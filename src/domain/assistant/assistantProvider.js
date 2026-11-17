@@ -19,6 +19,19 @@ export const ASSISTANT_PROVIDER_MODE = {
   SERVER_GATEWAY: 'server_gateway'
 };
 
+function getClientSessionId() {
+  try {
+    let sid = sessionStorage.getItem('tw_client_session_id');
+    if (!sid) {
+      sid = 'cls_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+      sessionStorage.setItem('tw_client_session_id', sid);
+    }
+    return sid;
+  } catch {
+    return 'anon_session';
+  }
+}
+
 class AssistantProvider {
   constructor(mode = ASSISTANT_PROVIDER_MODE.SERVER_GATEWAY) {
     this.mode = mode;
@@ -44,7 +57,8 @@ class AssistantProvider {
       const res = await fetch('/api/assistant', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Session-ID': getClientSessionId()
         },
         body: JSON.stringify({
           queryText,

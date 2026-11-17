@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ProjectProvider } from './store/useProjectStore';
 import { AuthProvider } from './store/useAuthStore';
+import { SimulationProvider } from './store/useSimulationStore';
 import { AppLayout } from './components/layout/AppLayout';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -24,7 +25,8 @@ export default function App() {
   return (
     <ProjectProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <SimulationProvider>
+          <BrowserRouter>
           <Routes>
             {/* Public Layout Routes (Persistent Navbar and ScrollManager) */}
             <Route element={<AppLayout />}>
@@ -52,6 +54,7 @@ export default function App() {
             <Route path="/app/pitch/:projectId" element={<PitchLabPage />} />
           </Routes>
         </BrowserRouter>
+        </SimulationProvider>
       </AuthProvider>
     </ProjectProvider>
   );

@@ -2,42 +2,62 @@
  * Tracewise Assistant Architecture — Serverless Gateway (/api/assistant)
  * Multi-intent conversational gateway with Google Gemini 1.5 Flash support
  * and grounded deterministic fallback for student electronics education.
+ *
+ * Implements:
+ * 1. Multi-credential Gemini API Key pool (GEMINI_API_KEY, GEMINI_API_KEY_1..5) with quota failover.
+ * 2. Classroom-safe rate limiting keyed by User ID or Session ID (never shared school Wi-Fi IP).
+ * 3. Deep grounding in netlist, compiler diagnostics, and simulation observations.
+ * 4. Deterministic fallback when AI is unavailable, quota-exhausted, or network is offline.
  */
 
-// Simple in-memory sliding window rate limiter per IP
+// Sliding window rate limiter per client key (User ID or Session ID)
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS_PER_WINDOW = 30;
-const ipRequestHistory = new Map();
+const clientRequestHistory = new Map();
 
-function checkRateLimit(ip) {
+function checkRateLimit(clientKey) {
   const now = Date.now();
-  const timestamps = (ipRequestHistory.get(ip) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  const timestamps = (clientRequestHistory.get(clientKey) || []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
 
   if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
     return { allowed: false, remaining: 0 };
   }
 
   timestamps.push(now);
-  ipRequestHistory.set(ip, timestamps);
+  clientRequestHistory.set(clientKey, timestamps);
   return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - timestamps.length };
 }
 
 /**
- * Attempts calling Google Gemini 1.5 Flash if an authorized key is configured in the environment.
- * Strictly adheres to Google API policies and student safety requirements.
+ * Returns list of configured Gemini API keys
+ */
+function getGeminiApiKeys() {
+  const keys = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_1,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5
+  ].filter(Boolean);
+  return Array.from(new Set(keys));
+}
+
+/**
+ * Attempts calling Google Gemini 1.5 Flash across key pool with quota-aware failover.
  */
 async function callGeminiIfAvailable({ queryText, projectContext, history }) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  const keys = getGeminiApiKeys();
+  if (keys.length === 0) return null;
 
-  try {
-    const components = Array.isArray(projectContext.components) ? projectContext.components : [];
-    const connections = Array.isArray(projectContext.connections) ? projectContext.connections : [];
-    const firmwareCode = projectContext.firmwareCode || projectContext.code || '';
-    const validation = projectContext.validation || {};
-    const title = projectContext.title || 'General Help';
+  const components = Array.isArray(projectContext.components) ? projectContext.components : [];
+  const connections = Array.isArray(projectContext.connections) ? projectContext.connections : [];
+  const firmwareCode = projectContext.firmwareCode || projectContext.code || '';
+  const validation = projectContext.validation || {};
+  const title = projectContext.title || 'General Help';
+  const simulationState = projectContext.simulationState || {};
 
-    const systemInstruction = `You are the Tracewise Engineering Assistant, an expert educational tutor for student electronics, Arduino microcontrollers, and circuit prototyping.
+  const systemInstruction = `You are the Tracewise Engineering Assistant, an expert educational tutor for student electronics, Arduino microcontrollers, and circuit prototyping.
 
 CURRENT PROJECT CONTEXT:
 - Title: "${title}"
@@ -47,72 +67,84 @@ CURRENT PROJECT CONTEXT:
 ${firmwareCode.slice(0, 1800)}
 - Overall Structural Validation: ${validation.overallStatus || 'VALID'}
 - Validation Checks: ${JSON.stringify(validation.checks || [])}
+- Simulation Runtime: ${simulationState.status || 'STOPPED'} (Target: ATmega328P @ 16MHz)
 
 STRICT GROUNDING & ACCURACY RULES:
 1. Always be conversational, clear, and encouraging. Format your responses with structured Markdown: headings (###), bullet points, and code blocks with JetBrains Mono.
-2. CAPABILITY & CATALOG BOUNDARIES: Tracewise currently supports: Arduino Uno R3, Half Breadboard, 5mm LEDs (Red, Green, Blue, Yellow), 220Ω Resistors, Momentary Push Buttons. If the user asks to build or simulate hardware outside this catalog (e.g. Servo motors, Ultrasonic distance sensors, OLED/LCD screens, Bluetooth/Wi-Fi), clearly explain that Tracewise's catalog does not yet support that component. Do NOT fabricate fake pinouts or pretend unsupported components exist.
+2. CAPABILITY & CATALOG BOUNDARIES: Tracewise currently supports: Arduino Uno R3, Half Breadboard, 5mm LEDs (Red, Green, Blue, Yellow), RGB LED (Common Cathode), 220Ω & 10kΩ Resistors, Momentary Push Buttons, Potentiometer (10k), Photoresistor (LDR), Slide Switch (SPDT), and Active Piezo Buzzer. If the user asks to build or simulate hardware outside this catalog (e.g. Stepper motors, RFID readers, Ultrasonic sensors, Relays, Wi-Fi/Bluetooth), clearly explain that Tracewise's catalog does not yet support that component. Do NOT fabricate fake pinouts or pretend unsupported components exist.
 3. GREETINGS ("Hi", "Hello", "Hey"): Greet the user naturally, introduce yourself as the Tracewise Engineering Assistant, and briefly summarize what you can help with (circuit wiring, pin verification, Ohm's law, and code debugging). Do NOT dump unprompted circuit reports on a greeting.
 4. GROUNDING: Base all circuit claims exclusively on the provided components, wires, and code above. Never invent physical multimeter readings or claim a physical breadboard was tested.
 5. CODE SUGGESTIONS: When suggesting code changes, provide clean, copyable Arduino C++ snippets.`;
 
-    const contents = [
-      ...(history || []).slice(-4).map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.text }]
-      })),
-      {
-        role: 'user',
-        parts: [{ text: queryText }]
+  const contents = [
+    ...(history || []).slice(-4).map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.text }]
+    })),
+    {
+      role: 'user',
+      parts: [{ text: queryText }]
+    }
+  ];
+
+  // Try each API key in rotation until one succeeds or non-retryable error
+  for (const apiKey of keys) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6500);
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: {
+            parts: [{ text: systemInstruction }]
+          },
+          generationConfig: {
+            temperature: 0.35,
+            maxOutputTokens: 900
+          }
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.status === 429 || response.status === 503) {
+        // Quota exhausted or rate limited on this key, attempt next key
+        console.warn('Gemini key quota exceeded, falling back to next key in pool...');
+        continue;
       }
-    ];
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6500);
+      if (!response.ok) {
+        console.warn('Gemini API call non-200:', response.status);
+        continue;
+      }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: {
-          parts: [{ text: systemInstruction }]
-        },
-        generationConfig: {
-          temperature: 0.35,
-          maxOutputTokens: 900
-        }
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn('Gemini API call non-200:', response.status);
-      return null;
+      const data = await response.json();
+      const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (candidateText && candidateText.trim()) {
+        return {
+          text: candidateText.trim(),
+          provider: 'Google Gemini 1.5 Flash',
+          sourceTag: 'Google Gemini 1.5 Flash'
+        };
+      }
+    } catch (err) {
+      console.warn('Gemini attempt failed:', err.message);
     }
-
-    const data = await response.json();
-    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (candidateText && candidateText.trim()) {
-      return {
-        text: candidateText.trim(),
-        provider: 'Google Gemini 1.5 Flash',
-        sourceTag: 'Google Gemini 1.5 Flash'
-      };
-    }
-  } catch (err) {
-    console.warn('Gemini call error (falling back to deterministic engine):', err.message);
   }
+
   return null;
 }
 
 export default async function handler(req, res) {
-  // CORS & Headers
+  // CORS & Classroom Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Session-ID, X-User-ID');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -125,9 +157,11 @@ export default async function handler(req, res) {
     });
   }
 
-  // Rate Limiting
+  // Rate Limiting keyed by User ID or Session ID (protects 70 concurrent classroom users on 1 IP)
   const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
-  const { allowed, remaining } = checkRateLimit(clientIp);
+  const clientKey = req.headers['x-user-id'] || req.headers['x-session-id'] || clientIp;
+
+  const { allowed, remaining } = checkRateLimit(clientKey);
   res.setHeader('X-RateLimit-Limit', MAX_REQUESTS_PER_WINDOW.toString());
   res.setHeader('X-RateLimit-Remaining', remaining.toString());
 
@@ -216,31 +250,22 @@ export default async function handler(req, res) {
     const deterministicChecks = [];
     const suggestions = [];
 
-    // INTENT 0: Unsupported Component Detection
+    // INTENT 0: Truly Unsupported Component Detection
     const unsupportedList = [
-      { key: 'servo', name: 'Servo Motor' },
       { key: 'stepper', name: 'Stepper Motor' },
-      { key: 'ultrasonic', name: 'Ultrasonic Distance Sensor (HC-SR04)' },
-      { key: 'distance sensor', name: 'Ultrasonic Distance Sensor' },
-      { key: 'hc-sr04', name: 'Ultrasonic Sensor' },
-      { key: 'oled', name: 'OLED Display (I2C/SPI)' },
-      { key: 'lcd', name: 'LCD Display Screen' },
-      { key: 'display', name: 'Digital Display Screen' },
-      { key: 'bluetooth', name: 'Bluetooth Module (HC-05/06)' },
-      { key: 'wifi', name: 'Wi-Fi Module' },
-      { key: 'esp32', name: 'ESP32 Microcontroller' },
-      { key: 'esp8266', name: 'ESP8266 Wi-Fi Chip' },
-      { key: 'relay', name: 'Relay Module' }
+      { key: 'rfid', name: 'RFID Reader (RC522)' },
+      { key: 'relay', name: 'Relay Module' },
+      { key: 'camera', name: 'Camera Module' }
     ];
     const detectedUnsupported = unsupportedList.filter(item => q.includes(item.key)).map(item => item.name);
     if (detectedUnsupported.length > 0) {
       return res.status(200).json({
         text: `### ⚠️ Component Not Available in Catalog\n\n` +
           `Tracewise cannot fully build this project because the required component (**${detectedUnsupported.join(', ')}**) is not available in the current component library.\n\n` +
-          `Our catalog currently supports low-voltage educational basics:\n` +
-          `• **Microcontroller:** Arduino Uno R3\n` +
-          `• **Prototyping:** Half Breadboard\n` +
-          `• **Inputs & Passives:** 5mm LEDs (Red, Green, Blue, Yellow), RGB LED (Common Cathode), 220Ω & 10kΩ Resistors, Momentary Push Buttons, Potentiometer (10k), Photoresistor (LDR), Slide Switch (SPDT), and Active Piezo Buzzer\n\n` +
+          `Our catalog currently supports 33 components including:\n` +
+          `• **Microcontrollers:** Arduino Uno R3, Arduino Nano\n` +
+          `• **Prototyping:** Half Breadboard, Full Breadboard, Mini Breadboard\n` +
+          `• **Inputs & Passives:** 5mm LEDs (Red, Green, Blue, Yellow, Orange, White), RGB LED (Common Cathode), 220Ω & 10kΩ Resistors, Momentary Push Buttons, Potentiometer (10k), Photoresistor (LDR), Slide Switch (SPDT), and Active Piezo Buzzer\n\n` +
           `I will not generate an empty skeleton or fabricate connections for unsupported components. Would you like to build an interactive circuit using our supported catalog components?`,
         provider: 'Tracewise Project Builder',
         sourceTag: 'Catalog Capability Boundary',
@@ -306,92 +331,74 @@ export default async function handler(req, res) {
           `\n\nAll components are verified against the physical catalog netlist with ${connections.length} wires.`;
       }
 
-    // INTENT B: Capabilities & Platform Questions
+    // INTENT C: Capabilities & Platform Questions
     } else if (q.includes('what can you do') || q.includes('what is tracewise') || q.includes('how does this work') || q.includes('help me')) {
-      responseText = `### 🚀 Tracewise Engineering Studio Capabilities\n\n` +
-        `Tracewise is an interactive electronics design and verification environment designed for students and makers.\n\n` +
-        `**Core Capabilities:**\n` +
-        `1. **Virtual Circuit Canvas**: Place microcontrollers (Arduino Uno R3), LEDs, resistors, buttons, and sensors, routing jumper wires between pins.\n` +
-        `2. **Deterministic Validation**: Automated static checks inspect your netlist for short circuits, missing resistors, and floating inputs.\n` +
-        `3. **Firmware AST Inspection**: We parse Arduino C++ to guarantee that variables like \`BUTTON_PIN\` match the physical pin on the canvas.\n` +
-        `4. **Baseline Comparison**: Fork starter projects and view side-by-side diffs showing exactly what wires and code changed.\n` +
-        `5. **Pitch Lab**: Generate 30s, 60s, and 120s presentations grounded in your real circuit data to prepare for competition judges.`;
+      responseText = `### ⚙️ Tracewise Capabilities\n\n` +
+        `Tracewise is an interactive electronics design and microcontroller simulation environment designed for students and educators.\n\n` +
+        `• **Microcontroller Compilation**: Compiles Arduino C++ code to genuine ATmega328P machine code instructions.\n` +
+        `• **Hardware Execution**: Runs real CPU instruction cycles with timers, GPIO, ADC, and USART via avr8js.\n` +
+        `• **Netlist Engine**: Union-Find electrical solver tracking breadboard internal clips and distinct resistor nodes.\n` +
+        `• **Grounded Engineering Assistant**: Explains circuits using proven equations and deterministic catalog validation.\n` +
+        `• **Science Fair Pitch Lab**: Prepares students with mock questions to articulate their engineering designs.`;
 
-    // INTENT C: Pitch Review / Judge Presentation
-    } else if (task === 'pitch_review' || q.includes('pitch') || q.includes('judge') || q.includes('rubric') || q.includes('presentation')) {
-      const wordCount = sanitizedQuery.split(/\s+/).length;
-      const estSeconds = Math.round((wordCount / 130) * 60);
+    // INTENT D: Pin Lookups
+    } else if (q.includes('which pin') || q.includes('where is') || q.includes('connected to')) {
+      const pinQueries = ['led', 'button', 'switch', 'potentiometer', 'resistor', 'buzzer'];
+      const targetType = pinQueries.find(t => q.includes(t));
 
-      responseText = `### 📋 Presentation Review & Rubric Analysis\n\n` +
-        `**Pacing Analysis:** ~${wordCount} words (Estimated speaking time: **~${estSeconds} seconds** at a conversational 130 WPM pace).\n\n` +
-        `**Verified Project Grounding:**\n` +
-        `• **Hardware Architecture:** ${components.length} components (${components.map(c => c.name || c.type).join(', ') || 'Arduino Uno'})\n` +
-        `• **Wiring Netlist:** ${connections.length} active physical connections\n` +
-        `• **Firmware:** ${firmwareCode.length > 0 ? 'Arduino sketch verified' : 'No firmware loaded'}\n\n` +
-        `**Rubric Evaluation Criteria:**\n` +
-        `1. **Problem Definition:** Clearly state what challenge your circuit solves (e.g., pedestrian traffic safety or automated light switching).\n` +
-        `2. **Technical Defense:** Explain why specific pins and resistor values were chosen (e.g., Ohm's law current limiting).\n` +
-        `3. **Testing Evidence:** Cite the deterministic checks and simulated states you verified before physical breadboard assembly.\n\n` +
-        `*Note: Tracewise never fabricates physical multimeter readings. Always cite your genuine test bench observations.*`;
-
-    // INTENT D: Pin Mapping Lookups
-    } else if (q.includes('which pin') || q.includes('what pin') || q.includes('where is my led') || q.includes('pin connected')) {
-      const led = components.find(c => (c.type || '').includes('led'));
-      const btn = components.find(c => (c.type || '').includes('button') || (c.type || '').includes('switch'));
-      const ledWires = connections.filter(w => w.from?.componentId === led?.id || w.to?.componentId === led?.id);
-
-      if (led && ledWires.length > 0) {
-        const wireDetails = ledWires.map(w => {
-          const other = w.from?.componentId === led.id ? w.to : w.from;
-          return `• **${w.label || 'Wire'}**: Connected to \`${other?.componentId}\` (Pin: \`${other?.pinId}\`) [${w.color || 'blue'}]`;
-        }).join('\n');
-
-        responseText = `### 📍 Component Pinout: ${led.name || 'LED'}\n\n` +
-          `Your **${led.name || 'LED'}** has **${ledWires.length} connections**:\n\n` +
-          wireDetails + `\n\n` +
-          (pinMatchCheck
-            ? `⚠️ *Notice:* Your firmware references Pin 2, but your physical canvas connection is routed to Pin 7.`
-            : `✅ Pin routing matches firmware declarations.`);
+      if (targetType) {
+        const matchingComps = components.filter(c => (c.type || '').includes(targetType));
+        if (matchingComps.length === 0) {
+          responseText = `There are currently no **${targetType}** components on your canvas. Drag one in from the left Component Library.`;
+        } else {
+          const lines = [];
+          matchingComps.forEach(comp => {
+            const wires = connections.filter(w => w.from?.componentId === comp.id || w.to?.componentId === comp.id);
+            if (wires.length === 0) {
+              lines.push(`• **${comp.name || comp.id}**: Not yet wired to any other component.`);
+            } else {
+              const routes = wires.map(w => {
+                const isFrom = w.from?.componentId === comp.id;
+                const localPin = isFrom ? w.from?.pinId : w.to?.pinId;
+                const remoteCompId = isFrom ? w.to?.componentId : w.from?.componentId;
+                const remotePin = isFrom ? w.to?.pinId : w.from?.pinId;
+                const remoteComp = components.find(c => c.id === remoteCompId);
+                return `${localPin} ➔ ${remoteComp?.name || remoteCompId}:${remotePin}`;
+              });
+              lines.push(`• **${comp.name || comp.id}**:\n  - ${routes.join('\n  - ')}`);
+            }
+          });
+          responseText = `### 📍 Pin Connections for ${targetType.toUpperCase()}\n\n${lines.join('\n\n')}`;
+        }
       } else {
-        responseText = `### 📍 Active Circuit Pin Mapping\n\n` +
-          (connections.length > 0
-            ? connections.map((w, i) => `${i + 1}. \`${w.from?.componentId}:${w.from?.pinId}\` ──→ \`${w.to?.componentId}:${w.to?.pinId}\` (${w.color || 'blue'})`).join('\n')
-            : `There are currently no wires routed on the canvas. Place components and connect pins to view netlist assignments.`);
+        responseText = `You can ask about any specific component's connections, e.g., *"Which pin is my LED connected to?"* or *"Where is the push button wired?"*`;
       }
 
-    // INTENT E: Explain Current Project
-    } else if (q.includes('explain this project') || q.includes('explain my project') || q.includes('what does this circuit do')) {
-      responseText = `### 🔬 Project Overview: ${title}\n\n` +
-        `**Circuit Composition:**\n` +
-        `• **Components (${components.length}):** ${components.map(c => c.name || c.type).join(', ') || 'No components'}\n` +
-        `• **Connections (${connections.length}):** Canvas jumper wires connecting I/O pins to peripheral components.\n` +
-        `• **Validation Health:** ${validation.overallStatus === 'STRUCTURALLY_VALID' ? '✅ All static rules passing cleanly' : '⚠️ Requires attention (warnings detected)'}\n\n` +
-        `**Firmware Summary:**\n` +
-        (firmwareCode.length > 0
-          ? `The Arduino firmware contains \`setup()\` and \`loop()\` logic managing component states. Click the **Arduino C++** tab to inspect lines.`
-          : `No firmware source code has been written for this project yet.`);
-
-    // INTENT F: Circuit Wiring Breakdown
-    } else if (q.includes('wired') || q.includes('connection') || q.includes('how my circuit is wired')) {
-      responseText = `### 🔌 Canvas Wiring Netlist\n\n` +
-        `Your circuit contains **${components.length} components** and **${connections.length} active wires**:\n\n` +
+    // INTENT E: Explain Connections & Routing
+    } else if (q.includes('explain connections') || q.includes('how is this wired') || q.includes('connection summary')) {
+      responseText = `### 🔌 Circuit Wiring Summary\n\n` +
+        `Your circuit has **${connections.length} total physical connections**:\n\n` +
         (connections.length > 0
-          ? connections.map((w, i) => `${i + 1}. **${w.label || 'Wire'}**: \`${w.from?.componentId}\` (${w.from?.pinId}) ──→ \`${w.to?.componentId}\` (${w.to?.pinId}) [Color: ${w.color || 'blue'}]`).join('\n')
+          ? connections.map((w, idx) => {
+              const fromC = components.find(c => c.id === w.from?.componentId);
+              const toC = components.find(c => c.id === w.to?.componentId);
+              return `${idx + 1}. **${fromC?.name || w.from?.componentId}** (\`${w.from?.pinId}\`) ──→ **${toC?.name || w.to?.componentId}** (\`${w.to?.pinId}\`) [${w.color || 'blue'}]`;
+            }).join('\n')
           : `• *No wires placed yet.* Click and drag from any component terminal to connect pins.`) +
         `\n\nAll physical routes have been checked for pin legitimacy.`;
 
-    // INTENT G: Hardware vs Firmware Pin Mismatch
+    // INTENT F: Hardware vs Firmware Pin Mismatch
     } else if (q.includes('match') || q.includes('conflict') || q.includes('pin mismatch')) {
       if (pinMatchCheck) {
         responseText = `⚠️ **Hardware-Firmware Pin Conflict Detected!**\n\n` +
           `• **Firmware Declaration:** \`BUTTON_PIN = 2\` in \`sketch.ino\`.\n` +
           `• **Physical Canvas Wiring:** The button signal pin is wired to Digital Pin \`7\`.\n\n` +
-          `**Resolution:** Change \`const int BUTTON_PIN = 2;\` to \`const int BUTTON_PIN = 7;\` so the microcontroller reads the actual physical pin. You can click **Review & Apply** in the proposals section above.`;
+          `**Resolution:** Change \`const int BUTTON_PIN = 2;\` to \`const int BUTTON_PIN = 7;\` so the microcontroller reads the actual physical pin.`;
       } else {
         responseText = `✅ **Pin Declarations Aligned!**\n\nAll referenced I/O pins in your Arduino code correspond exactly to the jumper wires connected on the canvas. No conflicting pin assignments were detected.`;
       }
 
-    // INTENT H: Ohm's Law & Resistor Math
+    // INTENT G: Ohm's Law & Resistor Math
     } else if (q.includes('resistor') || q.includes('ohm') || q.includes('led current') || q.includes('why do i need a resistor')) {
       responseText = `### 💡 Ohm's Law & LED Protection Analysis\n\n` +
         `An LED (Light Emitting Diode) is a semiconductor diode with very low dynamic internal resistance once forward-biased ($V_f \\approx 2.0\\text{V}$ for red LEDs).\n\n` +
@@ -403,7 +410,7 @@ export default async function handler(req, res) {
         `• **Required Resistance:** $(5.0 - 2.0) / 0.015 = 200\\,\\Omega$ (standard commercial value: **220Ω**)\n\n` +
         `Connecting directly without a resistor draws $>50\\text{mA}$, exceeding the ATmega328P's 20mA recommended pin rating and burning out the LED.`;
 
-    // INTENT I: Code Questions & Walkthrough
+    // INTENT H: Code Questions & Walkthrough
     } else if (q.includes('code') || q.includes('firmware') || q.includes('sketch') || q.includes('explain my code')) {
       if (firmwareCode.length > 0) {
         responseText = `### 📝 Firmware Code Walkthrough\n\n` +
@@ -416,7 +423,7 @@ export default async function handler(req, res) {
           `No Arduino sketch has been written for this circuit yet. Open the **Arduino C++** tab to write your \`setup()\` and \`loop()\` routines.`;
       }
 
-    // INTENT J: Validation Results & Diagnostics
+    // INTENT I: Validation Results & Diagnostics
     } else if (q.includes('validation') || q.includes('error') || q.includes('warning') || q.includes('why isn\'t my led working')) {
       const checks = validation.checks || [];
       const failed = checks.filter(c => c.status === 'FAILED');
@@ -425,13 +432,13 @@ export default async function handler(req, res) {
       responseText = `### 🔍 Diagnostic Validation Report\n\n` +
         `Overall Status: **${validation.overallStatus || 'VALID'}**\n\n` +
         (failed.length > 0
-          ? `❌ **Errors (${failed.length}):**\n` + failed.map(f => `• **${f.title || f.id}**: ${f.description || 'Pin conflict or short circuit detected'}`).join('\n') + `\n\n`
+          ? `❌ **Errors (${failed.length}):**\n` + failed.map(f => `• **${f.name || f.id}**: ${f.message || 'Pin conflict or short circuit detected'}`).join('\n') + `\n\n`
           : `✅ **Zero Critical Errors Detected**\n\n`) +
         (warnings.length > 0
-          ? `⚠️ **Warnings (${warnings.length}):**\n` + warnings.map(w => `• **${w.title || w.id}**: ${w.description || 'Hardware rating check'}`).join('\n')
+          ? `⚠️ **Warnings (${warnings.length}):**\n` + warnings.map(w => `• **${w.name || w.id}**: ${w.message || 'Hardware rating check'}`).join('\n')
           : `✅ **All electrical safety checks passing**`);
 
-    // INTENT K: Fallback for Out-of-Scope or General Electronics Inquiries
+    // INTENT J: Fallback for Out-of-Scope or General Inquiries
     } else {
       responseText = `### 🛠️ Tracewise Engineering Assistant\n\n` +
         `I am analyzing your active project **"${title}"** (${components.length} components, ${connections.length} wires):\n\n` +

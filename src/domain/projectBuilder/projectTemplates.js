@@ -510,6 +510,79 @@ void loop() {
 }
 
 /**
+ * Creates a complete build plan for a 3-Color Traffic Light Controller.
+ */
+export function createTrafficLightBuildPlan(customTitle = null) {
+  return {
+    title: customTitle || 'Automated 3-Color Traffic Light Sequence',
+    description: '3-stage automated traffic light with Red, Yellow, and Green LEDs and 220Ω current-limiting resistors.',
+    targetBoard: 'uno-main',
+    components: [
+      { id: 'uno-main', type: 'arduino-uno', name: 'Arduino Uno R3', x: 80, y: 140, props: { model: 'Uno R3' } },
+      { id: 'bb-1', type: 'breadboard-half', name: 'Half Breadboard', x: 440, y: 140 },
+      { id: 'led-red', type: 'led', name: 'Red LED', x: 470, y: 70, props: { color: 'red' } },
+      { id: 'led-yel', type: 'led', name: 'Yellow LED', x: 540, y: 70, props: { color: 'yellow' } },
+      { id: 'led-grn', type: 'led', name: 'Green LED', x: 610, y: 70, props: { color: 'green' } },
+      { id: 'res-red', type: 'resistor', name: '220Ω Resistor (Red)', x: 470, y: 170, props: { resistance: '220Ω' } },
+      { id: 'res-yel', type: 'resistor', name: '220Ω Resistor (Yellow)', x: 540, y: 170, props: { resistance: '220Ω' } },
+      { id: 'res-grn', type: 'resistor', name: '220Ω Resistor (Green)', x: 610, y: 170, props: { resistance: '220Ω' } }
+    ],
+    connections: [
+      { id: 'w-red-sig', from: { componentId: 'uno-main', pinId: 'D11' }, to: { componentId: 'led-red', pinId: 'anode' }, color: '#ef4444' },
+      { id: 'w-red-res', from: { componentId: 'led-red', pinId: 'cathode' }, to: { componentId: 'res-red', pinId: 'lead1' }, color: '#ef4444' },
+      { id: 'w-red-gnd', from: { componentId: 'res-red', pinId: 'lead2' }, to: { componentId: 'uno-main', pinId: 'GND' }, color: '#000000' },
+
+      { id: 'w-yel-sig', from: { componentId: 'uno-main', pinId: 'D12' }, to: { componentId: 'led-yel', pinId: 'anode' }, color: '#eab308' },
+      { id: 'w-yel-res', from: { componentId: 'led-yel', pinId: 'cathode' }, to: { componentId: 'res-yel', pinId: 'lead1' }, color: '#eab308' },
+      { id: 'w-yel-gnd', from: { componentId: 'res-yel', pinId: 'lead2' }, to: { componentId: 'uno-main', pinId: 'GND' }, color: '#000000' },
+
+      { id: 'w-grn-sig', from: { componentId: 'uno-main', pinId: 'D13' }, to: { componentId: 'led-grn', pinId: 'anode' }, color: '#22c55e' },
+      { id: 'w-grn-res', from: { componentId: 'led-grn', pinId: 'cathode' }, to: { componentId: 'res-grn', pinId: 'lead1' }, color: '#22c55e' },
+      { id: 'w-grn-gnd', from: { componentId: 'res-grn', pinId: 'lead2' }, to: { componentId: 'uno-main', pinId: 'GND' }, color: '#000000' }
+    ],
+    firmware: {
+      language: 'arduino-cpp',
+      files: [
+        {
+          path: 'sketch.ino',
+          content: `// Automated 3-Stage Traffic Light Sequence
+const int RED_PIN = 11;
+const int YEL_PIN = 12;
+const int GRN_PIN = 13;
+
+void setup() {
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(YEL_PIN, OUTPUT);
+  pinMode(GRN_PIN, OUTPUT);
+}
+
+void loop() {
+  // Green active
+  digitalWrite(GRN_PIN, HIGH);
+  digitalWrite(YEL_PIN, LOW);
+  digitalWrite(RED_PIN, LOW);
+  delay(3000);
+
+  // Yellow warning
+  digitalWrite(GRN_PIN, LOW);
+  digitalWrite(YEL_PIN, HIGH);
+  digitalWrite(RED_PIN, LOW);
+  delay(1000);
+
+  // Red stop
+  digitalWrite(GRN_PIN, LOW);
+  digitalWrite(YEL_PIN, LOW);
+  digitalWrite(RED_PIN, HIGH);
+  delay(3000);
+}
+`
+        }
+      ]
+    }
+  };
+}
+
+/**
  * Generates an accurate, grounded circuit explanation for the Disco Light project.
  */
 export function generateGroundedCircuitExplanation(project) {

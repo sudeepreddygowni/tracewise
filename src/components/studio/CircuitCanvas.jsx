@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ComponentSvgRenderer } from './ComponentSvgRenderer';
 import { WireSvg } from './svg/WireSvg';
+import { useSimulation } from '../../store/useSimulationStore';
 import { getComponentDefinition, getComponentPinCanvasCoords, WIRE_COLORS } from '../../data/componentCatalog';
 import {
   ZoomIn,
@@ -46,6 +47,8 @@ export function CircuitCanvas({
   const [activeWireColor, setActiveWireColor] = useState(WIRE_COLORS[2].hex); // Default Cyan
   const [showGrid, setShowGrid] = useState(true);
   const [confirmDeleteComp, setConfirmDeleteComp] = useState(null);
+
+  const { getComponentSimulationState, triggerButton } = useSimulation();
 
   const selectedComponent = (project.components || []).find(c => c.id === selectedComponentId);
 
@@ -953,10 +956,15 @@ export function CircuitCanvas({
                 </>
               )}
 
-              {/* Render Component SVG with Exact Pin Alignment */}
+              {/* Render Component SVG with Exact Pin Alignment & Real Simulation State */}
               <ComponentSvgRenderer
                 comp={comp}
                 def={def}
+                simState={getComponentSimulationState ? getComponentSimulationState(comp) : {}}
+                onSimAction={(action, compId) => {
+                  if (action === 'BUTTON_DOWN') triggerButton(compId, true);
+                  else if (action === 'BUTTON_UP') triggerButton(compId, false);
+                }}
                 activePinId={hoveredPin?.comp?.id === comp.id ? hoveredPin.pin.id : null}
                 onPinClick={(pin) => handlePinClick(comp, pin)}
                 onPinHover={(pin) => setHoveredPin(pin ? { comp, pin } : null)}

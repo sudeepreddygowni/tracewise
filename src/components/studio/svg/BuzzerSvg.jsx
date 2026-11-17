@@ -3,6 +3,7 @@ import React from 'react';
 export function BuzzerSvg({
   width = 65,
   height = 65,
+  isSounding = false,
   pins = [],
   activePinId = null,
   highlightedPins = [],
@@ -33,7 +34,15 @@ export function BuzzerSvg({
       <circle cx="32.5" cy="24" r="21" fill="url(#buzzerBodyGrad)" stroke="#475569" strokeWidth="1.2" />
 
       {/* Inner Recessed Sound Aperture Hole */}
-      <circle cx="32.5" cy="24" r="6.5" fill="#020617" stroke="#0f172a" strokeWidth="1" />
+      <circle cx="32.5" cy="24" r="6.5" fill="#020617" stroke={isSounding ? '#2dc5e9' : '#0f172a'} strokeWidth="1" />
+
+      {/* Sound Waves when Active */}
+      {isSounding && (
+        <g stroke="#2dc5e9" fill="none" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M 24 14 A 12 12 0 0 1 41 14" opacity="0.8" />
+          <path d="M 18 8 A 20 20 0 0 1 47 8" opacity="0.5" />
+        </g>
+      )}
 
       {/* Polarity Markings */}
       <text x="20" y="16" fontSize="10" fill="#ef4444" textAnchor="middle" fontWeight="bold">+</text>

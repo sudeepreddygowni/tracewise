@@ -4,6 +4,7 @@
  */
 
 import { getComponentDefinition } from '../data/componentCatalog.js';
+import { buildNetlist, traceLedBranch } from './netlistEngine.js';
 
 /**
  * Validates structural integrity and pin mappings of a project
@@ -58,44 +59,35 @@ export function validateCircuit(project) {
     });
   }
 
-  // --- Rule 2: LED Current Protection ---
+  // --- Rule 0: Electrical Netlist Solver & Power Short Circuit Check ---
+  const netlist = buildNetlist(project);
+  const shortCircuits = (netlist.nets || []).filter(n => n.is5V && n.isGND);
+  if (shortCircuits.length > 0) {
+    checks.push({
+      id: 'check-short-circuit',
+      name: 'Power Short Circuit',
+      status: 'FAILED',
+      severity: 'CRITICAL',
+      message: 'Critical: Direct short circuit detected between 5V power and GND ground rail.',
+      ruleOrigin: 'netlist_solver'
+    });
+  }
+
+  // --- Rule 2: LED Current Protection & Ground Return (Netlist Solver) ---
   const standardLeds = (project.components || []).filter(c => c.type === 'led');
   const rgbLeds = (project.components || []).filter(c => c.type === 'rgb-led');
   let unprotectedLeds = [];
 
   standardLeds.forEach(led => {
-    // Check if cathode or anode is connected to a resistor
-    const attachedWires = (project.connections || []).filter(
-      w => w.from.componentId === led.id || w.to.componentId === led.id
-    );
-
-    let hasResistor = false;
-    attachedWires.forEach(w => {
-      const otherCompId = w.from.componentId === led.id ? w.to.componentId : w.from.componentId;
-      const otherComp = compMap.get(otherCompId);
-      if (otherComp && otherComp.type === 'resistor') {
-        hasResistor = true;
-      }
-    });
-
-    if (!hasResistor) {
+    const branch = traceLedBranch(led, netlist);
+    if (!branch.hasCurrentLimitingResistor) {
       unprotectedLeds.push(led.name || led.id);
     }
   });
 
   rgbLeds.forEach(rgb => {
-    const attachedWires = (project.connections || []).filter(
-      w => w.from.componentId === rgb.id || w.to.componentId === rgb.id
-    );
-    let hasResistor = false;
-    attachedWires.forEach(w => {
-      const otherCompId = w.from.componentId === rgb.id ? w.to.componentId : w.from.componentId;
-      const otherComp = compMap.get(otherCompId);
-      if (otherComp && otherComp.type === 'resistor') {
-        hasResistor = true;
-      }
-    });
-    if (!hasResistor) {
+    const branch = traceLedBranch(rgb, netlist);
+    if (!branch.hasCurrentLimitingResistor) {
       unprotectedLeds.push(rgb.name || rgb.id);
     }
   });
@@ -109,7 +101,7 @@ export function validateCircuit(project) {
       severity: 'WARNING',
       message: `Direct wiring detected: ${unprotectedLeds.join(', ')} has no series resistor. In physical hardware, an LED without a 220Ω-1kΩ resistor will draw excessive current and burn out.`,
       suggestedFix: 'Insert a 220Ω resistor between the LED cathode/leads and Ground rail.',
-      ruleOrigin: 'static_rule_check'
+      ruleOrigin: 'netlist_solver'
     });
   } else if (totalLedCount > 0) {
     checks.push({
@@ -118,7 +110,7 @@ export function validateCircuit(project) {
       status: 'PASSED',
       severity: 'INFO',
       message: `All ${totalLedCount} LED components are protected with current-limiting resistors.`,
-      ruleOrigin: 'static_rule_check'
+      ruleOrigin: 'netlist_solver'
     });
   }
 

@@ -6,6 +6,10 @@ import React from 'react';
 export function ArduinoUnoSvg({
   width = 300,
   height = 220,
+  powerOn = false,
+  led13 = false,
+  tx = false,
+  rx = false,
   pins = [],
   activePinId = null,
   highlightedPins = [],
@@ -115,15 +119,32 @@ export function ArduinoUnoSvg({
       </g>
 
       {/* Onboard Status LEDs: ON, L, TX, RX */}
-      <circle cx="95" cy="115" r="3.5" fill="#22c55e" stroke="#15803d" />
+      {/* ON LED (Power) */}
+      <circle
+        cx="95"
+        cy="115"
+        r="3.5"
+        fill={powerOn ? '#22c55e' : '#14532d'}
+        stroke={powerOn ? '#86efac' : '#15803d'}
+      />
+      {powerOn && <circle cx="95" cy="115" r="7" fill="rgba(34, 197, 94, 0.4)" filter="blur(2px)" />}
       <text x="88" y="117" fill="#cbd5e1" fontSize="7" fontWeight="bold">ON</text>
 
-      <circle cx="120" cy="115" r="3.5" fill="#eab308" stroke="#a16207" />
+      {/* L LED (Pin 13 Indicator) */}
+      <circle
+        cx="120"
+        cy="115"
+        r="3.5"
+        fill={led13 ? '#facc15' : '#713f12'}
+        stroke={led13 ? '#fef08a' : '#a16207'}
+      />
+      {led13 && <circle cx="120" cy="115" r="7" fill="rgba(250, 204, 21, 0.45)" filter="blur(2px)" />}
       <text x="128" y="117" fill="#cbd5e1" fontSize="7" fontWeight="bold">L</text>
 
-      <circle cx="120" cy="132" r="3" fill="#eab308" />
+      {/* TX / RX LEDs */}
+      <circle cx="120" cy="132" r="3" fill={tx ? '#facc15' : '#713f12'} />
       <text x="128" y="134" fill="#94a3b8" fontSize="6.5">TX</text>
-      <circle cx="120" cy="144" r="3" fill="#eab308" />
+      <circle cx="120" cy="144" r="3" fill={rx ? '#facc15' : '#713f12'} />
       <text x="128" y="146" fill="#94a3b8" fontSize="6.5">RX</text>
 
       {/* Official Branding Silkscreen on Board */}

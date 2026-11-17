@@ -12,6 +12,7 @@ import { PitchLabPage } from './pages/PitchLabPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { PostDetailPage } from './pages/PostDetailPage';
+import { MessagesPage } from './pages/MessagesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { EditProfilePage } from './pages/EditProfilePage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -31,6 +32,8 @@ export default function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/community" element={<CommunityPage />} />
               <Route path="/community/post/:postId" element={<PostDetailPage />} />
+              <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/messages/:conversationId" element={<MessagesPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/profile/:handle" element={<ProfilePage />} />
               <Route path="/profile/edit" element={<EditProfilePage />} />

@@ -206,7 +206,7 @@ export function HomePage() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#071831', display: 'flex', flexDirection: 'column' }}>
       {/* =========================================================================
           SECTION 1: HERO WITH REACT BITS GRADIENTASCII FULL-BLEED BACKGROUND
       ========================================================================= */}
@@ -219,7 +219,7 @@ export function HomePage() {
           justifyContent: 'center',
           paddingTop: '130px',
           paddingBottom: '140px',
-          background: 'radial-gradient(ellipse 100% 75% at 50% 30%, #17387e 0%, #0d2656 45%, #071831 82%, #0a1f40 100%)',
+          backgroundColor: '#071831',
           overflow: 'hidden'
         }}
       >
@@ -471,7 +471,7 @@ export function HomePage() {
           position: 'relative',
           paddingTop: '80px',
           paddingBottom: '130px',
-          background: 'var(--tw-home-sec2-bg, linear-gradient(180deg, #071831 0%, #0d2656 25%, #0f2d60 50%, #0d2656 75%, #071831 100%))'
+          backgroundColor: '#071831'
         }}
         id="workspace"
       >
@@ -520,18 +520,18 @@ export function HomePage() {
             </div>
           </AnimatedContent>
 
-          <TracewiseBubbleArea theme="light">
+          <TracewiseBubbleArea theme="dark">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
               {/* Path 1: Starter Circuits */}
-              <div className="glass-card" style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px' }}>
+              <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px', backgroundColor: '#0a1f40', border: '1px solid rgba(74, 167, 242, 0.25)', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
                 <div>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'var(--tw-brand-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tw-brand)', marginBottom: '16px' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(30, 63, 216, 0.25)', border: '1px solid rgba(45, 197, 233, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', marginBottom: '16px' }}>
                     <Layers size={22} />
                   </div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
                     1. Remix a Working Starter
                   </h3>
-                  <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', lineHeight: 1.55 }}>
+                  <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.55 }}>
                     The easiest way to learn. Open a tested project like our traffic light or analog dimmer, make small changes to the wiring or timing, and see the results immediately.
                   </p>
                 </div>
@@ -547,15 +547,15 @@ export function HomePage() {
               </div>
 
               {/* Path 2: Blank Canvas */}
-              <div className="glass-card" style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px' }}>
+              <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px', backgroundColor: '#0a1f40', border: '1px solid rgba(74, 167, 242, 0.25)', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
                 <div>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tw-success)', marginBottom: '16px' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ade80', marginBottom: '16px' }}>
                     <Cpu size={22} />
                   </div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
                     2. Build Manually from Scratch
                   </h3>
-                  <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', lineHeight: 1.55 }}>
+                  <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.55 }}>
                     Place an Arduino Uno and breadboard on the canvas. Add LEDs, resistors, and buttons, draw jumper wires between valid pins, and write your own Arduino C++ firmware.
                   </p>
                 </div>
@@ -566,7 +566,7 @@ export function HomePage() {
                   }}
                   variant="secondary"
                   size="sm"
-                  style={{ marginTop: '24px', alignSelf: 'flex-start' }}
+                  style={{ marginTop: '24px', alignSelf: 'flex-start', background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.25)' }}
                 >
                   <span>Open Blank Studio</span>
                   <ArrowRight size={14} />
@@ -574,15 +574,15 @@ export function HomePage() {
               </div>
 
               {/* Path 3: Assisted Idea */}
-              <div className="glass-card" style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px' }}>
+              <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px', backgroundColor: '#0a1f40', border: '1px solid rgba(74, 167, 242, 0.25)', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
                 <div>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tw-sky)', marginBottom: '16px' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(56, 189, 248, 0.2)', border: '1px solid rgba(56, 189, 248, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', marginBottom: '16px' }}>
                     <Sparkles size={22} />
                   </div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
                     3. Assisted Project Setup
                   </h3>
-                  <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', lineHeight: 1.55 }}>
+                  <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.55 }}>
                     Describe what you want to create in plain English. Tracewise configures the initial board components and template code so you can focus on modifying the logic.
                   </p>
                 </div>
@@ -590,7 +590,7 @@ export function HomePage() {
                   to="/app/studio/starter-traffic-light"
                   variant="secondary"
                   size="sm"
-                  style={{ marginTop: '24px', alignSelf: 'flex-start' }}
+                  style={{ marginTop: '24px', alignSelf: 'flex-start', background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.25)' }}
                 >
                   <span>Describe an Idea</span>
                   <ArrowRight size={14} />
@@ -609,7 +609,7 @@ export function HomePage() {
         style={{
           position: 'relative',
           padding: '80px 0 90px',
-          background: 'var(--tw-home-sec3-bg, linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%))',
+          backgroundColor: '#071831',
           color: '#ffffff'
         }}
         id="how-it-works"
@@ -714,7 +714,7 @@ export function HomePage() {
           position: 'relative',
           paddingTop: '60px',
           paddingBottom: '120px',
-          background: 'var(--tw-home-sec4-bg, linear-gradient(180deg, #071831 0%, #0B2348 45%, #0E2A58 75%, #071831 100%))',
+          backgroundColor: '#071831',
           overflow: 'hidden'
         }}
         id="projects"
@@ -767,7 +767,7 @@ export function HomePage() {
       <section
         style={{
           padding: '80px 0 100px',
-          background: 'var(--tw-home-sec5-bg, linear-gradient(180deg, #071831 0%, #0d2656 30%, #2a5a9c 70%, #d4e8fc 95%, #F5F9FD 100%))',
+          backgroundColor: '#071831',
           color: '#ffffff',
           position: 'relative'
         }}
@@ -795,7 +795,7 @@ export function HomePage() {
               position: 'relative',
               borderRadius: '20px',
               overflow: 'hidden',
-              background: 'linear-gradient(135deg, rgba(11, 35, 72, 0.7) 0%, rgba(7, 24, 49, 0.95) 100%)',
+              backgroundColor: '#0a1f40',
               border: '1px solid rgba(74, 167, 242, 0.25)',
               marginBottom: '32px',
               padding: '28px 32px',
@@ -854,7 +854,7 @@ export function HomePage() {
       <section
         style={{
           padding: '80px 0 110px',
-          background: 'var(--tw-home-sec6-bg, linear-gradient(180deg, #F5F9FD 0%, #edf6ff 25%, #8cbde8 65%, #18447c 90%, #071831 100%))',
+          backgroundColor: '#071831',
           position: 'relative'
         }}
         id="faq"
@@ -862,44 +862,45 @@ export function HomePage() {
         <div className="container-tw" style={{ maxWidth: '840px' }}>
           <AnimatedContent trigger="scroll" distance={30} duration={0.8}>
             <div style={{ textAlign: 'center', marginBottom: '44px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-cyan)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Clear Answers
               </span>
-              <h2 style={{ fontSize: '2.4rem', fontWeight: 700, color: 'var(--tw-text)', marginTop: '4px' }}>
+              <h2 style={{ fontSize: '2.4rem', fontWeight: 700, color: '#ffffff', marginTop: '4px' }}>
                 Frequently Asked Questions
               </h2>
             </div>
           </AnimatedContent>
 
-          <TracewiseBubbleArea theme="light" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <TracewiseBubbleArea theme="dark" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {faqs.map((faq, idx) => {
               const isOpen = activeFaq === idx;
 
               return (
                 <div
                   key={idx}
-                  className="glass-card"
                   style={{
                     padding: '20px 24px',
                     cursor: 'pointer',
-                    backgroundColor: '#ffffff',
-                    borderRadius: '16px'
+                    backgroundColor: '#0a1f40',
+                    border: '1px solid rgba(74, 167, 242, 0.25)',
+                    borderRadius: '16px',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)'
                   }}
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
                       {faq.q}
                     </h3>
                     <TracewiseBubbleIconButton
                       size="sm"
                       variant="ghost"
-                      style={{ pointerEvents: 'none' }}
+                      style={{ pointerEvents: 'none', color: '#94a3b8' }}
                       aria-label="Toggle answer"
                     >
                       <ChevronDown
                         size={16}
-                        color="var(--tw-text-muted)"
+                        color="#94a3b8"
                         style={{
                           transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                           transition: 'transform 0.2s ease'
@@ -909,7 +910,7 @@ export function HomePage() {
                   </div>
 
                   {isOpen && (
-                    <p style={{ fontSize: '0.94rem', color: 'var(--tw-text-secondary)', marginTop: '12px', lineHeight: 1.6 }}>
+                    <p style={{ fontSize: '0.94rem', color: '#cbd5e1', marginTop: '12px', lineHeight: 1.6 }}>
                       {faq.a}
                     </p>
                   )}
@@ -927,7 +928,7 @@ export function HomePage() {
       <section
         style={{
           padding: '90px 0 110px',
-          background: 'var(--tw-home-sec7-bg, linear-gradient(180deg, #071831 0%, #0B2348 50%, #071831 100%))',
+          backgroundColor: '#071831',
           color: '#ffffff',
           position: 'relative',
           overflow: 'hidden'

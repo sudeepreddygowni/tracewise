@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   MessageSquare,
   Plus,
@@ -20,7 +20,14 @@ import {
   Linkedin,
   ExternalLink,
   Globe,
-  Check
+  Check,
+  Lock,
+  Crown,
+  ShieldCheck,
+  Send,
+  Trash2,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { useAuth } from '../store/useAuthStore';
 import { useProject } from '../store/useProjectStore';
@@ -31,9 +38,22 @@ import {
   getCommunityGroups,
   joinCommunityGroup,
   leaveCommunityGroup,
+  createCommunityGroup,
+  getUserGroupMembership,
+  requestJoinGroup,
+  getGroupJoinRequests,
+  respondToJoinRequest,
+  getGroupMembers,
+  updateGroupMemberRole,
+  removeGroupMember,
+  getGroupDiscussions,
+  createGroupDiscussion,
+  getGroupComments,
+  addGroupComment,
   getPublishedProjects
 } from '../services/communityService';
 import { AuthModal } from '../components/auth/AuthModal';
+import { MediaAttachmentPicker } from '../components/ui/MediaAttachmentPicker';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleIconButton,
@@ -41,6 +61,7 @@ import {
 } from '../components/ui/BubbleActions';
 
 export function CommunityPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || 'All';
   const initialFilter = searchParams.get('filter') || 'Latest';
@@ -78,8 +99,44 @@ export function CommunityPage() {
   const [postBody, setPostBody] = useState('');
   const [postTags, setPostTags] = useState('');
   const [attachedProjectId, setAttachedProjectId] = useState('');
+  const [postAttachments, setPostAttachments] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState(null);
+
+  // Create Group modal state
+  const [createGroupModalOpen, setCreateGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupCat, setNewGroupCat] = useState('General');
+  const [newGroupEmoji, setNewGroupEmoji] = useState('⚡');
+  const [newGroupVisibility, setNewGroupVisibility] = useState('public');
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupModalError, setGroupModalError] = useState(null);
+
+  // Group Detail Modal / Drawer state
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupTab, setGroupTab] = useState('discussions'); // 'discussions' | 'members' | 'requests'
+  const [groupMembership, setGroupMembership] = useState({ isMember: false, role: null, isPending: false });
+  const [groupDiscussions, setGroupDiscussions] = useState([]);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [groupRequests, setGroupRequests] = useState([]);
+  const [loadingGroupDetail, setLoadingGroupDetail] = useState(false);
+  const [joinNote, setJoinNote] = useState('');
+  const [requestingAccess, setRequestingAccess] = useState(false);
+
+  // New Group Discussion Form inside modal
+  const [discModalOpen, setDiscModalOpen] = useState(false);
+  const [discTitle, setDiscTitle] = useState('');
+  const [discBody, setDiscBody] = useState('');
+  const [discAttachments, setDiscAttachments] = useState([]);
+  const [submittingDisc, setSubmittingDisc] = useState(false);
+
+  // Active Discussion Comments Modal
+  const [activeDiscussion, setActiveDiscussion] = useState(null);
+  const [discComments, setDiscComments] = useState([]);
+  const [replyText, setReplyText] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const [submittingReply, setSubmittingReply] = useState(false);
 
   const searchTabs = [
     { id: 'All', label: 'All', icon: Globe },
@@ -232,6 +289,7 @@ export function CommunityPage() {
         body: postBody,
         tags: tagsArray.length > 0 ? tagsArray : ['Arduino Uno'],
         projectRef: chosenProject,
+        attachments: postAttachments,
         author: user
       });
 
@@ -239,12 +297,200 @@ export function CommunityPage() {
       setPostBody('');
       setPostTags('');
       setAttachedProjectId('');
+      setPostAttachments([]);
       setCreateModalOpen(false);
       await loadInitialData();
     } catch (err) {
       setModalError(err.message || 'Failed to create post.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // -----------------------------------------------------------------------------
+  // GROUP MANAGEMENT ACTIONS
+  // -----------------------------------------------------------------------------
+  const openGroupDetails = async (group) => {
+    setSelectedGroup(group);
+    setGroupTab('discussions');
+    setLoadingGroupDetail(true);
+
+    try {
+      const [membership, discussions, members] = await Promise.all([
+        user ? getUserGroupMembership(group.id, user.uid) : { isMember: false, role: null, isPending: false },
+        getGroupDiscussions(group.id),
+        getGroupMembers(group.id)
+      ]);
+
+      setGroupMembership(membership);
+      setGroupDiscussions(discussions);
+      setGroupMembers(members);
+
+      // If owner/admin and group is private, load join requests
+      if ((membership.role === 'owner' || membership.role === 'admin') && user) {
+        const reqs = await getGroupJoinRequests(group.id, user);
+        setGroupRequests(reqs);
+      } else {
+        setGroupRequests([]);
+      }
+    } catch (err) {
+      console.warn('Load group detail error:', err);
+    } finally {
+      setLoadingGroupDetail(false);
+    }
+  };
+
+  const handleCreateGroupSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setAuthModalOpen(true);
+      return;
+    }
+    setGroupModalError(null);
+    setCreatingGroup(true);
+
+    try {
+      const created = await createCommunityGroup({
+        name: newGroupName,
+        description: newGroupDesc,
+        category: newGroupCat,
+        avatarEmoji: newGroupEmoji || '⚡',
+        visibility: newGroupVisibility
+      }, user);
+
+      setGroups(prev => [created, ...prev]);
+      setJoinedGroupIds(prev => new Set([...prev, created.id]));
+      setCreateGroupModalOpen(false);
+      setNewGroupName('');
+      setNewGroupDesc('');
+      setNewGroupEmoji('⚡');
+      setNewGroupVisibility('public');
+      openGroupDetails(created);
+    } catch (err) {
+      setGroupModalError(err.message || 'Failed to create group.');
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
+
+  const handleRequestGroupAccess = async () => {
+    if (!isAuthenticated) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!selectedGroup) return;
+
+    setRequestingAccess(true);
+    try {
+      const res = await requestJoinGroup(selectedGroup.id, user, joinNote);
+      if (res.status === 'pending') {
+        setGroupMembership({ isMember: false, role: null, isPending: true });
+        alert('Your membership request was submitted to the group administrator.');
+      } else {
+        // Immediate join for public group
+        setGroupMembership({ isMember: true, role: 'member', isPending: false });
+        setJoinedGroupIds(prev => new Set([...prev, selectedGroup.id]));
+        const updatedMembers = await getGroupMembers(selectedGroup.id);
+        setGroupMembers(updatedMembers);
+      }
+      setJoinNote('');
+    } catch (err) {
+      alert(err.message || 'Failed to join group.');
+    } finally {
+      setRequestingAccess(false);
+    }
+  };
+
+  const handleCreateGroupDiscussion = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!discTitle.trim() || !discBody.trim()) return;
+
+    setSubmittingDisc(true);
+    try {
+      const newD = await createGroupDiscussion(selectedGroup.id, {
+        title: discTitle,
+        body: discBody,
+        attachments: discAttachments
+      }, user);
+
+      setGroupDiscussions(prev => [newD, ...prev]);
+      setDiscTitle('');
+      setDiscBody('');
+      setDiscAttachments([]);
+      setDiscModalOpen(false);
+    } catch (err) {
+      alert(err.message || 'Failed to create group discussion.');
+    } finally {
+      setSubmittingDisc(false);
+    }
+  };
+
+  const handleRespondToJoinRequest = async (requestId, status, requestingUserId) => {
+    try {
+      await respondToJoinRequest(requestId, status, selectedGroup.id, requestingUserId, user);
+      setGroupRequests(prev => prev.filter(r => r.id !== requestId));
+      if (status === 'approved') {
+        const updatedMembers = await getGroupMembers(selectedGroup.id);
+        setGroupMembers(updatedMembers);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to process request.');
+    }
+  };
+
+  const handleUpdateMemberRole = async (targetUserId, newRole) => {
+    try {
+      await updateGroupMemberRole(selectedGroup.id, targetUserId, newRole, user);
+      setGroupMembers(prev =>
+        prev.map(m => m.userId === targetUserId ? { ...m, role: newRole } : m)
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to update member role.');
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId) => {
+    if (!window.confirm('Remove this member from the group?')) return;
+    try {
+      await removeGroupMember(selectedGroup.id, targetUserId, user);
+      setGroupMembers(prev => prev.filter(m => m.userId !== targetUserId));
+    } catch (err) {
+      alert(err.message || 'Failed to remove member.');
+    }
+  };
+
+  const openDiscussionComments = async (disc) => {
+    setActiveDiscussion(disc);
+    try {
+      const comments = await getGroupComments(disc.id);
+      setDiscComments(comments);
+    } catch {
+      setDiscComments([]);
+    }
+  };
+
+  const handleAddGroupReply = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!replyText.trim() && replyAttachments.length === 0) return;
+
+    setSubmittingReply(true);
+    try {
+      const newC = await addGroupComment(selectedGroup.id, activeDiscussion.id, replyText, replyAttachments, user);
+      setDiscComments(prev => [...prev, newC]);
+      setReplyText('');
+      setReplyAttachments([]);
+    } catch (err) {
+      alert(err.message || 'Failed to submit reply.');
+    } finally {
+      setSubmittingReply(false);
     }
   };
 
@@ -420,20 +666,35 @@ export function CommunityPage() {
           {/* VIEW: COMMUNITY GROUPS (Tab: 'Groups' or 'All' when searched) */}
           {(searchTab === 'Groups' || (debouncedQuery && (searchTab === 'All' && searchResults.groups.length > 0))) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Users size={20} color="var(--tw-brand)" />
-                  <span>Community Groups & Labs</span>
-                </h3>
-                <span style={{ fontSize: '0.82rem', color: 'var(--tw-text-muted)' }}>
-                  Collaborative student teams & hardware clubs
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={20} color="var(--tw-brand)" />
+                    <span>Community Groups & Labs</span>
+                  </h3>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--tw-text-muted)' }}>
+                    Collaborative student teams & hardware clubs
+                  </span>
+                </div>
+
+                <TracewiseBubbleButton
+                  onClick={() => {
+                    if (!isAuthenticated) setAuthModalOpen(true);
+                    else setCreateGroupModalOpen(true);
+                  }}
+                  variant="primary"
+                  size="sm"
+                >
+                  <Plus size={15} />
+                  <span>Create Group</span>
+                </TracewiseBubbleButton>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
                 {(debouncedQuery ? searchResults.groups : groups).map((group) => {
                   const isJoined = joinedGroupIds.has(group.id);
                   const isActionLoading = groupActionLoading === group.id;
+                  const isPrivate = group.visibility === 'private';
 
                   return (
                     <div
@@ -448,8 +709,10 @@ export function CommunityPage() {
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         gap: '14px',
-                        border: '1px solid var(--tw-border)'
+                        border: '1px solid var(--tw-border)',
+                        cursor: 'pointer'
                       }}
+                      onClick={() => openGroupDetails(group)}
                     >
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
@@ -466,9 +729,17 @@ export function CommunityPage() {
                               </span>
                             </div>
                           </div>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: '8px', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)' }}>
-                            {group.category}
-                          </span>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            {isPrivate && (
+                              <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '3px 8px', borderRadius: '8px', backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#b45309', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                <Lock size={10} />
+                                <span>Private</span>
+                              </span>
+                            )}
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: '8px', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)' }}>
+                              {group.category}
+                            </span>
+                          </div>
                         </div>
 
                         <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, marginTop: '12px', marginBottom: 0 }}>
@@ -478,13 +749,20 @@ export function CommunityPage() {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--tw-border)' }}>
                         <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
-                          👥 {group.memberCount} members
+                          👥 {group.memberCount} members • 💬 {group.postCount || 0} discussions
                         </span>
 
                         <TracewiseBubbleButton
                           variant={isJoined ? 'ghost' : 'primary'}
                           size="sm"
-                          onClick={() => handleJoinLeaveGroup(group)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isPrivate && !isJoined) {
+                              openGroupDetails(group);
+                            } else {
+                              handleJoinLeaveGroup(group);
+                            }
+                          }}
                           disabled={isActionLoading}
                           style={{ padding: '6px 14px', fontSize: '0.8rem' }}
                         >
@@ -493,6 +771,8 @@ export function CommunityPage() {
                               <Check size={14} />
                               <span>Joined</span>
                             </>
+                          ) : isPrivate ? (
+                            <span>View Group</span>
                           ) : (
                             <span>{isActionLoading ? 'Joining...' : 'Join Group'}</span>
                           )}
@@ -579,7 +859,7 @@ export function CommunityPage() {
                       {person.bio || 'Electronics maker building with Tracewise.'}
                     </p>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid var(--tw-border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--tw-border)' }}>
                       <Link
                         to={`/profile/${person.handle}`}
                         style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -587,6 +867,18 @@ export function CommunityPage() {
                         <span>View Profile</span>
                         <ArrowRight size={13} />
                       </Link>
+
+                      {user && user.uid !== person.id && (
+                        <TracewiseBubbleButton
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => navigate('/messages')}
+                          style={{ padding: '4px 10px', fontSize: '0.76rem' }}
+                        >
+                          <MessageSquare size={12} />
+                          <span>Message</span>
+                        </TracewiseBubbleButton>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1068,6 +1360,19 @@ export function CommunityPage() {
                 />
               </div>
 
+              {/* Media Attachments */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  Media Attachments (Optional)
+                </label>
+                <MediaAttachmentPicker
+                  attachments={postAttachments}
+                  onChange={setPostAttachments}
+                  userId={user?.uid}
+                  disabled={isSubmitting}
+                />
+              </div>
+
               {/* Student Safety Reminder */}
               <div style={{ padding: '12px 14px', borderRadius: '10px', backgroundColor: 'var(--tw-bg)', border: '1px solid var(--tw-border)', display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.76rem', color: 'var(--tw-text-secondary)', lineHeight: 1.45 }}>
                 <Shield size={14} color="var(--tw-brand)" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -1095,6 +1400,801 @@ export function CommunityPage() {
                 </TracewiseBubbleButton>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          CREATE GROUP MODAL
+      ========================================================================= */}
+      {createGroupModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(7, 24, 49, 0.75)',
+            backdropFilter: 'blur(8px)',
+            padding: '16px'
+          }}
+          onClick={() => setCreateGroupModalOpen(false)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '560px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              boxShadow: '0 24px 60px rgba(7, 24, 49, 0.45)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ padding: '24px 28px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--tw-border)' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--tw-text)', margin: 0 }}>
+                  Create an Engineering Group
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--tw-text-muted)', margin: '2px 0 0' }}>
+                  Form a hardware lab, student robotics club, or topic community.
+                </p>
+              </div>
+              <TracewiseBubbleIconButton
+                size="sm"
+                variant="ghost"
+                onClick={() => setCreateGroupModalOpen(false)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </TracewiseBubbleIconButton>
+            </div>
+
+            <form onSubmit={handleCreateGroupSubmit} style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {groupModalError && (
+                <div style={{ padding: '10px 14px', borderRadius: '10px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '0.84rem' }}>
+                  {groupModalError}
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  Group Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Autonomous Rovers Club"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.92rem', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                    Category
+                  </label>
+                  <select
+                    value={newGroupCat}
+                    onChange={(e) => setNewGroupCat(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', backgroundColor: '#fff' }}
+                  >
+                    <option value="Robotics">Robotics</option>
+                    <option value="Education">Education & 101</option>
+                    <option value="Automation">Automation & IoT</option>
+                    <option value="Sensors">Sensors & Telemetry</option>
+                    <option value="General">General Electronics</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                    Avatar Symbol
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {['⚡', '🤖', '🌐', '🔬', '💡', '🚀'].map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => setNewGroupEmoji(em)}
+                        style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '10px',
+                          fontSize: '1.2rem',
+                          border: newGroupEmoji === em ? '2px solid var(--tw-brand)' : '1px solid var(--tw-border)',
+                          backgroundColor: newGroupEmoji === em ? 'var(--tw-brand-soft)' : '#fff',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  Visibility
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div
+                    onClick={() => setNewGroupVisibility('public')}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '12px',
+                      border: newGroupVisibility === 'public' ? '2px solid var(--tw-brand)' : '1px solid var(--tw-border)',
+                      backgroundColor: newGroupVisibility === 'public' ? 'var(--tw-brand-soft)' : '#fff',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--tw-text)' }}>Public Group</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', marginTop: '2px' }}>Anyone can discover, view, and join immediately.</div>
+                  </div>
+
+                  <div
+                    onClick={() => setNewGroupVisibility('private')}
+                    style={{
+                      padding: '12px',
+                      borderRadius: '12px',
+                      border: newGroupVisibility === 'private' ? '2px solid var(--tw-brand)' : '1px solid var(--tw-border)',
+                      backgroundColor: newGroupVisibility === 'private' ? 'var(--tw-brand-soft)' : '#fff',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--tw-text)' }}>Private Group 🔒</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', marginTop: '2px' }}>Requires approval from group admin to view and join.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="What is the goal of this hardware group? What projects will you build together?"
+                  value={newGroupDesc}
+                  onChange={(e) => setNewGroupDesc(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <TracewiseBubbleButton type="button" variant="ghost" size="sm" onClick={() => setCreateGroupModalOpen(false)}>
+                  Cancel
+                </TracewiseBubbleButton>
+                <TracewiseBubbleButton type="submit" variant="primary" size="sm" disabled={creatingGroup}>
+                  {creatingGroup ? 'Creating...' : 'Create Group'}
+                </TracewiseBubbleButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          GROUP DETAIL MODAL / DRAWER
+      ========================================================================= */}
+      {selectedGroup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(7, 24, 49, 0.75)',
+            backdropFilter: 'blur(8px)',
+            padding: '16px'
+          }}
+          onClick={() => setSelectedGroup(null)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '820px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              boxShadow: '0 24px 60px rgba(7, 24, 49, 0.45)',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Group Banner Header */}
+            <div style={{ padding: '24px 28px', backgroundColor: 'var(--tw-brand-soft)', borderBottom: '1px solid var(--tw-border)', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ width: 56, height: 56, borderRadius: '16px', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', boxShadow: '0 4px 14px rgba(0,0,0,0.06)' }}>
+                    {selectedGroup.avatarEmoji || '⚡'}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0 }}>
+                        {selectedGroup.name}
+                      </h2>
+                      {selectedGroup.visibility === 'private' ? (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: 'rgba(234, 179, 8, 0.2)', color: '#b45309', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Lock size={10} />
+                          <span>Private</span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#16a34a' }}>
+                          Public
+                        </span>
+                      )}
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', backgroundColor: '#ffffff', color: 'var(--tw-brand)' }}>
+                        {selectedGroup.category}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', margin: '6px 0 0', lineHeight: 1.5 }}>
+                      {selectedGroup.description}
+                    </p>
+                  </div>
+                </div>
+
+                <TracewiseBubbleIconButton
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedGroup(null)}
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </TracewiseBubbleIconButton>
+              </div>
+
+              {/* Membership & Role Status Row */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(0,0,0,0.06)', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
+                    👥 {selectedGroup.memberCount} members
+                  </span>
+
+                  {groupMembership.isMember && (
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700, padding: '3px 10px', borderRadius: '12px', backgroundColor: 'var(--tw-brand)', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {groupMembership.role === 'owner' && <Crown size={12} />}
+                      {groupMembership.role === 'admin' && <ShieldCheck size={12} />}
+                      <span>{groupMembership.role?.toUpperCase()}</span>
+                    </span>
+                  )}
+
+                  {groupMembership.isPending && (
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700, padding: '3px 10px', borderRadius: '12px', backgroundColor: '#fef08a', color: '#854d0e' }}>
+                      ⏳ Request Pending Approval
+                    </span>
+                  )}
+                </div>
+
+                {/* Join / Leave Actions */}
+                <div>
+                  {!groupMembership.isMember && !groupMembership.isPending && (
+                    selectedGroup.visibility === 'private' ? (
+                      <TracewiseBubbleButton
+                        variant="primary"
+                        size="sm"
+                        onClick={handleRequestGroupAccess}
+                        disabled={requestingAccess}
+                      >
+                        <Lock size={14} />
+                        <span>{requestingAccess ? 'Requesting...' : 'Request to Join'}</span>
+                      </TracewiseBubbleButton>
+                    ) : (
+                      <TracewiseBubbleButton
+                        variant="primary"
+                        size="sm"
+                        onClick={handleRequestGroupAccess}
+                        disabled={requestingAccess}
+                      >
+                        <span>{requestingAccess ? 'Joining...' : 'Join Group'}</span>
+                      </TracewiseBubbleButton>
+                    )
+                  )}
+
+                  {groupMembership.isMember && groupMembership.role !== 'owner' && (
+                    <TracewiseBubbleButton
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveMember(user.uid)}
+                      style={{ color: '#ef4444' }}
+                    >
+                      <span>Leave Group</span>
+                    </TracewiseBubbleButton>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Tabs: Discussions | Members | Join Requests */}
+            <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--tw-border)', padding: '0 24px', backgroundColor: '#fafafa' }}>
+              <button
+                type="button"
+                onClick={() => setGroupTab('discussions')}
+                style={{
+                  padding: '12px 18px',
+                  border: 'none',
+                  borderBottom: groupTab === 'discussions' ? '3px solid var(--tw-brand)' : '3px solid transparent',
+                  background: 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  color: groupTab === 'discussions' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                Discussions ({groupDiscussions.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGroupTab('members')}
+                style={{
+                  padding: '12px 18px',
+                  border: 'none',
+                  borderBottom: groupTab === 'members' ? '3px solid var(--tw-brand)' : '3px solid transparent',
+                  background: 'transparent',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  color: groupTab === 'members' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                Members ({groupMembers.length})
+              </button>
+
+              {(groupMembership.role === 'owner' || groupMembership.role === 'admin') && selectedGroup.visibility === 'private' && (
+                <button
+                  type="button"
+                  onClick={() => setGroupTab('requests')}
+                  style={{
+                    padding: '12px 18px',
+                    border: 'none',
+                    borderBottom: groupTab === 'requests' ? '3px solid var(--tw-brand)' : '3px solid transparent',
+                    background: 'transparent',
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    color: groupTab === 'requests' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>Requests</span>
+                  {groupRequests.length > 0 && (
+                    <span style={{ backgroundColor: '#2dc5e9', color: '#071831', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                      {groupRequests.length}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Tab Contents */}
+            <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+              {loadingGroupDetail ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--tw-text-muted)' }}>
+                  Loading group content...
+                </div>
+              ) : groupTab === 'discussions' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Start discussion row if member */}
+                  {groupMembership.isMember && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <TracewiseBubbleButton
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setDiscModalOpen(true)}
+                      >
+                        <Plus size={15} />
+                        <span>Start Group Discussion</span>
+                      </TracewiseBubbleButton>
+                    </div>
+                  )}
+
+                  {groupDiscussions.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '36px', color: 'var(--tw-text-muted)', fontSize: '0.9rem' }}>
+                      No discussions yet in this group. Be the first to start a conversation!
+                    </div>
+                  ) : (
+                    groupDiscussions.map((disc) => (
+                      <div
+                        key={disc.id}
+                        onClick={() => openDiscussionComments(disc)}
+                        style={{
+                          padding: '18px 20px',
+                          borderRadius: '16px',
+                          border: '1px solid var(--tw-border)',
+                          backgroundColor: '#fafafa',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          transition: 'border-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--tw-brand)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--tw-border)')}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)', margin: 0 }}>
+                            {disc.title}
+                          </h4>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
+                            {new Date(disc.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
+                          {disc.body}
+                        </p>
+
+                        {/* Attachments preview */}
+                        {disc.attachments && disc.attachments.length > 0 && (
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                            {disc.attachments.map((att, aIdx) => (
+                              <span key={aIdx} style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '6px', background: 'var(--tw-brand-soft)', color: 'var(--tw-brand)' }}>
+                                📎 {att.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', fontSize: '0.76rem', color: 'var(--tw-text-muted)' }}>
+                          <span>By @{disc.authorHandle}</span>
+                          <span>💬 {disc.commentCount || 0} replies</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : groupTab === 'members' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {groupMembers.map((m) => {
+                    const isOwner = groupMembership.role === 'owner';
+                    const isAdmin = groupMembership.role === 'admin';
+                    const canManage = isOwner || (isAdmin && m.role !== 'owner' && m.userId !== user?.uid);
+
+                    return (
+                      <div
+                        key={m.id}
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '14px',
+                          border: '1px solid var(--tw-border)',
+                          backgroundColor: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '10px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: 'var(--tw-brand)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                            {m.userName?.[0]?.toUpperCase() || 'M'}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                              {m.userName}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
+                              @{m.userHandle}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 700, padding: '3px 8px', borderRadius: '8px', backgroundColor: m.role === 'owner' ? '#eff6ff' : m.role === 'admin' ? '#f0fdf4' : '#fafafa', color: m.role === 'owner' ? 'var(--tw-brand)' : m.role === 'admin' ? '#16a34a' : 'var(--tw-text-secondary)', border: '1px solid var(--tw-border)' }}>
+                            {m.role?.toUpperCase()}
+                          </span>
+
+                          {/* Role Management Dropdown */}
+                          {canManage && (
+                            <select
+                              value={m.role}
+                              onChange={(e) => handleUpdateMemberRole(m.userId, e.target.value)}
+                              style={{ fontSize: '0.78rem', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--tw-border)', backgroundColor: '#fff', outline: 'none' }}
+                            >
+                              {isOwner && <option value="admin">Promote to Admin</option>}
+                              <option value="moderator">Set Moderator</option>
+                              <option value="member">Set Member</option>
+                            </select>
+                          )}
+
+                          {canManage && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMember(m.userId)}
+                              style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                              title="Remove Member"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {groupRequests.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '36px', color: 'var(--tw-text-muted)', fontSize: '0.9rem' }}>
+                      No pending membership requests.
+                    </div>
+                  ) : (
+                    groupRequests.map((req) => (
+                      <div
+                        key={req.id}
+                        style={{
+                          padding: '16px 20px',
+                          borderRadius: '14px',
+                          border: '1px solid var(--tw-border)',
+                          backgroundColor: '#fafafa',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '12px'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                            {req.userName} <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>@{req.userHandle}</span>
+                          </div>
+                          {req.note && (
+                            <p style={{ fontSize: '0.84rem', color: 'var(--tw-text-secondary)', margin: '4px 0 0' }}>
+                              "{req.note}"
+                            </p>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <TracewiseBubbleButton
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleRespondToJoinRequest(req.id, 'approved', req.userId)}
+                          >
+                            <UserCheck size={14} />
+                            <span>Approve</span>
+                          </TracewiseBubbleButton>
+                          <TracewiseBubbleButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRespondToJoinRequest(req.id, 'rejected', req.userId)}
+                            style={{ color: '#ef4444' }}
+                          >
+                            <UserX size={14} />
+                            <span>Decline</span>
+                          </TracewiseBubbleButton>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          NEW GROUP DISCUSSION MODAL
+      ========================================================================= */}
+      {discModalOpen && selectedGroup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(7, 24, 49, 0.75)',
+            backdropFilter: 'blur(8px)',
+            padding: '16px'
+          }}
+          onClick={() => setDiscModalOpen(false)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '600px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              padding: '24px',
+              boxShadow: '0 24px 60px rgba(7, 24, 49, 0.45)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--tw-text)', margin: 0 }}>
+                Start Discussion in {selectedGroup.name}
+              </h3>
+              <TracewiseBubbleIconButton size="sm" variant="ghost" onClick={() => setDiscModalOpen(false)}>
+                <X size={16} />
+              </TracewiseBubbleIconButton>
+            </div>
+
+            <form onSubmit={handleCreateGroupDiscussion} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  Discussion Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Solving motor jitter with external power decoupling"
+                  value={discTitle}
+                  onChange={(e) => setDiscTitle(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.92rem', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '6px' }}>
+                  Content
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder="Share details, schematic questions, or hardware ideas..."
+                  value={discBody}
+                  onChange={(e) => setDiscBody(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', resize: 'vertical' }}
+                />
+              </div>
+
+              <MediaAttachmentPicker
+                attachments={discAttachments}
+                onChange={setDiscAttachments}
+                userId={user?.uid}
+                disabled={submittingDisc}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <TracewiseBubbleButton type="button" variant="ghost" size="sm" onClick={() => setDiscModalOpen(false)}>
+                  Cancel
+                </TracewiseBubbleButton>
+                <TracewiseBubbleButton type="submit" variant="primary" size="sm" disabled={submittingDisc}>
+                  {submittingDisc ? 'Posting...' : 'Post Discussion'}
+                </TracewiseBubbleButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          GROUP DISCUSSION REPLIES MODAL
+      ========================================================================= */}
+      {activeDiscussion && selectedGroup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(7, 24, 49, 0.75)',
+            backdropFilter: 'blur(8px)',
+            padding: '16px'
+          }}
+          onClick={() => setActiveDiscussion(null)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '680px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              padding: '24px',
+              boxShadow: '0 24px 60px rgba(7, 24, 49, 0.45)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0 }}>
+                  {activeDiscussion.title}
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>
+                  Posted by @{activeDiscussion.authorHandle} in {selectedGroup.name}
+                </span>
+              </div>
+              <TracewiseBubbleIconButton size="sm" variant="ghost" onClick={() => setActiveDiscussion(null)}>
+                <X size={16} />
+              </TracewiseBubbleIconButton>
+            </div>
+
+            <p style={{ fontSize: '0.94rem', color: 'var(--tw-text-secondary)', lineHeight: 1.6, margin: 0, padding: '12px 16px', borderRadius: '12px', backgroundColor: '#f8fafc', border: '1px solid var(--tw-border)' }}>
+              {activeDiscussion.body}
+            </p>
+
+            {/* Replies List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '280px', overflowY: 'auto' }}>
+              <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                Replies ({discComments.length})
+              </span>
+
+              {discComments.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--tw-text-muted)', fontSize: '0.84rem', padding: '16px' }}>
+                  No replies yet. Join the conversation below!
+                </div>
+              ) : (
+                discComments.map((c) => (
+                  <div key={c.id} style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', backgroundColor: '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-text)' }}>
+                        @{c.authorHandle}
+                      </span>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--tw-text-muted)' }}>
+                        {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
+                      {c.body}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Reply Form */}
+            {groupMembership.isMember ? (
+              <form onSubmit={handleAddGroupReply} style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--tw-border)' }}>
+                <input
+                  type="text"
+                  placeholder="Write a reply..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.88rem', outline: 'none' }}
+                />
+
+                <MediaAttachmentPicker
+                  attachments={replyAttachments}
+                  onChange={setReplyAttachments}
+                  userId={user?.uid}
+                  disabled={submittingReply}
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <TracewiseBubbleButton
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    disabled={submittingReply || (!replyText.trim() && replyAttachments.length === 0)}
+                  >
+                    <span>{submittingReply ? 'Posting...' : 'Post Reply'}</span>
+                  </TracewiseBubbleButton>
+                </div>
+              </form>
+            ) : (
+              <div style={{ fontSize: '0.82rem', color: 'var(--tw-text-muted)', textAlign: 'center', padding: '10px' }}>
+                Join this group to participate in discussions.
+              </div>
+            )}
           </div>
         </div>
       )}

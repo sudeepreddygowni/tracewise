@@ -36,6 +36,7 @@ export function Navbar() {
     { label: 'How it Works', to: '/#how-it-works' },
     { label: 'Projects', to: '/projects' },
     { label: 'Community', to: '/community' },
+    { label: 'Messages', to: '/messages' },
     { label: 'Compare & Debug', to: activeProject ? `/app/compare/${activeProject.id}` : '/app/compare/starter-traffic-light-buggy' },
     { label: 'Practice Lab', to: '/learn' }
   ];
@@ -323,6 +324,26 @@ export function Navbar() {
                       >
                         <FolderKanban size={16} color="var(--tw-sky)" />
                         <span>My Projects</span>
+                      </Link>
+
+                      <Link
+                        to="/messages"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 10px',
+                          fontSize: '0.85rem',
+                          color: 'var(--tw-text)',
+                          textDecoration: 'none',
+                          borderRadius: '8px',
+                          transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--tw-bg)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <MessageSquare size={16} color="var(--tw-cyan)" />
+                        <span>Direct Messages</span>
                       </Link>
 
                       <Link

@@ -70,6 +70,7 @@ function mapPostRow(row) {
     authorName: row.author_name,
     authorHandle: row.author_handle,
     projectRef: row.project_reference,
+    attachments: row.attachments || [],
     moderationStatus: row.moderation_status,
     commentCount: row.comment_count || 0,
     createdAt: row.created_at,
@@ -85,6 +86,7 @@ function mapCommentRow(row) {
     authorName: row.author_name,
     authorHandle: row.author_handle,
     body: row.body,
+    attachments: row.attachments || [],
     likes: row.likes || 0,
     createdAt: row.created_at,
     moderationStatus: row.moderation_status
@@ -204,6 +206,7 @@ export async function createCommunityPost(postData, author) {
         category: postData.category,
         tags: cleanTags,
         project_reference: postData.projectRef || null,
+        attachments: postData.attachments || [],
         moderation_status: 'approved',
         comment_count: 0
       };
@@ -359,7 +362,7 @@ export async function getPostComments(postId) {
   }
 }
 
-export async function addComment(postId, body, author) {
+export async function addComment(postId, body, author, attachments = []) {
   if (!author) {
     throw new Error('You must be signed in to comment.');
   }
@@ -376,6 +379,7 @@ export async function addComment(postId, body, author) {
         author_name: author.displayName || 'Student Maker',
         author_handle: author.handle || 'student',
         body: body.trim(),
+        attachments: attachments || [],
         moderation_status: 'approved',
         likes: 0
       };
@@ -593,6 +597,9 @@ export async function getCommunityGroups({ category = 'All' } = {}) {
         description: g.description,
         category: g.category,
         avatarEmoji: g.avatar_emoji || '⚡',
+        avatarUrl: g.avatar_url || null,
+        coverUrl: g.cover_url || null,
+        visibility: g.visibility || 'public',
         creatorId: g.creator_id,
         creatorName: g.creator_name,
         memberCount: g.member_count || 1,
@@ -675,6 +682,516 @@ export async function checkGroupMembership(groupId, userId) {
   } catch {
     return false;
   }
+}
+
+export async function getUserGroupMembership(groupId, userId) {
+  if (!userId || !isSupabaseConfigured() || !supabase) {
+    return { isMember: false, role: null, isPending: false };
+  }
+  try {
+    // 1. Check member status
+    const { data: memberData } = await supabase
+      .from('community_group_members')
+      .select('id, role')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
+
+    if (memberData) {
+      return { isMember: true, role: memberData.role, isPending: false };
+    }
+
+    // 2. Check join request status if not a member
+    const { data: reqData } = await supabase
+      .from('community_group_join_requests')
+      .select('id, status')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
+
+    if (reqData && reqData.status === 'pending') {
+      return { isMember: false, role: null, isPending: true };
+    }
+
+    return { isMember: false, role: null, isPending: false };
+  } catch {
+    return { isMember: false, role: null, isPending: false };
+  }
+}
+
+export async function createCommunityGroup({
+  name,
+  description = '',
+  category = 'General',
+  avatarEmoji = '⚡',
+  avatarUrl = null,
+  coverUrl = null,
+  visibility = 'public'
+}, author) {
+  if (!author || author.isAnonymous) {
+    throw new Error('Please sign in or save an account to create a community group.');
+  }
+
+  const cleanName = (name || '').trim();
+  if (!cleanName || cleanName.length < 3) {
+    throw new Error('Group name must be at least 3 characters.');
+  }
+
+  // Generate unique slug
+  let slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  if (!slug) slug = 'group-' + Date.now();
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      // Check for slug collision
+      const { data: existing } = await supabase
+        .from('community_groups')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+
+      if (existing) {
+        slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
+      const { data: group, error: groupErr } = await supabase
+        .from('community_groups')
+        .insert({
+          name: cleanName,
+          slug,
+          description: description.trim(),
+          category,
+          avatar_emoji: avatarEmoji || '⚡',
+          avatar_url: avatarUrl || null,
+          cover_url: coverUrl || null,
+          visibility: visibility === 'private' ? 'private' : 'public',
+          creator_id: author.uid,
+          creator_name: author.displayName || 'Community Member',
+          member_count: 1,
+          post_count: 0
+        })
+        .select()
+        .single();
+
+      if (groupErr) throw groupErr;
+
+      // Add creator as owner member
+      await supabase
+        .from('community_group_members')
+        .insert({
+          group_id: group.id,
+          user_id: author.uid,
+          user_name: author.displayName || 'Owner',
+          user_handle: author.handle || 'owner',
+          role: 'owner'
+        });
+
+      return {
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        description: group.description,
+        category: group.category,
+        avatarEmoji: group.avatar_emoji,
+        avatarUrl: group.avatar_url,
+        coverUrl: group.cover_url,
+        visibility: group.visibility,
+        creatorId: group.creator_id,
+        creatorName: group.creator_name,
+        memberCount: 1,
+        postCount: 0,
+        createdAt: group.created_at
+      };
+    } catch (err) {
+      console.error('Failed to create group:', err);
+      throw err;
+    }
+  }
+
+  return {
+    id: 'grp-' + Date.now(),
+    name: cleanName,
+    slug,
+    description,
+    category,
+    avatarEmoji,
+    avatarUrl,
+    coverUrl,
+    visibility,
+    creatorId: author.uid,
+    creatorName: author.displayName,
+    memberCount: 1,
+    postCount: 0,
+    createdAt: new Date().toISOString()
+  };
+}
+
+export async function requestJoinGroup(groupId, user, note = '') {
+  if (!user || user.isAnonymous) {
+    throw new Error('Please sign in or save an account to join or request access to groups.');
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    // 1. Fetch group visibility
+    const { data: group, error: gErr } = await supabase
+      .from('community_groups')
+      .select('id, visibility')
+      .eq('id', groupId)
+      .single();
+
+    if (gErr || !group) throw new Error('Group not found');
+
+    if (group.visibility === 'public') {
+      return joinCommunityGroup(groupId, user);
+    }
+
+    // 2. Private group -> Create join request
+    const { data, error } = await supabase
+      .from('community_group_join_requests')
+      .upsert({
+        group_id: groupId,
+        user_id: user.uid,
+        user_name: user.displayName || 'Student Maker',
+        user_handle: user.handle || 'maker',
+        user_avatar: user.avatarUrl || null,
+        note: (note || '').trim(),
+        status: 'pending',
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { status: 'pending', request: data };
+  }
+
+  return { status: 'pending' };
+}
+
+export async function getGroupJoinRequests(groupId, user) {
+  if (!user || !isSupabaseConfigured() || !supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('community_group_join_requests')
+      .select('*')
+      .eq('group_id', groupId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(r => ({
+      id: r.id,
+      groupId: r.group_id,
+      userId: r.user_id,
+      userName: r.user_name || 'Student Maker',
+      userHandle: r.user_handle || 'maker',
+      userAvatar: r.user_avatar,
+      note: r.note,
+      status: r.status,
+      createdAt: r.created_at
+    }));
+  } catch (err) {
+    console.warn('Get join requests error:', err.message);
+    return [];
+  }
+}
+
+export async function respondToJoinRequest(requestId, status, groupId, requestingUserId, reviewerUser) {
+  if (!reviewerUser || !isSupabaseConfigured() || !supabase) {
+    throw new Error('Unauthorized');
+  }
+
+  const validStatus = status === 'approved' ? 'approved' : 'rejected';
+
+  // 1. Update request status
+  const { data: reqRow, error: reqErr } = await supabase
+    .from('community_group_join_requests')
+    .update({ status: validStatus, updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+    .select()
+    .single();
+
+  if (reqErr) throw reqErr;
+
+  // 2. If approved, insert into community_group_members
+  if (validStatus === 'approved') {
+    const targetUserId = requestingUserId || reqRow.user_id;
+    await supabase
+      .from('community_group_members')
+      .upsert({
+        group_id: groupId || reqRow.group_id,
+        user_id: targetUserId,
+        user_name: reqRow.user_name || 'Maker',
+        user_handle: reqRow.user_handle || 'maker',
+        role: 'member'
+      });
+
+    await supabase.rpc('increment_group_member_count', { g_id: groupId || reqRow.group_id }).catch(() => {});
+  }
+
+  return true;
+}
+
+export async function getGroupMembers(groupId) {
+  if (!isSupabaseConfigured() || !supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('community_group_members')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('joined_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(m => ({
+      id: m.id,
+      groupId: m.group_id,
+      userId: m.user_id,
+      userName: m.user_name || 'Student Maker',
+      userHandle: m.user_handle || 'maker',
+      role: m.role || 'member',
+      joinedAt: m.joined_at
+    }));
+  } catch (err) {
+    console.warn('Get group members note:', err.message);
+    return [];
+  }
+}
+
+export const GROUP_ROLES = {
+  OWNER: 'owner',
+  ADMIN: 'admin',
+  MODERATOR: 'moderator',
+  MEMBER: 'member'
+};
+
+export async function updateGroupMemberRole(groupId, targetUserId, newRole, actorUser) {
+  if (!actorUser || actorUser.isAnonymous || !isSupabaseConfigured() || !supabase) {
+    throw new Error('Unauthorized');
+  }
+
+  const allowedRoles = Object.values(GROUP_ROLES);
+  if (!allowedRoles.includes(newRole)) {
+    throw new Error('Invalid role specified.');
+  }
+
+  // Check actor role
+  const { data: actorMember } = await supabase
+    .from('community_group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', actorUser.uid)
+    .single();
+
+  const actorRole = actorMember?.role;
+  if (!actorRole || (actorRole !== 'owner' && actorRole !== 'admin')) {
+    throw new Error('Only group owners and admins can update member roles.');
+  }
+
+  // Admins cannot change owner or promote anyone to owner
+  if (actorRole === 'admin' && (newRole === 'owner' || targetUserId === actorUser.uid)) {
+    throw new Error('Admins cannot transfer ownership or self-promote.');
+  }
+
+  const { error } = await supabase
+    .from('community_group_members')
+    .update({ role: newRole })
+    .eq('group_id', groupId)
+    .eq('user_id', targetUserId);
+
+  if (error) throw error;
+  return true;
+}
+
+export async function removeGroupMember(groupId, targetUserId, actorUser) {
+  if (!actorUser || !isSupabaseConfigured() || !supabase) {
+    throw new Error('Unauthorized');
+  }
+
+  // Allow users to leave group themselves
+  if (targetUserId === actorUser.uid) {
+    return leaveCommunityGroup(groupId, actorUser);
+  }
+
+  // Otherwise check admin/owner permissions
+  const { data: actorMember } = await supabase
+    .from('community_group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', actorUser.uid)
+    .single();
+
+  const actorRole = actorMember?.role;
+  if (!actorRole || (actorRole !== 'owner' && actorRole !== 'admin')) {
+    throw new Error('Only owners and admins can remove members.');
+  }
+
+  // Admins cannot remove the owner
+  const { data: targetMember } = await supabase
+    .from('community_group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', targetUserId)
+    .single();
+
+  if (targetMember?.role === 'owner') {
+    throw new Error('Group owner cannot be removed.');
+  }
+
+  const { error } = await supabase
+    .from('community_group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', targetUserId);
+
+  if (error) throw error;
+  return true;
+}
+
+export async function getGroupDiscussions(groupId) {
+  if (!isSupabaseConfigured() || !supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('community_group_posts')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(p => ({
+      id: p.id,
+      groupId: p.group_id,
+      authorUid: p.author_id,
+      authorName: p.author_name,
+      authorHandle: p.author_handle,
+      title: p.title,
+      body: p.body,
+      attachments: p.attachments || [],
+      likes: p.likes || 0,
+      commentCount: p.comment_count || 0,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at
+    }));
+  } catch (err) {
+    console.warn('Group discussions error:', err.message);
+    return [];
+  }
+}
+
+export async function createGroupDiscussion(groupId, postData, author) {
+  if (!author || author.isAnonymous) {
+    throw new Error('Please sign in or save an account to start group discussions.');
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    const row = {
+      group_id: groupId,
+      author_id: author.uid,
+      author_name: author.displayName || 'Student Maker',
+      author_handle: author.handle || 'maker',
+      title: (postData.title || '').trim(),
+      body: (postData.body || '').trim(),
+      attachments: postData.attachments || [],
+      project_reference: postData.projectRef || null,
+      likes: 0,
+      comment_count: 0
+    };
+
+    const { data, error } = await supabase
+      .from('community_group_posts')
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Increment group post_count
+    await supabase.rpc('increment_group_post_count', { g_id: groupId }).catch(() => {});
+
+    return {
+      id: data.id,
+      groupId: data.group_id,
+      authorUid: data.author_id,
+      authorName: data.author_name,
+      authorHandle: data.author_handle,
+      title: data.title,
+      body: data.body,
+      attachments: data.attachments || [],
+      likes: data.likes || 0,
+      commentCount: 0,
+      createdAt: data.created_at
+    };
+  }
+
+  return null;
+}
+
+export async function getGroupComments(postId) {
+  if (!isSupabaseConfigured() || !supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('community_group_comments')
+      .select('*')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(c => ({
+      id: c.id,
+      postId: c.post_id,
+      groupId: c.group_id,
+      authorUid: c.author_id,
+      authorName: c.author_name,
+      authorHandle: c.author_handle,
+      body: c.body,
+      attachments: c.attachments || [],
+      likes: c.likes || 0,
+      createdAt: c.created_at
+    }));
+  } catch (err) {
+    console.warn('Group comments note:', err.message);
+    return [];
+  }
+}
+
+export async function addGroupComment(groupId, postId, body, attachments = [], author) {
+  if (!author || author.isAnonymous) {
+    throw new Error('Please sign in or save an account to reply in group discussions.');
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    const row = {
+      post_id: postId,
+      group_id: groupId,
+      author_id: author.uid,
+      author_name: author.displayName || 'Student Maker',
+      author_handle: author.handle || 'maker',
+      body: (body || '').trim(),
+      attachments: attachments || [],
+      likes: 0
+    };
+
+    const { data, error } = await supabase
+      .from('community_group_comments')
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      postId: data.post_id,
+      groupId: data.group_id,
+      authorUid: data.author_id,
+      authorName: data.author_name,
+      authorHandle: data.author_handle,
+      body: data.body,
+      attachments: data.attachments || [],
+      likes: 0,
+      createdAt: data.created_at
+    };
+  }
+
+  return null;
 }
 
 export async function getPublishedProjects({ limitCount = 30 } = {}) {

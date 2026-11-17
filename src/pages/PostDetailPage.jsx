@@ -27,6 +27,7 @@ import {
   submitReport
 } from '../services/communityService';
 import { AuthModal } from '../components/auth/AuthModal';
+import { MediaAttachmentPicker } from '../components/ui/MediaAttachmentPicker';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleIconButton,
@@ -42,6 +43,7 @@ export function PostDetailPage() {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
+  const [commentAttachments, setCommentAttachments] = useState([]);
   const [submittingComment, setSubmittingComment] = useState(false);
 
   // Edit post state
@@ -90,16 +92,18 @@ export function PostDetailPage() {
       setAuthModalOpen(true);
       return;
     }
-    if (!commentText.trim()) return;
+    if (!commentText.trim() && commentAttachments.length === 0) return;
 
     try {
       setSubmittingComment(true);
-      const newCm = await addPostComment(postId, {
-        text: commentText,
-        author: user
-      });
+      const newCm = await addPostComment(
+        postId,
+        { text: commentText, author: user },
+        commentAttachments
+      );
       setComments([...comments, newCm]);
       setCommentText('');
+      setCommentAttachments([]);
     } catch (err) {
       alert(err.message || 'Failed to submit comment');
     } finally {
@@ -368,6 +372,36 @@ export function PostDetailPage() {
                   {post.body}
                 </p>
 
+                {/* Render Post Media Attachments */}
+                {post.attachments && post.attachments.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
+                    {post.attachments.map((att, idx) => (
+                      <div key={att.id || idx} style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--tw-border)', backgroundColor: 'var(--tw-bg)' }}>
+                        {att.type === 'image' && att.url ? (
+                          <a href={att.url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={att.url}
+                              alt={att.name}
+                              style={{ maxHeight: '280px', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            href={att.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', color: 'var(--tw-brand)', textDecoration: 'none', fontWeight: 600, fontSize: '0.88rem' }}
+                          >
+                            <span>📄</span>
+                            <span>{att.name}</span>
+                            <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>({(att.size / 1024).toFixed(0)} KB)</span>
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Attached Project Card */}
                 {post.projectRef && (
                   <div
@@ -478,8 +512,15 @@ export function PostDetailPage() {
                     boxSizing: 'border-box',
                     lineHeight: 1.5
                   }}
-                  required
                 />
+
+                <MediaAttachmentPicker
+                  attachments={commentAttachments}
+                  onChange={setCommentAttachments}
+                  userId={user?.uid}
+                  disabled={submittingComment}
+                />
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)' }}>
                     Be respectful and constructive. Safe student learning environment.
@@ -488,7 +529,7 @@ export function PostDetailPage() {
                     type="submit"
                     variant="primary"
                     size="sm"
-                    disabled={submittingComment || !commentText.trim()}
+                    disabled={submittingComment || (!commentText.trim() && commentAttachments.length === 0)}
                     style={{ gap: '6px' }}
                   >
                     <Send size={13} />
@@ -580,8 +621,27 @@ export function PostDetailPage() {
                       </div>
 
                       <p style={{ fontSize: '0.9rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                        {cm.text}
+                        {cm.body || cm.text}
                       </p>
+
+                      {/* Comment Attachments */}
+                      {cm.attachments && cm.attachments.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                          {cm.attachments.map((att, aIdx) => (
+                            <div key={att.id || aIdx} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--tw-border)' }}>
+                              {att.type === 'image' && att.url ? (
+                                <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                  <img src={att.url} alt={att.name} style={{ maxHeight: '140px', maxWidth: '200px', objectFit: 'contain', display: 'block' }} />
+                                </a>
+                              ) : (
+                                <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', fontSize: '0.78rem', color: 'var(--tw-brand)', textDecoration: 'none' }}>
+                                  📄 {att.name}
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })

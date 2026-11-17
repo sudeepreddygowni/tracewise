@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { COMPONENT_CATALOG } from '../../data/componentCatalog';
-import { Search, Plus, Cpu, Check, Layers, AlertCircle, X } from 'lucide-react';
+import { getAllComponents } from '../../domain/componentRegistry';
+import { RequestComponentModal } from './RequestComponentModal';
+import { Search, Plus, Cpu, Check, Layers, AlertCircle, X, Sparkles } from 'lucide-react';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleIconButton,
@@ -11,16 +13,37 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [lastAddedName, setLastAddedName] = useState(null);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [catalogList, setCatalogList] = useState(COMPONENT_CATALOG);
+
+  // Load all components including locally registered imports
+  useEffect(() => {
+    try {
+      const all = getAllComponents();
+      setCatalogList(all);
+    } catch (e) {
+      setCatalogList(COMPONENT_CATALOG);
+    }
+  }, []);
+
+  const handleComponentImported = (newComp) => {
+    try {
+      const all = getAllComponents();
+      setCatalogList(all);
+      setLastAddedName(newComp.name);
+      setTimeout(() => setLastAddedName(null), 2400);
+    } catch (e) {}
+  };
 
   // Dynamically compute categories from catalog
   const categories = useMemo(() => {
-    const set = new Set(COMPONENT_CATALOG.map(c => c.category).filter(Boolean));
+    const set = new Set(catalogList.map(c => c.category).filter(Boolean));
     return ['All', ...Array.from(set)];
-  }, []);
+  }, [catalogList]);
 
   const filteredComponents = useMemo(() => {
     const term = search.toLowerCase().trim();
-    return COMPONENT_CATALOG.filter((comp) => {
+    return catalogList.filter((comp) => {
       const matchesSearch = !term ||
         comp.name.toLowerCase().includes(term) ||
         comp.description.toLowerCase().includes(term) ||
@@ -28,7 +51,7 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
       const matchesCategory = selectedCategory === 'All' || comp.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [search, selectedCategory]);
+  }, [search, selectedCategory, catalogList]);
 
   const handleAdd = (comp) => {
     onAddComponent(comp);
@@ -72,6 +95,16 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
               <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
                 {filteredComponents.length} parts
               </span>
+              <TracewiseBubbleButton
+                onClick={() => setIsRequestModalOpen(true)}
+                variant="ghost"
+                size="sm"
+                title="Request or Import Hardware"
+                style={{ fontSize: '0.74rem', padding: '4px 10px', minHeight: '32px' }}
+              >
+                <Sparkles size={13} color="var(--tw-brand)" />
+                <span>Request / Import</span>
+              </TracewiseBubbleButton>
               {onClose && (
                 <TracewiseBubbleIconButton
                   onClick={onClose}
@@ -91,7 +124,7 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
             <Search size={15} style={{ position: 'absolute', left: 10, top: 11, color: 'var(--tw-text-muted)' }} />
             <input
               type="text"
-              placeholder="Search (e.g. RGB, pot, buzzer)..."
+              placeholder="Search (e.g. OLED, servo, nano, esp32, dht11)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -160,7 +193,7 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
           )}
         </div>
 
-        {/* Catalog List - Independently scrollable, stops wheel bubbling to canvas */}
+        {/* Catalog List - Independently scrollable */}
         <div
           onWheel={(e) => e.stopPropagation()}
           style={{
@@ -185,14 +218,25 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
               <p style={{ fontSize: '0.76rem', marginBottom: '12px' }}>
                 No catalog items match "{search}".
               </p>
-              <TracewiseBubbleButton
-                onClick={() => { setSearch(''); setSelectedCategory('All'); }}
-                variant="ghost"
-                size="sm"
-                style={{ fontSize: '0.76rem', minHeight: '36px' }}
-              >
-                Reset Search
-              </TracewiseBubbleButton>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                <TracewiseBubbleButton
+                  onClick={() => { setSearch(''); setSelectedCategory('All'); }}
+                  variant="ghost"
+                  size="sm"
+                  style={{ fontSize: '0.76rem', minHeight: '36px' }}
+                >
+                  Reset Search
+                </TracewiseBubbleButton>
+                <TracewiseBubbleButton
+                  onClick={() => setIsRequestModalOpen(true)}
+                  variant="primary"
+                  size="sm"
+                  style={{ fontSize: '0.76rem', minHeight: '36px' }}
+                >
+                  <Sparkles size={13} />
+                  <span>Request "{search}"</span>
+                </TracewiseBubbleButton>
+              </div>
             </div>
           ) : (
             filteredComponents.map((comp) => (
@@ -212,9 +256,29 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {comp.category}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {comp.category}
+                      </span>
+
+                      {/* Capability Badges */}
+                      {comp.wiringSupported && (
+                        <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(45, 197, 233, 0.15)', color: '#0284c7', fontWeight: 600 }}>
+                          Wiring Supported
+                        </span>
+                      )}
+                      {comp.codeAvailable && (
+                        <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(168, 85, 247, 0.15)', color: '#7c3aed', fontWeight: 600 }}>
+                          Code Available
+                        </span>
+                      )}
+                      {comp.isCustom && (
+                        <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(234, 179, 8, 0.18)', color: '#b45309', fontWeight: 700 }}>
+                          Custom
+                        </span>
+                      )}
+                    </div>
+
                     <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--tw-text)', marginTop: '2px', margin: 0 }}>
                       {comp.name}
                     </h4>
@@ -244,7 +308,7 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
 
                 {/* Pin badges */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-                  {comp.pins.slice(0, 5).map(p => (
+                  {comp.pins.slice(0, 6).map(p => (
                     <span
                       key={p.id}
                       style={{
@@ -260,9 +324,9 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
                       {p.label || p.id}
                     </span>
                   ))}
-                  {comp.pins.length > 5 && (
+                  {comp.pins.length > 6 && (
                     <span style={{ fontSize: '0.68rem', color: 'var(--tw-text-muted)', alignSelf: 'center' }}>
-                      +{comp.pins.length - 5} pins
+                      +{comp.pins.length - 6} pins
                     </span>
                   )}
                 </div>
@@ -271,6 +335,13 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
           )}
         </div>
       </div>
+
+      {/* Component Request / Import Modal */}
+      <RequestComponentModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        onComponentImported={handleComponentImported}
+      />
     </TracewiseBubbleArea>
   );
 }

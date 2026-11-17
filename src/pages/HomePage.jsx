@@ -284,29 +284,6 @@ export function HomePage() {
         <div className="container-tw" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ maxWidth: '960px', width: '100%', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
-            {/* Tag Pill */}
-            <AnimatedContent trigger="mount" distance={25} duration={0.6}>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'rgba(255, 255, 255, 0.12)',
-                  border: '1px solid rgba(255, 255, 255, 0.28)',
-                  padding: '7px 18px',
-                  borderRadius: 'var(--tw-radius-pill)',
-                  backdropFilter: 'blur(16px)',
-                  marginBottom: '22px',
-                  boxShadow: '0 4px 18px rgba(0, 0, 0, 0.25)'
-                }}
-              >
-                <Cpu size={15} color="#2DC5E9" />
-                <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#f8fafc', letterSpacing: '0.02em' }}>
-                  Student Electronics & Circuit Engineering
-                </span>
-              </div>
-            </AnimatedContent>
-
             {/* Main Headline */}
             <AnimatedContent trigger="mount" distance={35} delay={0.1} duration={0.8}>
               <h1
@@ -573,26 +550,26 @@ export function HomePage() {
                 </TracewiseBubbleButton>
               </div>
 
-              {/* Path 3: Assisted Idea */}
+              {/* Path 3: Add Existing Project */}
               <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px', backgroundColor: '#0a1f40', border: '1px solid rgba(74, 167, 242, 0.25)', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
                 <div>
                   <div style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(56, 189, 248, 0.2)', border: '1px solid rgba(56, 189, 248, 0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', marginBottom: '16px' }}>
-                    <Sparkles size={22} />
+                    <Layers size={22} />
                   </div>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
-                    3. Assisted Project Setup
+                    3. Add an Existing Project
                   </h3>
                   <p style={{ fontSize: '0.92rem', color: '#cbd5e1', lineHeight: 1.55 }}>
-                    Describe what you want to create in plain English. Tracewise configures the initial board components and template code so you can focus on modifying the logic.
+                    Already built something physical? Bring your robot car, IoT monitor, or sensor build. Document your work, upload photos or code, and prepare your science-fair presentation in Pitch Lab.
                   </p>
                 </div>
                 <TracewiseBubbleButton
-                  to="/app/studio/starter-traffic-light"
-                  variant="secondary"
+                  to="/app/projects/new-existing"
+                  variant="primary"
                   size="sm"
-                  style={{ marginTop: '24px', alignSelf: 'flex-start', background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.25)' }}
+                  style={{ marginTop: '24px', alignSelf: 'flex-start' }}
                 >
-                  <span>Describe an Idea</span>
+                  <span>Add Existing Project</span>
                   <ArrowRight size={14} />
                 </TracewiseBubbleButton>
               </div>

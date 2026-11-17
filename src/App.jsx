@@ -20,6 +20,8 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { LearnPage } from './pages/LearnPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { NewExistingProjectPage } from './pages/NewExistingProjectPage';
+import { ProjectDetailPage } from './pages/ProjectDetailPage';
 
 export default function App() {
   return (
@@ -47,10 +49,13 @@ export default function App() {
 
             {/* Dedicated Workspace Routes (Fullscreen engineering canvases) */}
             <Route path="/app" element={<DashboardPage />} />
+            <Route path="/app/projects/new-existing" element={<NewExistingProjectPage />} />
+            <Route path="/app/projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="/app/studio" element={<StudioPage />} />
             <Route path="/app/studio/:projectId" element={<StudioPage />} />
             <Route path="/app/compare/:projectId" element={<ComparePage />} />
             <Route path="/app/build/:projectId" element={<BuildGuidePage />} />
+            <Route path="/app/pitch" element={<PitchLabPage />} />
             <Route path="/app/pitch/:projectId" element={<PitchLabPage />} />
           </Routes>
         </BrowserRouter>

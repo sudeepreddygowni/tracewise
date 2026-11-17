@@ -8,7 +8,12 @@ import {
   getPreferences,
   savePreferences as storageSavePreferences
 } from '../services/projectStorage';
-import { createBlankProject, generateId } from '../domain/projectSchema';
+import {
+  createBlankProject,
+  createDocumentedPhysicalProject,
+  isPhysicalProject,
+  generateId
+} from '../domain/projectSchema';
 import { validateCircuit } from '../domain/circuitRules';
 import { compileBuildPlan } from '../domain/projectBuilder/catalogCompiler';
 import { planProjectFromPrompt } from '../domain/projectBuilder/projectPlanner';
@@ -41,8 +46,19 @@ export function ProjectProvider({ children }) {
   // Whenever active project changes, re-run validation
   useEffect(() => {
     if (activeProject) {
-      const res = validateCircuit(activeProject);
-      setValidation(res);
+      if (isPhysicalProject(activeProject)) {
+        setValidation({
+          overallStatus: 'PHYSICAL_PROJECT_DOCUMENTED',
+          checks: [
+            { id: 'documentation', pass: Boolean(activeProject.title && activeProject.description), message: 'Project documentation' },
+            { id: 'components', pass: (activeProject.componentsList?.length || 0) > 0, message: 'Hardware components listed' },
+            { id: 'presentation', pass: Boolean(activeProject.problemSolved || activeProject.workingPrinciple), message: 'Presentation facts available' }
+          ]
+        });
+      } else {
+        const res = validateCircuit(activeProject);
+        setValidation(res);
+      }
     }
   }, [activeProject]);
 
@@ -132,6 +148,17 @@ export function ProjectProvider({ children }) {
     historyIndexRef.current = 0;
     setIsSaved(true);
     return blank;
+  }, []);
+
+  const createPhysicalProject = useCallback((data) => {
+    const physicalProj = createDocumentedPhysicalProject(data);
+    const saved = storageSaveProject(physicalProj);
+    setProjects(getAllProjects());
+    setActiveProject(saved);
+    historyRef.current = [JSON.parse(JSON.stringify(saved))];
+    historyIndexRef.current = 0;
+    setIsSaved(true);
+    return saved;
   }, []);
 
   const remixProject = useCallback((baseProject, customTitle) => {
@@ -326,6 +353,7 @@ export function ProjectProvider({ children }) {
         saveCurrent,
         forkActive,
         createNewProject,
+        createPhysicalProject,
         remixProject,
         buildProjectFromPlan,
         applyModification,

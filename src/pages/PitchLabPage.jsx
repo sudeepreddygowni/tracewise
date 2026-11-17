@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Sparkles,
@@ -13,11 +13,16 @@ import {
   Cpu,
   Layers,
   ChevronRight,
+  ChevronLeft,
   Shield,
   AlertCircle,
   Clock,
   Printer,
-  Compass
+  Compass,
+  Play,
+  Pause,
+  CheckCircle2,
+  ListChecks
 } from 'lucide-react';
 import { useProject } from '../store/useProjectStore';
 import { useAuth } from '../store/useAuthStore';
@@ -26,6 +31,7 @@ import {
   generatePitchDrafts,
   generateJudgeQuestions,
   generateQuizQuestions,
+  generateScienceFairChecklist,
   evaluateInterviewAnswer
 } from '../domain/pitch/pitchEngine';
 import {
@@ -42,16 +48,24 @@ import { assistantProvider } from '../domain/assistant/assistantProvider';
 
 export function PitchLabPage() {
   const { projectId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { projects, activeProject, loadProject } = useProject();
-  const { user, isGuest } = useAuth();
+  const { user } = useAuth();
 
-  // Find target project
-  const currentProj = (activeProject && activeProject.id === projectId)
-    ? activeProject
-    : projects.find(p => p.id === projectId) || activeProject || projects[0];
+  // Check URL query parameters (e.g. ?created=true)
+  const searchParams = new URLSearchParams(location.search);
+  const isJustCreated = searchParams.get('created') === 'true';
 
-  const [activeTab, setActiveTab] = useState('brief'); // 'brief' | 'pitches' | 'questions' | 'quiz' | 'interview' | 'summary'
+  // Find target project strictly by ID when specified
+  const foundProj = projectId
+    ? ((activeProject && activeProject.id === projectId) ? activeProject : projects.find(p => p.id === projectId))
+    : (activeProject || projects[0]);
+
+  const projectNotFound = Boolean(projectId && !foundProj);
+  const currentProj = foundProj || null;
+
+  const [activeTab, setActiveTab] = useState('brief'); // 'brief' | 'pitches' | 'rehearsal' | 'questions' | 'quiz' | 'interview' | 'checklist' | 'summary'
 
   // Brief Form State
   const [brief, setBrief] = useState({
@@ -79,6 +93,89 @@ export function PitchLabPage() {
   const [pitchCritique, setPitchCritique] = useState(null);
   const [isCritiquing, setIsCritiquing] = useState(false);
 
+  // Rehearsal Mode State
+  const [rehearsalCardIndex, setRehearsalCardIndex] = useState(0);
+  const [rehearsalTimer, setRehearsalTimer] = useState(0);
+  const [isRehearsalTimerRunning, setIsRehearsalTimerRunning] = useState(false);
+
+  // Quiz State
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+
+  // Mock Interview State
+  const [interviewDifficulty, setInterviewDifficulty] = useState('Intermediate');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [userInterviewAnswer, setUserInterviewAnswer] = useState('');
+  const [interviewEvaluations, setInterviewEvaluations] = useState({});
+  const [isEvaluating, setIsEvaluating] = useState(false);
+
+  // Project context calculation
+  const ctx = currentProj ? extractProjectContext(currentProj, brief) : null;
+  const generatedDrafts = ctx ? generatePitchDrafts(ctx) : null;
+  const judgeQuestions = ctx ? generateJudgeQuestions(ctx) : [];
+  const quizQuestions = ctx ? generateQuizQuestions(ctx) : [];
+  const checklist = ctx ? generateScienceFairChecklist(ctx) : [];
+
+  // Filtered interview questions
+  const interviewQuestions = judgeQuestions.filter(
+    q => interviewDifficulty === 'All' || q.difficulty === interviewDifficulty
+  );
+
+  // Load saved preparation on mount and prefill from physical project
+  useEffect(() => {
+    async function loadSavedData() {
+      if (!currentProj) return;
+
+      // Initialize with physical project facts if available
+      if (currentProj.project_type === 'documented_physical_project') {
+        setBrief(prev => ({
+          ...prev,
+          problem: prev.problem || currentProj.problemSolved || '',
+          solution: prev.solution || currentProj.description || '',
+          audience: prev.audience || currentProj.targetAudience || '',
+          testingEvidence: prev.testingEvidence || currentProj.testingEvidence || '',
+          limitations: prev.limitations || currentProj.challengesFaced || '',
+          nextSteps: prev.nextSteps || currentProj.futureImprovements || ''
+        }));
+      }
+
+      const saved = await getPitchPreparation(currentProj.id, user);
+      if (saved) {
+        if (saved.brief) setBrief(prev => ({ ...prev, ...saved.brief }));
+        if (saved.pitches) setPitches(prev => ({ ...prev, ...saved.pitches }));
+      }
+    }
+    loadSavedData();
+  }, [currentProj?.id, user?.uid]);
+
+  // Sync default generated pitches if not customized
+  useEffect(() => {
+    if (generatedDrafts) {
+      setPitches(prev => ({
+        pitch30: prev.pitch30 || generatedDrafts.pitch30,
+        pitch60: prev.pitch60 || generatedDrafts.pitch60,
+        pitch120: prev.pitch120 || generatedDrafts.pitch120
+      }));
+    }
+  }, [currentProj?.id, generatedDrafts?.pitch30]);
+
+  // Rehearsal timer tick
+  useEffect(() => {
+    let interval = null;
+    if (isRehearsalTimerRunning) {
+      interval = setInterval(() => {
+        setRehearsalTimer(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRehearsalTimerRunning]);
+
+  const formatRehearsalTime = (sec) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   const handleRunAIReview = async () => {
     const currentText = pitches[`pitch${pitchDuration}`] || '';
     if (!currentText.trim() || isCritiquing) return;
@@ -98,52 +195,6 @@ export function PitchLabPage() {
       setIsCritiquing(false);
     }
   };
-
-  // Quiz State
-  const [quizAnswers, setQuizAnswers] = useState({});
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
-
-  // Mock Interview State
-  const [interviewDifficulty, setInterviewDifficulty] = useState('Intermediate');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userInterviewAnswer, setUserInterviewAnswer] = useState('');
-  const [interviewEvaluations, setInterviewEvaluations] = useState({});
-  const [isEvaluating, setIsEvaluating] = useState(false);
-
-  // Project context calculation
-  const ctx = currentProj ? extractProjectContext(currentProj, brief) : null;
-  const generatedDrafts = ctx ? generatePitchDrafts(ctx) : null;
-  const judgeQuestions = ctx ? generateJudgeQuestions(ctx) : [];
-  const quizQuestions = ctx ? generateQuizQuestions(ctx) : [];
-
-  // Filtered interview questions
-  const interviewQuestions = judgeQuestions.filter(
-    q => interviewDifficulty === 'All' || q.difficulty === interviewDifficulty
-  );
-
-  // Load saved preparation on mount
-  useEffect(() => {
-    async function loadSavedData() {
-      if (!currentProj) return;
-      const saved = await getPitchPreparation(currentProj.id, user);
-      if (saved) {
-        if (saved.brief) setBrief(prev => ({ ...prev, ...saved.brief }));
-        if (saved.pitches) setPitches(prev => ({ ...prev, ...saved.pitches }));
-      }
-    }
-    loadSavedData();
-  }, [currentProj?.id, user?.uid]);
-
-  // Sync default generated pitches if not customized
-  useEffect(() => {
-    if (generatedDrafts) {
-      setPitches(prev => ({
-        pitch30: prev.pitch30 || generatedDrafts.pitch30,
-        pitch60: prev.pitch60 || generatedDrafts.pitch60,
-        pitch120: prev.pitch120 || generatedDrafts.pitch120
-      }));
-    }
-  }, [currentProj?.id]);
 
   // Auto-save handler
   const handleSave = async (updatedBrief = brief, updatedPitches = pitches) => {
@@ -199,7 +250,7 @@ export function PitchLabPage() {
     quizQuestions.forEach(q => {
       if (quizAnswers[q.id] === q.correctIndex) correct++;
     });
-    return Math.round((correct / quizQuestions.length) * 100);
+    return Math.round((correct / (quizQuestions.length || 1)) * 100);
   };
 
   const handleSubmitQuiz = () => {
@@ -244,34 +295,101 @@ export function PitchLabPage() {
     }
   };
 
-  if (!currentProj) {
+  // STRICT PROJECT NOT FOUND STATE
+  if (projectNotFound || !currentProj) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--tw-bg)', padding: '24px' }}>
-        <div className="glass-card" style={{ maxWidth: '440px', width: '100%', padding: '36px', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '24px' }}>
-          <AlertCircle size={32} color="var(--tw-brand)" style={{ margin: '0 auto 12px' }} />
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#071831', padding: '24px' }}>
+        <div style={{ maxWidth: '480px', width: '100%', padding: '36px', textAlign: 'center', backgroundColor: '#0a1f40', borderRadius: '24px', border: '1px solid rgba(45, 197, 233, 0.25)', boxShadow: '0 16px 40px rgba(0,0,0,0.4)' }}>
+          <AlertCircle size={36} color="#38bdf8" style={{ margin: '0 auto 12px' }} />
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ffffff', marginBottom: '8px' }}>
             Project Not Found
           </h2>
-          <p style={{ fontSize: '0.9rem', color: 'var(--tw-text-muted)', marginBottom: '20px' }}>
-            Please select an existing project from your dashboard to open the Project Pitch Lab.
+          <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '24px', lineHeight: 1.5 }}>
+            {projectId
+              ? `We could not find the project with ID "${projectId}". It may have been deleted, or you might need to select an existing project from your dashboard.`
+              : `Please select a project from your dashboard to open the Project Pitch Lab.`}
           </p>
-          <TracewiseBubbleButton to="/projects" variant="primary">
-            <span>Browse Starter Projects</span>
-          </TracewiseBubbleButton>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <TracewiseBubbleButton to="/app" variant="secondary">
+              <span>My Projects</span>
+            </TracewiseBubbleButton>
+            <TracewiseBubbleButton to="/app/projects/new-existing" variant="primary">
+              <span>Add Existing Project</span>
+            </TracewiseBubbleButton>
+          </div>
         </div>
       </div>
     );
   }
+
+  // Back link routes to Project Overview for physical builds, Studio for circuits
+  const backRoute = ctx.isPhysicalProject
+    ? `/app/projects/${currentProj.id}`
+    : `/app/studio/${currentProj.id}`;
+  const backLabel = ctx.isPhysicalProject
+    ? 'Back to Project Overview'
+    : 'Back to Studio Canvas';
+
+  // Rehearsal cards derived from 120s pitch or outline
+  const rehearsalCards = [
+    {
+      title: '1. Hook & Problem Statement',
+      targetTime: '0:00 - 0:30',
+      content: `Hello judges. When ${brief.audience || 'users'} work on this problem, they face ${brief.problem || 'a significant practical obstacle'}. We built ${ctx.title} to deliver ${brief.solution || 'a reliable physical solution'}.`
+    },
+    {
+      title: '2. Hardware Architecture & Working Principle',
+      targetTime: '0:30 - 1:00',
+      content: ctx.isPhysicalProject
+        ? `Our physical build is powered by a ${ctx.hardwarePlatform} microcontroller coordinating ${ctx.componentNames.slice(0, 3).join(', ') || 'our sensor inputs and outputs'}. Working principle: ${ctx.workingPrinciple || 'Inputs evaluate threshold conditions and command actuators in real time.'}`
+        : `Our hardware architecture relies on an Arduino Uno microcontroller managing ${ctx.inputsCount} inputs and ${ctx.outputsCount} outputs with verified current-limiting protection.`
+    },
+    {
+      title: '3. Testing Evidence & Overcoming Challenges',
+      targetTime: '1:00 - 1:30',
+      content: `We tested our build: ${brief.testingEvidence || 'through repeated functional bench trials'}. Our most critical engineering challenge was: ${ctx.challengesFaced || 'component integration and signal stability'}, which we diagnosed and resolved through systematic testing.`
+    },
+    {
+      title: '4. Honest Limitations & Next Steps',
+      targetTime: '1:30 - 2:00',
+      content: `Engineering requires knowing real-world constraints. Current limitations: ${brief.limitations || 'prototype operating under bench conditions'}. Our roadmap for full deployment: ${brief.nextSteps || 'custom PCB design and enclosure prototyping'}. Thank you!`
+    }
+  ];
 
   return (
     <TracewiseBubbleArea theme="light">
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', padding: '100px 24px 80px' }}>
         <div style={{ maxWidth: '1160px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-          {/* Top Bar: Return to Studio & Project Context */}
+          {/* Success Banner if Just Created */}
+          {isJustCreated && (
+            <div
+              style={{
+                padding: '16px 20px',
+                borderRadius: '16px',
+                backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                border: '1px solid rgba(34, 197, 94, 0.35)',
+                color: '#15803d',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.92rem',
+                fontWeight: 600
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <CheckCircle2 size={18} color="#16a34a" />
+                <span>
+                  Your project <b>"{currentProj.title}"</b> is ready! Prepare your presentation, rehearsal cue cards, and judge Q&A below.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Top Bar: Return to Studio / Overview & Project Context */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <Link
-              to={`/app/studio/${currentProj.id}`}
+              to={backRoute}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -283,7 +401,7 @@ export function PitchLabPage() {
               }}
             >
               <ArrowLeft size={16} />
-              <span>Back to Studio Canvas</span>
+              <span>{backLabel}</span>
             </Link>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -292,8 +410,13 @@ export function PitchLabPage() {
                 {saveStatus}
               </span>
               <span style={{ fontSize: '0.78rem', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
-                {ctx.archetype}
+                {ctx.hardwarePlatform || ctx.archetype}
               </span>
+              {ctx.isPhysicalProject && (
+                <span style={{ fontSize: '0.78rem', backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#16a34a', fontWeight: 700, padding: '4px 10px', borderRadius: '12px' }}>
+                  Physical Build
+                </span>
+              )}
             </div>
           </div>
 
@@ -325,21 +448,21 @@ export function PitchLabPage() {
                 Project Pitch Lab: {currentProj.title}
               </h1>
               <p style={{ fontSize: '1rem', color: 'var(--tw-text-secondary)', margin: 0, maxWidth: '720px' }}>
-                <b>Build the project. Explain the thinking. Own the presentation.</b> Prepare for competition judges, technical mentors, and project showcases using your actual circuit facts.
+                <b>Build the project. Explain the thinking. Own the presentation.</b> Prepare for competition judges, technical mentors, and project showcases using your actual project facts.
               </p>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ textAlign: 'right', padding: '12px 18px', backgroundColor: 'var(--tw-bg)', borderRadius: '16px' }}>
-                <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>COMPONENTS VERIFIED</div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>COMPONENTS LISTED</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-brand)', fontFamily: 'var(--font-heading)' }}>
-                  {ctx.componentsCount} Elements
+                  {ctx.componentsCount} Parts
                 </div>
               </div>
               <div style={{ textAlign: 'right', padding: '12px 18px', backgroundColor: 'var(--tw-bg)', borderRadius: '16px' }}>
-                <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>CIRCUIT DIAGNOSTIC</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: ctx.isValid ? 'var(--tw-success)' : '#eab308', fontFamily: 'var(--font-heading)' }}>
-                  {ctx.isValid ? 'Clean Schematic' : 'Check Warnings'}
+                <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>HARDWARE PLATFORM</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-brand)', fontFamily: 'var(--font-heading)' }}>
+                  {ctx.hardwarePlatform}
                 </div>
               </div>
             </div>
@@ -350,10 +473,12 @@ export function PitchLabPage() {
             {[
               { id: 'brief', label: '1. Project Brief', icon: FileText },
               { id: 'pitches', label: '2. Pitch Builder', icon: Mic },
-              { id: 'questions', label: '3. Judge Questions', icon: HelpCircle },
-              { id: 'quiz', label: '4. Knowledge Quiz', icon: Award },
-              { id: 'interview', label: '5. Mock Interview', icon: Sparkles },
-              { id: 'summary', label: '6. Executive One-Pager', icon: Printer }
+              { id: 'rehearsal', label: '3. Practice Rehearsal', icon: Clock },
+              { id: 'questions', label: '4. Judge Questions', icon: HelpCircle },
+              { id: 'quiz', label: '5. Knowledge Quiz', icon: Award },
+              { id: 'interview', label: '6. Mock Interview', icon: Sparkles },
+              { id: 'checklist', label: '7. Science Fair Checklist', icon: ListChecks },
+              { id: 'summary', label: '8. Executive Summary', icon: Printer }
             ].map(tabItem => {
               const Icon = tabItem.icon;
               const isActive = activeTab === tabItem.id;
@@ -395,7 +520,7 @@ export function PitchLabPage() {
                   Project Framing & Context Brief
                 </h2>
                 <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
-                  Technical schematics alone don’t win judging panels. Fill in these optional questions to ground your presentation in genuine human and engineering facts.
+                  Ground your presentation in genuine human and engineering facts. These answers automatically update all pitch drafts and rehearsal cards.
                 </p>
               </div>
 
@@ -434,7 +559,7 @@ export function PitchLabPage() {
                     rows={3}
                     value={brief.solution}
                     onChange={(e) => handleBriefChange('solution', e.target.value)}
-                    placeholder="e.g. Uses a push-button interrupt and automated timed state machine to guarantee a 15-second protected crossing sequence..."
+                    placeholder={ctx.isPhysicalProject ? `e.g. The ${ctx.hardwarePlatform} reads distance from ultrasonic sensors and controls DC motors via an H-bridge driver...` : 'e.g. Uses a push-button interrupt and automated timed state machine...'}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                   />
                 </div>
@@ -447,7 +572,7 @@ export function PitchLabPage() {
                     rows={3}
                     value={brief.testingEvidence}
                     onChange={(e) => handleBriefChange('testingEvidence', e.target.value)}
-                    placeholder="e.g. Simulated 50 consecutive crossing cycles in Tracewise without pin conflicts or current overloads..."
+                    placeholder={ctx.isPhysicalProject ? 'e.g. Tested 20 obstacle avoidance trials on bench surfaces; 19/20 obstacles successfully navigated with 120ms reaction time...' : 'e.g. Simulated 50 consecutive crossing cycles without pin conflicts...'}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                   />
                 </div>
@@ -460,7 +585,7 @@ export function PitchLabPage() {
                     rows={3}
                     value={brief.limitations}
                     onChange={(e) => handleBriefChange('limitations', e.target.value)}
-                    placeholder="e.g. Runs on 5V logic without outdoor waterproofing or high-amperage relay isolation..."
+                    placeholder="e.g. Operates as an assembled prototype without waterproof casing or battery gauge..."
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                   />
                 </div>
@@ -473,7 +598,7 @@ export function PitchLabPage() {
                     rows={3}
                     value={brief.nextSteps}
                     onChange={(e) => handleBriefChange('nextSteps', e.target.value)}
-                    placeholder="e.g. Designing a custom PCB shield and adding an audio buzzer for accessibility..."
+                    placeholder="e.g. Designing a custom PCB shield and 3D printing an aerodynamic enclosure..."
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--tw-border)', fontSize: '0.9rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                   />
                 </div>
@@ -484,8 +609,7 @@ export function PitchLabPage() {
                   onClick={() => setActiveTab('pitches')}
                   variant="primary"
                 >
-                  <span>Build Pitch Scripts</span>
-                  <ChevronRight size={16} />
+                  <span>Build Pitch Scripts →</span>
                 </TracewiseBubbleButton>
               </div>
             </div>
@@ -657,7 +781,150 @@ export function PitchLabPage() {
             </div>
           )}
 
-          {/* TAB 3: JUDGE QUESTIONS GENERATOR */}
+          {/* TAB 3: PRACTICE REHEARSAL (CUE CARDS & TIMER) */}
+          {activeTab === 'rehearsal' && (
+            <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--tw-text)', margin: '0 0 4px', fontFamily: 'var(--font-heading)' }}>
+                    Presentation Rehearsal Cue Cards
+                  </h2>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
+                    Rehearse your spoken pitch with timed section cue cards. Practice steady pacing before approaching judges.
+                  </p>
+                </div>
+
+                {/* Built-in Timer */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: 'var(--tw-bg)', padding: '6px 14px', borderRadius: '14px', border: '1px solid var(--tw-border)' }}>
+                  <Clock size={16} color="var(--tw-brand)" />
+                  <span style={{ fontFamily: 'var(--font-code)', fontSize: '1.2rem', fontWeight: 800, color: 'var(--tw-brand)' }}>
+                    {formatRehearsalTime(rehearsalTimer)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsRehearsalTimerRunning(!isRehearsalTimerRunning)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      backgroundColor: isRehearsalTimerRunning ? '#fef08a' : 'var(--tw-brand)',
+                      color: isRehearsalTimerRunning ? '#854d0e' : '#ffffff',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {isRehearsalTimerRunning ? 'Pause' : 'Start Timer'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRehearsalTimerRunning(false);
+                      setRehearsalTimer(0);
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--tw-text-muted)', cursor: 'pointer', fontSize: '0.78rem' }}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Cue Card Display */}
+              <div
+                style={{
+                  padding: '36px',
+                  borderRadius: '20px',
+                  backgroundColor: '#071831',
+                  color: '#ffffff',
+                  boxShadow: '0 16px 36px rgba(7, 24, 49, 0.15)',
+                  minHeight: '220px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '16px'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      CUE CARD {rehearsalCardIndex + 1} OF {rehearsalCards.length} • {rehearsalCards[rehearsalCardIndex].title}
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                      Pacing Target: {rehearsalCards[rehearsalCardIndex].targetTime}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '1.25rem', lineHeight: 1.6, color: '#f8fafc', fontWeight: 500, margin: 0 }}>
+                    "{rehearsalCards[rehearsalCardIndex].content}"
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRehearsalCardIndex(prev => Math.max(0, prev - 1))}
+                    disabled={rehearsalCardIndex === 0}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      color: rehearsalCardIndex === 0 ? '#64748b' : '#ffffff',
+                      cursor: rehearsalCardIndex === 0 ? 'not-allowed' : 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.84rem'
+                    }}
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Previous Section</span>
+                  </button>
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {rehearsalCards.map((_, idx) => (
+                      <span
+                        key={idx}
+                        onClick={() => setRehearsalCardIndex(idx)}
+                        style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          backgroundColor: rehearsalCardIndex === idx ? '#38bdf8' : 'rgba(255, 255, 255, 0.2)',
+                          cursor: 'pointer'
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setRehearsalCardIndex(prev => Math.min(rehearsalCards.length - 1, prev + 1))}
+                    disabled={rehearsalCardIndex === rehearsalCards.length - 1}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      backgroundColor: '#2dc5e9',
+                      border: 'none',
+                      color: '#071831',
+                      cursor: rehearsalCardIndex === rehearsalCards.length - 1 ? 'not-allowed' : 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.84rem'
+                    }}
+                  >
+                    <span>Next Section</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: JUDGE QUESTIONS GENERATOR */}
           {activeTab === 'questions' && (
             <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
@@ -665,7 +932,7 @@ export function PitchLabPage() {
                   Anticipated Judge Questions & Technical Evidence
                 </h2>
                 <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
-                  Review these targeted inquiries. If critical facts are unrecorded, the question is flagged with <b>Needs your input</b> so you are never caught unprepared.
+                  Review these targeted inquiries tailored specifically to {ctx.hardwarePlatform}.
                 </p>
               </div>
 
@@ -728,7 +995,7 @@ export function PitchLabPage() {
             </div>
           )}
 
-          {/* TAB 4: INTERACTIVE KNOWLEDGE QUIZ */}
+          {/* TAB 5: INTERACTIVE KNOWLEDGE QUIZ */}
           {activeTab === 'quiz' && (
             <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -737,7 +1004,7 @@ export function PitchLabPage() {
                     Project Knowledge & Judging Readiness Quiz
                   </h2>
                   <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
-                    Test your understanding of the circuit physics, firmware architecture, and presentation strategy behind {currentProj.title}.
+                    Test your understanding of the hardware architecture, power distribution, and judging strategy for {currentProj.title}.
                   </p>
                 </div>
 
@@ -838,7 +1105,7 @@ export function PitchLabPage() {
             </div>
           )}
 
-          {/* TAB 5: MOCK JUDGE INTERVIEW */}
+          {/* TAB 6: MOCK JUDGE INTERVIEW */}
           {activeTab === 'interview' && (
             <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -880,7 +1147,6 @@ export function PitchLabPage() {
 
               {interviewQuestions.length > 0 ? (
                 <div>
-                  {/* Current Question */}
                   <div style={{ padding: '24px', borderRadius: '18px', backgroundColor: '#f8fafc', border: '1.5px solid var(--tw-border)', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase' }}>
@@ -895,7 +1161,6 @@ export function PitchLabPage() {
                       "{interviewQuestions[currentQuestionIndex].question}"
                     </h3>
 
-                    {/* Answer Area */}
                     <textarea
                       rows={5}
                       value={userInterviewAnswer}
@@ -925,7 +1190,6 @@ export function PitchLabPage() {
                     </div>
                   </div>
 
-                  {/* Feedback Panel */}
                   {interviewEvaluations[interviewQuestions[currentQuestionIndex].id] && (
                     <div style={{ padding: '24px', borderRadius: '18px', backgroundColor: '#ffffff', border: '1.5px solid var(--tw-brand-soft)', boxShadow: '0 8px 24px rgba(30, 63, 216, 0.08)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -944,7 +1208,6 @@ export function PitchLabPage() {
                         {interviewEvaluations[interviewQuestions[currentQuestionIndex].id].summary}
                       </p>
 
-                      {/* Rubric Breakdown Grid */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
                         {Object.entries(interviewEvaluations[interviewQuestions[currentQuestionIndex].id].rubric).map(([dim, val]) => (
                           <div key={dim} style={{ padding: '8px 12px', borderRadius: '10px', backgroundColor: 'var(--tw-bg)' }}>
@@ -958,7 +1221,6 @@ export function PitchLabPage() {
                         ))}
                       </div>
 
-                      {/* Strengths & Improvements */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                         <div style={{ padding: '12px 16px', borderRadius: '12px', backgroundColor: '#f0fdf4' }}>
                           <span style={{ fontSize: '0.76rem', fontWeight: 800, color: 'var(--tw-success)', textTransform: 'uppercase' }}>
@@ -983,7 +1245,6 @@ export function PitchLabPage() {
                         </div>
                       </div>
 
-                      {/* Next Question Navigation */}
                       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '18px' }}>
                         {currentQuestionIndex < interviewQuestions.length - 1 ? (
                           <TracewiseBubbleButton
@@ -1018,7 +1279,79 @@ export function PitchLabPage() {
             </div>
           )}
 
-          {/* TAB 6: EXECUTIVE ONE-PAGER SUMMARY BRIEF */}
+          {/* TAB 7: SCIENCE FAIR PREPARATION CHECKLIST */}
+          {activeTab === 'checklist' && (
+            <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--tw-text)', margin: '0 0 6px', fontFamily: 'var(--font-heading)' }}>
+                  Science Fair Preparation Checklist
+                </h2>
+                <p style={{ fontSize: '0.92rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
+                  Make sure your project explanation, hardware evidence, demonstration plan, and practice rehearsal are complete.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {checklist.map(item => (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: '18px 22px',
+                      borderRadius: '16px',
+                      backgroundColor: item.completed ? '#f0fdf4' : '#fafbfc',
+                      border: `1.5px solid ${item.completed ? '#bbf7d0' : 'var(--tw-border)'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '16px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <CheckCircle2 size={22} color={item.completed ? '#16a34a' : '#94a3b8'} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.96rem', color: item.completed ? '#15803d' : 'var(--tw-text)' }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: '0.84rem', color: 'var(--tw-text-secondary)' }}>
+                          {item.description}
+                        </div>
+                      </div>
+                    </div>
+
+                    {!item.completed && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (item.field === 'title' || item.field === 'components') {
+                            if (ctx.isPhysicalProject) navigate(`/app/projects/${currentProj.id}`);
+                            else setActiveTab('brief');
+                          } else if (item.field === 'rehearsal') {
+                            setActiveTab('rehearsal');
+                          } else {
+                            setActiveTab('brief');
+                          }
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--tw-brand-soft)',
+                          color: 'var(--tw-brand)',
+                          border: 'none',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Complete Item →
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: EXECUTIVE ONE-PAGER SUMMARY BRIEF */}
           {activeTab === 'summary' && (
             <div className="glass-card" style={{ padding: '36px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -1027,14 +1360,14 @@ export function PitchLabPage() {
                     Executive One-Page Project Brief
                   </h2>
                   <p style={{ fontSize: '0.9rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
-                    Formatted for handouts, competition binders, mentor reviews, and presentation summaries.
+                    Formatted for competition binders, mentor reviews, and judges handouts. Grounded strictly in authentic project facts.
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <TracewiseBubbleButton
                     onClick={() => {
-                      const md = `# ${ctx.title} — Executive Project Brief\n**Archetype:** ${ctx.archetype}\n\n## Problem Statement\n${brief.problem || 'Not specified'}\n\n## Target Audience\n${brief.audience || 'Not specified'}\n\n## Hardware Solution\n${brief.solution || 'Not specified'}\n\n## Components\n${ctx.componentNames.join(', ')}\n\n## Testing Evidence\n${brief.testingEvidence || 'Verified in Tracewise Studio'}\n\n## Honest Limitations\n${brief.limitations || 'Educational prototype'}\n\n## Future Roadmap\n${brief.nextSteps || 'Custom PCB design'}`;
+                      const md = `# ${ctx.title} — Executive Project Brief\n**Platform:** ${ctx.hardwarePlatform}\n**Category:** ${ctx.archetype}\n\n## Problem Statement\n${brief.problem || 'Not specified'}\n\n## Target Audience\n${brief.audience || 'Not specified'}\n\n## Solution & Working Principle\n${brief.solution || 'Not specified'}\n\n## Components List\n${ctx.componentNames.join(', ')}\n\n## Testing Evidence\n${brief.testingEvidence || 'Bench tested'}\n\n## Honest Limitations\n${brief.limitations || 'Assembled prototype'}\n\n## Future Roadmap\n${brief.nextSteps || 'Custom PCB design'}`;
                       handleCopy(md, 'summary_md');
                     }}
                     variant="secondary"
@@ -1059,13 +1392,13 @@ export function PitchLabPage() {
               <div style={{ padding: '32px', borderRadius: '18px', border: '1px solid var(--tw-border)', backgroundColor: '#ffffff', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div style={{ borderBottom: '2px solid var(--tw-border)', paddingBottom: '16px' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase' }}>
-                    TRACEWISE PROJECT SUMMARY BRIEF
+                    TRACEWISE SCIENCE FAIR PROJECT BRIEF
                   </div>
                   <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--tw-text)', margin: '4px 0', fontFamily: 'var(--font-heading)' }}>
                     {ctx.title}
                   </h1>
                   <div style={{ fontSize: '0.86rem', color: 'var(--tw-text-muted)' }}>
-                    Category: {ctx.archetype} • Version: {typeof ctx.version === 'object' ? (ctx.version?.id || 'v1.0') : ctx.version} • Components: {ctx.componentsCount}
+                    Platform: {ctx.hardwarePlatform} • Archetype: {ctx.archetype} • Components: {ctx.componentsCount} Parts
                   </div>
                 </div>
 
@@ -1093,7 +1426,7 @@ export function PitchLabPage() {
                       Technical Solution
                     </h3>
                     <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                      {brief.solution || `A synchronized circuit with ${ctx.componentsCount} components on an Arduino Uno platform.`}
+                      {brief.solution || (ctx.isPhysicalProject ? `A physical ${ctx.hardwarePlatform} prototype integrating ${ctx.componentsCount} components.` : `A synchronized circuit with ${ctx.componentsCount} components on an Arduino Uno platform.`)}
                     </p>
                   </div>
 
@@ -1102,7 +1435,7 @@ export function PitchLabPage() {
                       Testing & Verification
                     </h3>
                     <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                      {brief.testingEvidence || 'Verified via static AST pin analysis and circuit simulation.'}
+                      {brief.testingEvidence || (ctx.isPhysicalProject ? 'Bench tested and validated with hands-on physical prototype trials.' : 'Verified via static AST pin analysis and circuit simulation.')}
                     </p>
                   </div>
 
@@ -1111,7 +1444,7 @@ export function PitchLabPage() {
                       Current Limitations
                     </h3>
                     <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
-                      {brief.limitations || 'Educational prototype without physical environmental shielding.'}
+                      {brief.limitations || 'Educational prototype operating under bench conditions.'}
                     </p>
                   </div>
 
@@ -1126,8 +1459,8 @@ export function PitchLabPage() {
                 </div>
 
                 <div style={{ paddingTop: '16px', borderTop: '1px solid var(--tw-border)', fontSize: '0.8rem', color: 'var(--tw-text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Verified via Tracewise Static Rule & Netlist Engine</span>
-                  <span>Generated for Competition & Project Panels</span>
+                  <span>{ctx.isPhysicalProject ? `Documented Physical Engineering Build (${ctx.hardwarePlatform})` : 'Verified via Tracewise Static Rule & Netlist Engine'}</span>
+                  <span>Generated for Science Fair & Project Panels</span>
                 </div>
               </div>
             </div>

@@ -116,7 +116,7 @@ export function Navbar() {
           pointerEvents: 'none'
         }}
       >
-        <TracewiseBubbleArea theme="light" style={{ width: '100%', maxWidth: '1220px', pointerEvents: 'auto' }}>
+        <TracewiseBubbleArea theme="light" style={{ width: '100%', maxWidth: '1080px', pointerEvents: 'auto' }}>
           <nav
             className="glass-nav"
             style={{
@@ -124,7 +124,7 @@ export function Navbar() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 20px',
+              padding: '8px 18px',
               borderRadius: 'var(--tw-radius-pill)',
               transition: 'all 0.25s ease'
             }}
@@ -161,7 +161,7 @@ export function Navbar() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '24px'
+                gap: '16px'
               }}
               className="desktop-nav-links"
             >

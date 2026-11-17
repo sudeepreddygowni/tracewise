@@ -185,6 +185,7 @@ export function SimulationProvider({ children }) {
 
   /**
    * Reset simulation CPU and re-run from cycle 0
+   * Supports resetting active runner or restarting from existing compiled hex
    */
   const resetSimulation = useCallback(() => {
     if (runnerRef.current) {
@@ -193,8 +194,31 @@ export function SimulationProvider({ children }) {
       setSerialOutput(prev => prev + '\n--- System Reset ---\n');
       runnerRef.current.start();
       setStatus('RUNNING');
+    } else if (lastCompiledHex) {
+      const runner = new AvrSimulationRunner(lastCompiledHex);
+      runnerRef.current = runner;
+      runner.addListener((evt) => {
+        if (evt.type === 'PIN_CHANGE') {
+          setPinStates({ ...evt.pinStates });
+        } else if (evt.type === 'STATUS') {
+          if (evt.status === 'RUNNING') setStatus('RUNNING');
+          else if (evt.status === 'PAUSED') setStatus('PAUSED');
+          else if (evt.status === 'STOPPED') setStatus('STOPPED');
+          else if (evt.status === 'ERROR') setStatus('ERROR');
+        } else if (evt.type === 'STOPPED') {
+          setStatus('STOPPED');
+          setPinStates({ ...evt.pinStates });
+        }
+      });
+      runner.onSerial((char) => {
+        setSerialOutput(prev => prev + char);
+      });
+      runner.start();
+      setSimTime(0);
+      setSerialOutput(prev => prev + '\n--- System Reset ---\n');
+      setStatus('RUNNING');
     }
-  }, []);
+  }, [lastCompiledHex]);
 
   /**
    * User interaction: press or release a push button

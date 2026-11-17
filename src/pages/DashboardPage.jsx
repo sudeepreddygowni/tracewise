@@ -45,7 +45,11 @@ export function DashboardPage() {
 
   const handleOpen = (proj) => {
     loadProject(proj.id);
-    navigate(`/app/studio/${proj.id}`);
+    if (proj.project_type === 'documented_physical_project') {
+      navigate(`/app/projects/${proj.id}`);
+    } else {
+      navigate(`/app/studio/${proj.id}`);
+    }
   };
 
   const handleFork = (e, proj) => {
@@ -126,16 +130,26 @@ export function DashboardPage() {
           </Link>
         </div>
 
-        {/* Create Project Button with Soap Bubble UI */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Create Project Buttons with Soap Bubble UI */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <TracewiseBubbleArea theme="light">
+            <TracewiseBubbleButton
+              to="/app/projects/new-existing"
+              variant="secondary"
+              size="sm"
+              title="Document an already-built physical project"
+            >
+              <Layers size={14} />
+              <span>Add Existing Project</span>
+            </TracewiseBubbleButton>
+
             <TracewiseBubbleButton
               onClick={handleCreateNew}
               variant="primary"
               size="sm"
             >
               <Plus size={15} />
-              <span>New Project</span>
+              <span>New Circuit</span>
             </TracewiseBubbleButton>
           </TracewiseBubbleArea>
         </div>
@@ -215,7 +229,7 @@ export function DashboardPage() {
 
               <TracewiseBubbleButton
                 onClick={handleExport}
-                title="Export all projects to JSON"
+                title="Export all projects to JSON backup"
                 variant="secondary"
                 size="sm"
               >
@@ -229,11 +243,11 @@ export function DashboardPage() {
                   as="span"
                   variant="secondary"
                   size="sm"
-                  title="Import projects from JSON"
+                  title="Import Tracewise Backup (.json)"
                   style={{ pointerEvents: 'none' }}
                 >
                   <Upload size={14} />
-                  <span>Import</span>
+                  <span>Import Tracewise Backup (.json)</span>
                 </TracewiseBubbleButton>
               </label>
             </div>
@@ -266,18 +280,36 @@ export function DashboardPage() {
               >
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <span
-                      style={{
-                        fontSize: '0.74rem',
-                        fontWeight: 700,
-                        color: 'var(--tw-brand)',
-                        backgroundColor: 'var(--tw-brand-soft)',
-                        padding: '3px 8px',
-                        borderRadius: '8px'
-                      }}
-                    >
-                      {proj.version?.label || 'v1.0'}
-                    </span>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          color: proj.project_type === 'documented_physical_project' ? '#0284c7' : 'var(--tw-brand)',
+                          backgroundColor: proj.project_type === 'documented_physical_project' ? 'rgba(56, 189, 248, 0.15)' : 'var(--tw-brand-soft)',
+                          padding: '3px 8px',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        {proj.project_type === 'documented_physical_project'
+                          ? (proj.hardwarePlatform || 'Physical Build')
+                          : (proj.version?.label || 'v1.0')}
+                      </span>
+                      {proj.project_type === 'documented_physical_project' && (
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            color: '#16a34a',
+                            backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                            padding: '3px 7px',
+                            borderRadius: '6px'
+                          }}
+                        >
+                          Physical
+                        </span>
+                      )}
+                    </div>
 
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                       <TracewiseBubbleIconButton
@@ -305,7 +337,7 @@ export function DashboardPage() {
                     {proj.title}
                   </h3>
                   <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {proj.description || 'Custom Arduino circuit project.'}
+                    {proj.description || (proj.project_type === 'documented_physical_project' ? 'Documented physical electronics build.' : 'Custom Arduino circuit project.')}
                   </p>
                 </div>
 
@@ -314,7 +346,11 @@ export function DashboardPage() {
                   <div style={{ fontSize: '0.76rem', color: 'var(--tw-text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Clock size={13} />
                     <span>
-                      {(proj.components || []).length} parts • {(proj.connections || []).length} wires
+                      {proj.project_type === 'documented_physical_project' ? (
+                        `${(proj.componentsList || []).length} parts • ${(proj.mediaAttachments || []).length} photos`
+                      ) : (
+                        `${(proj.components || []).length} parts • ${(proj.connections || []).length} wires`
+                      )}
                     </span>
                   </div>
 
@@ -339,7 +375,7 @@ export function DashboardPage() {
                       <span>Pitch Lab</span>
                     </Link>
                     <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--tw-brand)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      Open Studio <ArrowRight size={14} />
+                      {proj.project_type === 'documented_physical_project' ? 'View Overview' : 'Open Studio'} <ArrowRight size={14} />
                     </span>
                   </div>
                 </div>

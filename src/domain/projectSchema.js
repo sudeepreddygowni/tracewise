@@ -13,8 +13,63 @@ export function generateId(prefix = 'tw') {
 }
 
 /**
- * Creates an empty blank Arduino Uno project
+ * Project Type Enums
  */
+export const PROJECT_TYPES = {
+  SIMULATED_CIRCUIT: 'simulated_circuit',
+  DOCUMENTED_PHYSICAL_PROJECT: 'documented_physical_project'
+};
+
+export function isPhysicalProject(project) {
+  return project?.project_type === PROJECT_TYPES.DOCUMENTED_PHYSICAL_PROJECT;
+}
+
+/**
+ * Creates a documented physical project (e.g. for science fair submissions)
+ * without requiring circuit simulation.
+ */
+export function createDocumentedPhysicalProject(data = {}) {
+  const id = data.id || generateId('proj-phys');
+  const title = (data.title || 'Untitled Physical Project').trim();
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    id,
+    project_type: PROJECT_TYPES.DOCUMENTED_PHYSICAL_PROJECT,
+    title,
+    name: title,
+    description: data.description || '',
+    category: data.category || 'robotics',
+    hardwarePlatform: data.hardwarePlatform || 'ESP32',
+    projectStatus: data.projectStatus || 'working_prototype',
+    problemSolved: data.problemSolved || '',
+    targetAudience: data.targetAudience || '',
+    componentsList: Array.isArray(data.componentsList) ? data.componentsList : [],
+    workingPrinciple: data.workingPrinciple || '',
+    codeSummary: data.codeSummary || '',
+    challengesFaced: data.challengesFaced || '',
+    testingEvidence: data.testingEvidence || '',
+    demonstrationPlan: data.demonstrationPlan || '',
+    futureImprovements: data.futureImprovements || '',
+    mediaAttachments: Array.isArray(data.mediaAttachments) ? data.mediaAttachments : [],
+    sourceFiles: Array.isArray(data.sourceFiles) ? data.sourceFiles : [],
+    links: Array.isArray(data.links) ? data.links : [],
+    linkedSimulationId: data.linkedSimulationId || null,
+    presentationBrief: data.presentationBrief || {
+      elevatorPitch: '',
+      fullPresentation: '',
+      judgeQA: []
+    },
+    version: {
+      id: 'v1.0',
+      label: 'Initial Documentation',
+      createdAt: new Date().toISOString()
+    },
+    history: [],
+    visibility: data.visibility || 'private',
+    createdAt: data.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
 export function createBlankProject(title = 'Untitled Circuit') {
   const id = generateId('proj');
   return {

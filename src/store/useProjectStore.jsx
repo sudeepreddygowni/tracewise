@@ -134,6 +134,31 @@ export function ProjectProvider({ children }) {
     return blank;
   }, []);
 
+  const remixProject = useCallback((baseProject, customTitle) => {
+    if (!baseProject) return null;
+    const title = customTitle || `${baseProject.title || baseProject.name || 'Project'} (Remix)`;
+    const newId = generateId('proj');
+    const remixed = {
+      ...baseProject,
+      id: newId,
+      title,
+      name: title,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      components: JSON.parse(JSON.stringify(baseProject.components || [])),
+      connections: JSON.parse(JSON.stringify(baseProject.connections || [])),
+      code: baseProject.code || '',
+      version: { id: 'v1.0', label: 'Remix v1.0' }
+    };
+    storageSaveProject(remixed);
+    setProjects(getAllProjects());
+    setActiveProject(remixed);
+    historyRef.current = [JSON.parse(JSON.stringify(remixed))];
+    historyIndexRef.current = 0;
+    setIsSaved(true);
+    return remixed;
+  }, []);
+
   const buildProjectFromPlan = useCallback((buildPlan) => {
     const compiled = compileBuildPlan(buildPlan);
     const saved = storageSaveProject(compiled.project);
@@ -301,6 +326,7 @@ export function ProjectProvider({ children }) {
         saveCurrent,
         forkActive,
         createNewProject,
+        remixProject,
         buildProjectFromPlan,
         applyModification,
         generateProjectFromPrompt,

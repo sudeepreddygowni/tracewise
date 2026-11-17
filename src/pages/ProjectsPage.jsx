@@ -3,13 +3,17 @@ import { useNavigate, Link } from 'react-router-dom';
 import { TracewiseProjectGallery } from '../components/landing/TracewiseProjectGallery';
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { useProject } from '../store/useProjectStore';
-import { ArrowRight, GitFork, Play, Cpu, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../store/useAuthStore';
+import { ArrowRight, GitFork, Play, Cpu, ShieldCheck, Globe } from 'lucide-react';
 import { TracewiseBubbleButton, TracewiseBubbleArea } from '../components/ui/BubbleActions';
+import { PublishProjectModal } from '../components/studio/PublishProjectModal';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { loadProject, forkActive } = useProject();
+  const { loadProject, forkActive, projects } = useProject();
+  const { user } = useAuth();
   const [filter, setFilter] = useState('All');
+  const [publishModalProject, setPublishModalProject] = useState(null);
 
   const categories = ['All', 'State Machine', 'Input/Output', 'GPIO Basics', 'Analog & PWM'];
 
@@ -168,7 +172,7 @@ export function ProjectsPage() {
                     <span>Arduino Uno R3</span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <TracewiseBubbleButton
                       onClick={() => handleFork(starter)}
                       variant="secondary"
@@ -187,6 +191,15 @@ export function ProjectsPage() {
                       <Play size={14} />
                       <span>Open Circuit</span>
                     </TracewiseBubbleButton>
+                    <TracewiseBubbleButton
+                      onClick={() => setPublishModalProject(starter)}
+                      variant="ghost"
+                      size="sm"
+                      title="Publish this starter to Community"
+                      style={{ padding: '6px 10px', minHeight: '36px' }}
+                    >
+                      <Globe size={15} color="var(--tw-brand)" />
+                    </TracewiseBubbleButton>
                   </div>
                 </div>
               ))}
@@ -194,6 +207,19 @@ export function ProjectsPage() {
           </TracewiseBubbleArea>
         </div>
       </section>
+
+      {/* Publish Project Modal */}
+      {publishModalProject && (
+        <PublishProjectModal
+          isOpen={!!publishModalProject}
+          onClose={() => setPublishModalProject(null)}
+          project={publishModalProject}
+          user={user}
+          onProjectPublished={() => {
+            alert('Project successfully published to Community!');
+          }}
+        />
+      )}
     </div>
   );
 }

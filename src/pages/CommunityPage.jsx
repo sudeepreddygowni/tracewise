@@ -27,7 +27,8 @@ import {
   Send,
   Trash2,
   UserCheck,
-  UserX
+  UserX,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../store/useAuthStore';
 import { useProject } from '../store/useProjectStore';
@@ -50,9 +51,13 @@ import {
   createGroupDiscussion,
   getGroupComments,
   addGroupComment,
-  getPublishedProjects
+  getPublishedProjects,
+  deleteCommunityGroup,
+  publishCommunityProject,
+  unpublishCommunityProject
 } from '../services/communityService';
 import { AuthModal } from '../components/auth/AuthModal';
+import { PublishProjectModal } from '../components/studio/PublishProjectModal';
 import { MediaAttachmentPicker } from '../components/ui/MediaAttachmentPicker';
 import {
   TracewiseBubbleButton,
@@ -68,7 +73,7 @@ export function CommunityPage() {
   const initialTab = searchParams.get('tab') || 'All';
 
   const { user, isAuthenticated } = useAuth();
-  const { projects } = useProject();
+  const { projects, activeProject, remixProject } = useProject();
 
   const [posts, setPosts] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -82,6 +87,16 @@ export function CommunityPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [joinedGroupIds, setJoinedGroupIds] = useState(new Set());
   const [groupActionLoading, setGroupActionLoading] = useState(null);
+
+  // Group Deletion state
+  const [deleteGroupModalOpen, setDeleteGroupModalOpen] = useState(false);
+  const [deleteGroupConfirmName, setDeleteGroupConfirmName] = useState('');
+  const [deletingGroup, setDeletingGroup] = useState(false);
+
+  // Project Publishing state
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [projectToPublish, setProjectToPublish] = useState(null);
+  const [unpublishingProjectId, setUnpublishingProjectId] = useState(null);
 
   // Unified search results
   const [searchResults, setSearchResults] = useState({
@@ -327,7 +342,8 @@ export function CommunityPage() {
       setGroupMembers(members);
 
       // If owner/admin and group is private, load join requests
-      if ((membership.role === 'owner' || membership.role === 'admin') && user) {
+      const isOwnerOrAdmin = membership.role === 'owner' || membership.role === 'admin' || group.creator_id === user?.uid;
+      if (isOwnerOrAdmin && user && group.visibility === 'private') {
         const reqs = await getGroupJoinRequests(group.id, user);
         setGroupRequests(reqs);
       } else {
@@ -337,6 +353,47 @@ export function CommunityPage() {
       console.warn('Load group detail error:', err);
     } finally {
       setLoadingGroupDetail(false);
+    }
+  };
+
+  const handleConfirmDeleteGroup = async () => {
+    if (!selectedGroup || !user) return;
+    setDeletingGroup(true);
+    try {
+      await deleteCommunityGroup(selectedGroup.id, user);
+      setGroups(prev => prev.filter(g => g.id !== selectedGroup.id));
+      setDeleteGroupModalOpen(false);
+      setSelectedGroup(null);
+      alert(`Group "${selectedGroup.name}" has been permanently deleted.`);
+    } catch (err) {
+      alert(err.message || 'Failed to delete group.');
+    } finally {
+      setDeletingGroup(false);
+    }
+  };
+
+  const handleRemixPublishedProject = (proj) => {
+    const remixTitle = `${proj.title} (Remix)`;
+    const projectToLoad = proj.projectData || proj;
+    const cloned = remixProject ? remixProject(projectToLoad, remixTitle) : null;
+    if (cloned) {
+      navigate(`/app/studio/${cloned.id}`);
+    } else {
+      navigate('/app/studio');
+    }
+  };
+
+  const handleUnpublishProject = async (projectId) => {
+    if (!window.confirm('Are you sure you want to unpublish this project from the Community?')) return;
+    setUnpublishingProjectId(projectId);
+    try {
+      await unpublishCommunityProject(projectId, user);
+      setPublishedProjects(prev => prev.filter(p => p.id !== projectId));
+      alert('Project unpublished from the Community.');
+    } catch (err) {
+      alert(err.message || 'Failed to unpublish project.');
+    } finally {
+      setUnpublishingProjectId(null);
     }
   };
 
@@ -889,91 +946,152 @@ export function CommunityPage() {
           {/* VIEW: PUBLISHED PROJECTS (Tab: 'Projects' or 'All' when searched) */}
           {(searchTab === 'Projects' || (debouncedQuery && (searchTab === 'All' && searchResults.projects.length > 0))) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Cpu size={20} color="var(--tw-brand)" />
-                  <span>Published Educational Projects</span>
-                </h3>
-                <span style={{ fontSize: '0.82rem', color: 'var(--tw-text-muted)' }}>
-                  Interactive starter circuits ready to remix
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Cpu size={20} color="var(--tw-brand)" />
+                    <span>Published Educational Projects</span>
+                  </h3>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--tw-text-muted)' }}>
+                    Interactive circuits created by the community, ready to explore & remix
+                  </span>
+                </div>
+
+                <TracewiseBubbleButton
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setAuthModalOpen(true);
+                    } else {
+                      setProjectToPublish(activeProject || (projects && projects[0]) || null);
+                      setPublishModalOpen(true);
+                    }
+                  }}
+                >
+                  <Globe size={14} />
+                  <span>Publish a Project</span>
+                </TracewiseBubbleButton>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                {(debouncedQuery ? searchResults.projects : publishedProjects).map((proj) => (
-                  <div
-                    key={proj.id}
-                    className="glass-card"
-                    style={{
-                      padding: '22px',
-                      backgroundColor: '#ffffff',
-                      borderRadius: '18px',
-                      boxShadow: '0 6px 20px rgba(7, 24, 49, 0.04)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      gap: '14px',
-                      border: '1px solid var(--tw-border)'
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                        <h4 style={{ fontSize: '1.08rem', fontWeight: 700, color: 'var(--tw-text)', margin: 0 }}>
-                          {proj.title}
-                        </h4>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: '8px', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)' }}>
-                          {proj.remixCount || 0} remixes
-                        </span>
+                {(debouncedQuery ? searchResults.projects : publishedProjects).map((proj) => {
+                  const isAuthor = user && (proj.authorId === user.uid || proj.author_id === user.uid);
+                  const compCount = (proj.projectData?.components || []).length;
+                  const wireCount = (proj.projectData?.connections || []).length;
+
+                  return (
+                    <div
+                      key={proj.id}
+                      className="glass-card"
+                      style={{
+                        padding: '22px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '18px',
+                        boxShadow: '0 6px 20px rgba(7, 24, 49, 0.04)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '14px',
+                        border: '1px solid var(--tw-border)'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <h4 style={{ fontSize: '1.08rem', fontWeight: 700, color: 'var(--tw-text)', margin: 0 }}>
+                            {proj.title}
+                          </h4>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '3px 8px', borderRadius: '8px', backgroundColor: 'var(--tw-brand-soft)', color: 'var(--tw-brand)' }}>
+                            {proj.category || 'General'}
+                          </span>
+                        </div>
+
+                        <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, marginTop: '8px', marginBottom: '12px' }}>
+                          {proj.description}
+                        </p>
+
+                        {/* Specs Pill */}
+                        {(compCount > 0 || wireCount > 0) && (
+                          <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--tw-text-muted)', marginBottom: '10px' }}>
+                            {compCount > 0 && <span>⚡ {compCount} components</span>}
+                            {wireCount > 0 && <span>• {wireCount} wires</span>}
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {proj.tags?.map((tag, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                fontSize: '0.72rem',
+                                color: 'var(--tw-text-muted)',
+                                backgroundColor: 'var(--tw-bg)',
+                                padding: '2px 8px',
+                                borderRadius: '6px'
+                              }}
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
 
-                      <p style={{ fontSize: '0.86rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, marginTop: '8px', marginBottom: '12px' }}>
-                        {proj.description}
-                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--tw-border)' }}>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>
+                          by <b>@{proj.authorHandle || proj.author_handle || 'maker'}</b>
+                        </span>
 
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {proj.tags?.map((tag, idx) => (
-                          <span
-                            key={idx}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isAuthor && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnpublishProject(proj.id)}
+                              disabled={unpublishingProjectId === proj.id}
+                              style={{
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                color: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              title="Unpublish this project from Community"
+                            >
+                              <Trash2 size={12} />
+                              <span>{unpublishingProjectId === proj.id ? 'Removing...' : 'Unpublish'}</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemixPublishedProject(proj)}
                             style={{
-                              fontSize: '0.72rem',
-                              color: 'var(--tw-text-muted)',
-                              backgroundColor: 'var(--tw-bg)',
-                              padding: '2px 8px',
-                              borderRadius: '6px'
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              color: 'var(--tw-brand)',
+                              backgroundColor: 'var(--tw-brand-soft)',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
                             }}
                           >
-                            #{tag}
-                          </span>
-                        ))}
+                            <span>Remix in Studio</span>
+                            <ArrowRight size={13} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--tw-border)' }}>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>
-                        by <b>@{proj.authorHandle || 'maker'}</b>
-                      </span>
-
-                      <Link
-                        to="/app/studio"
-                        style={{
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          color: 'var(--tw-brand)',
-                          textDecoration: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          backgroundColor: 'var(--tw-brand-soft)',
-                          padding: '6px 12px',
-                          borderRadius: '8px'
-                        }}
-                      >
-                        <span>Remix in Studio</span>
-                        <ArrowRight size={13} />
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1753,7 +1871,7 @@ export function CommunityPage() {
                 Members ({groupMembers.length})
               </button>
 
-              {(groupMembership.role === 'owner' || groupMembership.role === 'admin') && selectedGroup.visibility === 'private' && (
+              {(groupMembership.role === 'owner' || groupMembership.role === 'admin' || selectedGroup.creator_id === user?.uid) && selectedGroup.visibility === 'private' && (
                 <button
                   type="button"
                   onClick={() => setGroupTab('requests')}
@@ -1777,6 +1895,29 @@ export function CommunityPage() {
                       {groupRequests.length}
                     </span>
                   )}
+                </button>
+              )}
+
+              {(groupMembership.role === 'owner' || groupMembership.role === 'admin' || selectedGroup.creator_id === user?.uid) && (
+                <button
+                  type="button"
+                  onClick={() => setGroupTab('settings')}
+                  style={{
+                    padding: '12px 18px',
+                    border: 'none',
+                    borderBottom: groupTab === 'settings' ? '3px solid var(--tw-brand)' : '3px solid transparent',
+                    background: 'transparent',
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    color: groupTab === 'settings' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Settings size={14} />
+                  <span>Settings</span>
                 </button>
               )}
             </div>
@@ -1926,7 +2067,7 @@ export function CommunityPage() {
                     );
                   })}
                 </div>
-              ) : (
+              ) : groupTab === 'requests' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {groupRequests.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '36px', color: 'var(--tw-text-muted)', fontSize: '0.9rem' }}>
@@ -1982,10 +2123,157 @@ export function CommunityPage() {
                     ))
                   )}
                 </div>
-              )}
+              ) : groupTab === 'settings' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ padding: '20px', borderRadius: '16px', backgroundColor: '#f8fafc', border: '1px solid var(--tw-border)' }}>
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--tw-text)', margin: '0 0 12px' }}>
+                      Group Settings & Metadata
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '10px', fontSize: '0.86rem', color: 'var(--tw-text-secondary)' }}>
+                      <span style={{ fontWeight: 600 }}>Group Name:</span>
+                      <span style={{ fontWeight: 700, color: 'var(--tw-text)' }}>{selectedGroup.name}</span>
+                      <span style={{ fontWeight: 600 }}>Category:</span>
+                      <span>{selectedGroup.category}</span>
+                      <span style={{ fontWeight: 600 }}>Visibility:</span>
+                      <span>{selectedGroup.visibility === 'private' ? '🔒 Private (join request required)' : '🌐 Public (open to all students)'}</span>
+                      <span style={{ fontWeight: 600 }}>Total Members:</span>
+                      <span>{selectedGroup.memberCount || groupMembers.length} members</span>
+                      <span style={{ fontWeight: 600 }}>Your Role:</span>
+                      <span style={{ fontWeight: 700, color: 'var(--tw-brand)' }}>
+                        {groupMembership.role ? groupMembership.role.toUpperCase() : (selectedGroup.creator_id === user?.uid ? 'OWNER (CREATOR)' : 'ADMIN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Danger Zone: Permanent Group Deletion */}
+                  <div style={{ padding: '22px', borderRadius: '18px', backgroundColor: '#fff5f5', border: '1px solid #fecaca' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#b91c1c', marginBottom: '8px' }}>
+                      <AlertCircle size={20} />
+                      <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>
+                        Danger Zone: Permanently Delete Group
+                      </h4>
+                    </div>
+                    <p style={{ fontSize: '0.86rem', color: '#7f1d1d', lineHeight: 1.5, margin: '0 0 16px' }}>
+                      Permanently delete <strong>{selectedGroup.name}</strong>. All group discussions, member assignments, replies, and join requests will be permanently erased. Independent community discussions and studio projects will remain untouched.
+                    </p>
+                    <TracewiseBubbleButton
+                      variant="danger"
+                      size="sm"
+                      onClick={() => {
+                        setDeleteGroupConfirmName('');
+                        setDeleteGroupModalOpen(true);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete Group</span>
+                    </TracewiseBubbleButton>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
+      )}
+
+      {/* =========================================================================
+          PERMANENT GROUP DELETION CONFIRMATION MODAL
+      ========================================================================= */}
+      {deleteGroupModalOpen && selectedGroup && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(7, 24, 49, 0.8)',
+            backdropFilter: 'blur(8px)',
+            padding: '16px'
+          }}
+          onClick={() => setDeleteGroupModalOpen(false)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              backgroundColor: '#ffffff',
+              borderRadius: '24px',
+              padding: '28px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.45)',
+              border: '2px solid #ef4444'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#dc2626', marginBottom: '14px' }}>
+              <AlertCircle size={24} />
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
+                Permanently Delete Group?
+              </h3>
+            </div>
+
+            <p style={{ fontSize: '0.88rem', color: 'var(--tw-text)', lineHeight: 1.5, margin: '0 0 14px' }}>
+              Are you sure you want to delete <strong>{selectedGroup.name}</strong>? This action cannot be undone. All discussions, replies, and member roles will be deleted permanently.
+            </p>
+
+            <p style={{ fontSize: '0.84rem', color: 'var(--tw-text-secondary)', marginBottom: '8px' }}>
+              To confirm deletion, please type the group name <strong style={{ color: '#dc2626' }}>{selectedGroup.name}</strong> below:
+            </p>
+
+            <input
+              type="text"
+              value={deleteGroupConfirmName}
+              onChange={(e) => setDeleteGroupConfirmName(e.target.value)}
+              placeholder={selectedGroup.name}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.9rem',
+                marginBottom: '18px',
+                outline: 'none',
+                backgroundColor: '#f8fafc'
+              }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <TracewiseBubbleButton
+                variant="ghost"
+                size="sm"
+                onClick={() => setDeleteGroupModalOpen(false)}
+                disabled={deletingGroup}
+              >
+                Cancel
+              </TracewiseBubbleButton>
+              <TracewiseBubbleButton
+                variant="danger"
+                size="sm"
+                onClick={handleConfirmDeleteGroup}
+                disabled={deleteGroupConfirmName.trim() !== selectedGroup.name || deletingGroup}
+              >
+                <Trash2 size={14} />
+                <span>{deletingGroup ? 'Deleting...' : 'Permanently Delete Group'}</span>
+              </TracewiseBubbleButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          COMMUNITY PROJECT PUBLISHING MODAL
+      ========================================================================= */}
+      {publishModalOpen && (
+        <PublishProjectModal
+          isOpen={publishModalOpen}
+          onClose={() => setPublishModalOpen(false)}
+          project={projectToPublish || activeProject || { id: 'custom-proj', name: 'My Electronic Project', components: [], connections: [] }}
+          user={user}
+          onProjectPublished={(published) => {
+            setPublishedProjects(prev => [published, ...prev]);
+          }}
+        />
       )}
 
       {/* =========================================================================

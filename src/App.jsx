@@ -45,6 +45,7 @@ export default function App() {
 
             {/* Dedicated Workspace Routes (Fullscreen engineering canvases) */}
             <Route path="/app" element={<DashboardPage />} />
+            <Route path="/app/studio" element={<StudioPage />} />
             <Route path="/app/studio/:projectId" element={<StudioPage />} />
             <Route path="/app/compare/:projectId" element={<ComparePage />} />
             <Route path="/app/build/:projectId" element={<BuildGuidePage />} />

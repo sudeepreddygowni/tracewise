@@ -13,7 +13,8 @@ import {
   FolderKanban,
   Mic,
   MoreVertical,
-  X
+  X,
+  Globe
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -28,6 +29,7 @@ export function StudioToolbar({
   canRedo,
   onSave,
   onFork,
+  onPublish,
   onUndo,
   onRedo,
   onUpdateTitle,
@@ -291,6 +293,19 @@ export function StudioToolbar({
               <Mic size={14} color="var(--tw-brand)" />
               <span>Pitch Lab</span>
             </TracewiseBubbleButton>
+
+            {onPublish && (
+              <TracewiseBubbleButton
+                onClick={onPublish}
+                title="Publish circuit to Community Projects"
+                variant="secondary"
+                size="sm"
+                style={{ fontSize: '0.8rem', gap: '4px', padding: '6px 12px', minHeight: '38px', color: 'var(--tw-brand)' }}
+              >
+                <Globe size={14} />
+                <span>Publish</span>
+              </TracewiseBubbleButton>
+            )}
           </div>
 
           {/* Mobile/Tablet Overflow Menu Button */}
@@ -439,6 +454,35 @@ export function StudioToolbar({
                   <Mic size={15} color="var(--tw-brand)" />
                   <span>Pitch Lab</span>
                 </button>
+
+                {onPublish && (
+                  <button
+                    onClick={() => {
+                      setShowOverflowMenu(false);
+                      onPublish();
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: 'var(--tw-brand)',
+                      fontSize: '0.84rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--tw-bg)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <Globe size={15} color="var(--tw-brand)" />
+                    <span>Publish to Community</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

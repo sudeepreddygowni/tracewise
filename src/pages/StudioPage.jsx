@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
+import { useAuth } from '../store/useAuthStore';
 import { StudioToolbar } from '../components/studio/StudioToolbar';
 import { ComponentLibrary } from '../components/studio/ComponentLibrary';
 import { CircuitCanvas } from '../components/studio/CircuitCanvas';
@@ -8,6 +9,7 @@ import { CodeEditor } from '../components/studio/CodeEditor';
 import { ComponentInspector } from '../components/studio/ComponentInspector';
 import { DemoAssistant } from '../components/studio/DemoAssistant';
 import { ValidationDrawer } from '../components/studio/ValidationDrawer';
+import { PublishProjectModal } from '../components/studio/PublishProjectModal';
 import { applyProjectModification } from '../domain/projectBuilder/projectModifier';
 import {
   Code,
@@ -51,7 +53,9 @@ export function StudioPage() {
     commitHistory
   } = useProject();
 
+  const { user } = useAuth();
   const [selectedCompId, setSelectedCompId] = useState(null);
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [rightTab, setRightTab] = useState(
     location.state?.initialQuery || location.state?.openAssistant ? 'assistant' : 'code'
   ); // 'code' | 'inspector' | 'assistant'
@@ -250,6 +254,7 @@ export function StudioPage() {
           const forked = forkActive();
           if (forked) navigate(`/app/studio/${forked.id}`);
         }}
+        onPublish={() => setPublishModalOpen(true)}
         onUndo={undo}
         onRedo={redo}
         onUpdateTitle={(title) => updateActiveProject({ title })}
@@ -323,6 +328,7 @@ export function StudioPage() {
             selectedComponentId={selectedCompId}
             onSelectComponent={handleSelectComponent}
             onMoveComponent={moveComponent}
+            onRemoveComponent={removeComponent}
             onAddConnection={addConnection}
             onRemoveConnection={removeConnection}
             onCommitHistory={commitHistory}
@@ -979,6 +985,19 @@ export function StudioPage() {
           }
         }}
       />
+
+      {/* Community Project Publishing Modal */}
+      {publishModalOpen && (
+        <PublishProjectModal
+          isOpen={publishModalOpen}
+          onClose={() => setPublishModalOpen(false)}
+          project={activeProject}
+          user={user}
+          onProjectPublished={() => {
+            alert('Your circuit was published to the Community Projects showcase!');
+          }}
+        />
+      )}
 
       <style>{`
         @keyframes slideInLeft {

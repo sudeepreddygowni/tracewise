@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AnimatedContent from '../animations/AnimatedContent';
-import { TracewiseProjectGallery } from '../components/landing/TracewiseProjectGallery';
+import { FeaturedProjectsGrid } from '../components/landing/FeaturedProjectsGrid';
 import GradientASCII from '../components/gradient-ascii/GradientASCII';
 import {
   TracewiseBubbleArea,
@@ -755,8 +755,8 @@ export function HomePage() {
             </div>
           </AnimatedContent>
 
-          {/* Official Fan Gallery Component */}
-          <TracewiseProjectGallery />
+          {/* Featured Engineering Projects Grid */}
+          <FeaturedProjectsGrid />
         </div>
       </section>
 

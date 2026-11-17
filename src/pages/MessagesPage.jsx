@@ -57,6 +57,17 @@ export function MessagesPage() {
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'requests' | 'blocked'
   const [blockedUsers, setBlockedUsers] = useState([]);
 
+  // Responsive mobile state
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // New message modal state
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [targetHandle, setTargetHandle] = useState('');
@@ -83,8 +94,8 @@ export function MessagesPage() {
       const list = await getConversations(user.uid);
       setConversations(list);
 
-      // Auto-select first conversation if none selected
-      if (!activeConvId && list.length > 0) {
+      // On desktop, auto-select first conversation if none selected
+      if (!isMobile && !activeConvId && list.length > 0) {
         setActiveConvId(list[0].id);
       }
     } catch (err) {
@@ -92,7 +103,7 @@ export function MessagesPage() {
     } finally {
       setLoadingConvs(false);
     }
-  }, [user, activeConvId]);
+  }, [user, activeConvId, isMobile]);
 
   useEffect(() => {
     loadConversations();
@@ -119,10 +130,12 @@ export function MessagesPage() {
       .then(msgs => {
         if (isMounted) {
           setMessages(msgs);
-          markConversationAsRead(activeConvId, user.uid);
+          markConversationAsRead(activeConvId, user.uid).catch(() => {});
         }
       })
-      .catch(err => console.warn('Get messages error:', err))
+      .catch(err => {
+        console.warn('Load messages error:', err);
+      })
       .finally(() => {
         if (isMounted) setLoadingMessages(false);
       });
@@ -131,9 +144,18 @@ export function MessagesPage() {
     const unsubscribe = subscribeToConversationMessages(activeConvId, (newMsg) => {
       setMessages(prev => {
         if (prev.some(m => m.id === newMsg.id)) return prev;
-        return [...prev, { ...newMsg, isMine: newMsg.senderId === user.uid }];
+        return [...prev, {
+          id: newMsg.id,
+          conversationId: newMsg.conversation_id,
+          senderId: newMsg.sender_id,
+          content: newMsg.content,
+          attachments: newMsg.attachments || [],
+          deliveryStatus: newMsg.delivery_status,
+          createdAt: newMsg.created_at,
+          isMine: newMsg.sender_id === user.uid
+        }];
       });
-      markConversationAsRead(activeConvId, user.uid);
+      markConversationAsRead(activeConvId, user.uid).catch(() => {});
     });
 
     return () => {
@@ -142,72 +164,89 @@ export function MessagesPage() {
     };
   }, [activeConvId, user]);
 
-  // Auto-scroll messages to bottom
+  // Scroll to bottom on message change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Send message handler
   const handleSendMessage = async (e) => {
-    e?.preventDefault();
+    e.preventDefault();
     if (!isAuthenticated) {
       setAuthModalOpen(true);
       return;
     }
-    const clean = messageText.trim();
-    if (!clean && attachments.length === 0) return;
-    if (!activeConvId) return;
+    if ((!messageText.trim() && attachments.length === 0) || !activeConvId || sending) {
+      return;
+    }
 
     setSending(true);
-    try {
-      const sent = await sendMessage(activeConvId, clean, attachments, user);
-      setMessages(prev => [...prev, sent]);
-      setMessageText('');
-      setAttachments([]);
+    const pendingText = messageText.trim();
+    const pendingAttachments = [...attachments];
 
-      // Update local conversation lastMessage
-      setConversations(prev =>
-        prev.map(c =>
-          c.id === activeConvId
-            ? { ...c, lastMessageText: clean || 'Sent an attachment', lastMessageAt: new Date().toISOString() }
-            : c
-        )
-      );
+    // Optimistic UI insert
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg = {
+      id: tempId,
+      conversationId: activeConvId,
+      senderId: user.uid,
+      content: pendingText,
+      attachments: pendingAttachments,
+      deliveryStatus: 'sending',
+      createdAt: new Date().toISOString(),
+      isMine: true
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    setMessageText('');
+    setAttachments([]);
+
+    try {
+      const saved = await sendMessage(activeConvId, user.uid, pendingText, pendingAttachments);
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...saved, isMine: true } : m));
+      // Refresh conversation list to bump recent message
+      loadConversations();
     } catch (err) {
+      console.error('Send message failed:', err);
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       alert(err.message || 'Failed to send message.');
     } finally {
       setSending(false);
     }
   };
 
-  // Respond to message request
   const handleRequestResponse = async (action) => {
     if (!activeConvId || !user) return;
     try {
-      await respondToConversationRequest(activeConvId, action, user);
-      setConversations(prev =>
-        prev.map(c =>
-          c.id === activeConvId
-            ? { ...c, status: action === 'accept' ? 'accepted' : 'declined' }
-            : c
-        )
-      );
+      await respondToConversationRequest(activeConvId, action, user.uid);
+      await loadConversations();
     } catch (err) {
       alert(err.message || 'Failed to update request.');
     }
   };
 
-  // Block user handler
   const handleBlockUser = async () => {
-    if (!activeConv?.otherUser?.id || !user) return;
+    if (!activeConv || !user) return;
     try {
-      await blockUser(activeConv.otherUser.id, blockReason, user);
+      await blockUser(user.uid, activeConv.otherUser.id, blockReason);
       setBlockModalOpen(false);
       setBlockReason('');
-      loadConversations();
+      setActiveConvId(null);
+      await loadConversations();
+      const updatedBlocked = await getBlockedUsers(user.uid);
+      setBlockedUsers(updatedBlocked);
       alert(`User @${activeConv.otherUser.handle} has been blocked.`);
     } catch (err) {
       alert(err.message || 'Failed to block user.');
+    }
+  };
+
+  const handleUnblock = async (blockedUserId) => {
+    if (!user) return;
+    try {
+      await unblockUser(user.uid, blockedUserId);
+      setBlockedUsers(prev => prev.filter(b => b.blockedUserId !== blockedUserId));
+      await loadConversations();
+    } catch (err) {
+      alert(err.message || 'Failed to unblock user.');
     }
   };
 
@@ -217,11 +256,11 @@ export function MessagesPage() {
       return c.status === 'pending' && !c.isInitiator;
     }
     if (activeTab === 'active') {
-      return c.status === 'accepted' || (c.status === 'pending' && c.isInitiator);
+      return c.status === 'active' || (c.status === 'pending' && c.isInitiator);
     }
-    return false;
+    return true;
   }).filter(c => {
-    if (!searchQuery) return true;
+    if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
       c.otherUser?.name?.toLowerCase().includes(q) ||
@@ -231,21 +270,61 @@ export function MessagesPage() {
   });
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#071831', paddingTop: '100px', paddingBottom: '40px', color: '#f8fafc' }}>
-      <div className="container-tw" style={{ maxWidth: '1200px' }}>
-        
-        {/* Header Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#F5F7FB',
+        paddingTop: '90px',
+        paddingBottom: '60px',
+        color: '#172033',
+        fontFamily: 'var(--font-sans)'
+      }}
+    >
+      <div className="container-tw" style={{ maxWidth: '1180px' }}>
+        {/* Header Row */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '24px',
+            flexWrap: 'wrap',
+            gap: '16px'
+          }}
+        >
           <div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Private Collaboration
-            </span>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 700, color: '#ffffff', marginTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  color: '#2563EB',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  backgroundColor: '#EFF6FF',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  border: '1px solid #DBEAFE'
+                }}
+              >
+                Maker Collaboration
+              </span>
+            </div>
+            <h1
+              style={{
+                fontSize: '2rem',
+                fontWeight: 800,
+                color: '#172033',
+                marginTop: '6px',
+                letterSpacing: '-0.02em',
+                margin: '6px 0 0'
+              }}
+            >
               Direct Messages
             </h1>
           </div>
 
-          <TracewiseBubbleArea theme="dark" style={{ display: 'flex', gap: '10px' }}>
+          <TracewiseBubbleArea theme="light" style={{ display: 'flex', gap: '10px' }}>
             <TracewiseBubbleButton
               onClick={() => {
                 if (!isAuthenticated) setAuthModalOpen(true);
@@ -262,11 +341,26 @@ export function MessagesPage() {
 
         {/* Guest Warning Banner if not authenticated */}
         {!isAuthenticated && (
-          <div style={{ padding: '20px', borderRadius: '16px', background: 'rgba(45, 197, 233, 0.1)', border: '1px solid rgba(45, 197, 233, 0.3)', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+          <div
+            style={{
+              padding: '18px 24px',
+              borderRadius: '16px',
+              backgroundColor: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '16px'
+            }}
+          >
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>Sign in to message makers</h3>
-              <p style={{ fontSize: '0.88rem', color: '#cbd5e1', marginTop: '2px' }}>
-                Private messaging requires an account to protect maker privacy and prevent spam.
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#1E40AF', margin: 0 }}>
+                Sign in to message fellow makers
+              </h3>
+              <p style={{ fontSize: '0.86rem', color: '#3B82F6', margin: '4px 0 0' }}>
+                Private messaging requires an authorized account to protect community privacy and ensure safe collaboration.
               </p>
             </div>
             <TracewiseBubbleButton onClick={() => setAuthModalOpen(true)} variant="primary" size="sm">
@@ -277,419 +371,584 @@ export function MessagesPage() {
 
         {/* Main Messenger Box */}
         <div
+          className="messenger-card-container"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(280px, 340px) 1fr',
-            backgroundColor: '#0a1f40',
-            border: '1px solid rgba(74, 167, 242, 0.25)',
-            borderRadius: '24px',
+            gridTemplateColumns: isMobile ? '1fr' : '320px 1fr',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '20px',
             overflow: 'hidden',
-            minHeight: '620px',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)'
+            minHeight: '640px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.05)'
           }}
-          className="messenger-container"
         >
           {/* =========================================================================
-              LEFT COLUMN: CONVERSATION LIST
+              LEFT COLUMN: CONVERSATION LIST (Hidden on mobile if a conversation is open)
           ========================================================================= */}
-          <div style={{ borderRight: '1px solid rgba(74, 167, 242, 0.15)', display: 'flex', flexDirection: 'column', backgroundColor: '#071831' }}>
-            
-            {/* Search conversations */}
-            <div style={{ padding: '16px', borderBottom: '1px solid rgba(74, 167, 242, 0.15)' }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={16} color="#64748b" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    borderRadius: '12px',
-                    padding: '8px 12px 8px 36px',
-                    fontSize: '0.85rem',
-                    color: '#ffffff',
-                    outline: 'none'
-                  }}
-                />
+          {(!isMobile || !activeConvId) && (
+            <div
+              style={{
+                borderRight: isMobile ? 'none' : '1px solid #E2E8F0',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: '#FFFFFF'
+              }}
+            >
+              {/* Search conversations */}
+              <div style={{ padding: '16px', borderBottom: '1px solid #E2E8F0' }}>
+                <div style={{ position: 'relative' }}>
+                  <Search
+                    size={16}
+                    color="#64748B"
+                    style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search conversations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '10px',
+                      padding: '9px 12px 9px 36px',
+                      fontSize: '0.85rem',
+                      color: '#172033',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Tabs: Active vs. Requests */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('active')}
+                    style={{
+                      flex: 1,
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: activeTab === 'active' ? '1px solid #DBEAFE' : '1px solid transparent',
+                      backgroundColor: activeTab === 'active' ? '#EFF6FF' : 'transparent',
+                      color: activeTab === 'active' ? '#2563EB' : '#64748B',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('requests')}
+                    style={{
+                      flex: 1,
+                      padding: '7px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: activeTab === 'requests' ? '1px solid #DBEAFE' : '1px solid transparent',
+                      backgroundColor: activeTab === 'requests' ? '#EFF6FF' : 'transparent',
+                      color: activeTab === 'requests' ? '#2563EB' : '#64748B',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>Requests</span>
+                    {conversations.filter(c => c.status === 'pending' && !c.isInitiator).length > 0 && (
+                      <span
+                        style={{
+                          backgroundColor: '#2563EB',
+                          color: '#FFFFFF',
+                          fontSize: '0.65rem',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          fontWeight: 800
+                        }}
+                      >
+                        {conversations.filter(c => c.status === 'pending' && !c.isInitiator).length}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Tabs: Active vs. Requests */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('active')}
-                  style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    border: 'none',
-                    backgroundColor: activeTab === 'active' ? 'rgba(45, 197, 233, 0.2)' : 'transparent',
-                    color: activeTab === 'active' ? '#38bdf8' : '#94a3b8'
-                  }}
-                >
-                  Active
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('requests')}
-                  style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    border: 'none',
-                    backgroundColor: activeTab === 'requests' ? 'rgba(45, 197, 233, 0.2)' : 'transparent',
-                    color: activeTab === 'requests' ? '#38bdf8' : '#94a3b8',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <span>Requests</span>
-                  {conversations.filter(c => c.status === 'pending' && !c.isInitiator).length > 0 && (
-                    <span style={{ backgroundColor: '#2dc5e9', color: '#071831', fontSize: '0.65rem', padding: '1px 5px', borderRadius: '10px', fontWeight: 800 }}>
-                      {conversations.filter(c => c.status === 'pending' && !c.isInitiator).length}
-                    </span>
-                  )}
-                </button>
+              {/* Conversation list */}
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {loadingConvs ? (
+                  <div style={{ padding: '36px', textAlign: 'center', color: '#64748B', fontSize: '0.85rem' }}>
+                    Loading conversations...
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div style={{ padding: '36px 20px', textAlign: 'center', color: '#64748B', fontSize: '0.85rem' }}>
+                    {activeTab === 'requests' ? 'No message requests pending.' : 'No conversations yet.'}
+                    <div style={{ marginTop: '14px' }}>
+                      <TracewiseBubbleButton
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setNewModalOpen(true)}
+                      >
+                        Start a Conversation
+                      </TracewiseBubbleButton>
+                    </div>
+                  </div>
+                ) : (
+                  filteredConversations.map(conv => {
+                    const isSelected = conv.id === activeConvId;
+                    return (
+                      <div
+                        key={conv.id}
+                        onClick={() => setActiveConvId(conv.id)}
+                        style={{
+                          padding: '14px 16px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
+                          borderLeft: isSelected ? '3px solid #2563EB' : '3px solid transparent',
+                          borderBottom: '1px solid #E2E8F0',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.backgroundColor = '#FFFFFF';
+                        }}
+                      >
+                        {/* Avatar */}
+                        <div
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            backgroundColor: isSelected ? '#2563EB' : '#F1F5F9',
+                            border: '1px solid #E2E8F0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            color: isSelected ? '#FFFFFF' : '#172033',
+                            flexShrink: 0
+                          }}
+                        >
+                          {conv.otherUser?.name?.[0]?.toUpperCase() || 'M'}
+                        </div>
+
+                        {/* Content */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                            <span
+                              style={{
+                                fontSize: '0.9rem',
+                                fontWeight: 700,
+                                color: '#172033',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {conv.otherUser?.name}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                              {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <p
+                              style={{
+                                fontSize: '0.8rem',
+                                color: isSelected ? '#2563EB' : '#64748B',
+                                margin: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {conv.status === 'pending' && !conv.isInitiator ? '✉️ Message request...' : (conv.lastMessageText || 'No messages yet')}
+                            </p>
+                            {conv.unreadCount > 0 && (
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#2563EB', flexShrink: 0 }} />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
+          )}
 
-            {/* Conversation list */}
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {loadingConvs ? (
-                <div style={{ padding: '32px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                  Loading conversations...
-                </div>
-              ) : filteredConversations.length === 0 ? (
-                <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                  {activeTab === 'requests' ? 'No message requests pending.' : 'No conversations yet.'}
-                  <div style={{ marginTop: '12px' }}>
-                    <TracewiseBubbleButton
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setNewModalOpen(true)}
-                    >
-                      Start a Conversation
-                    </TracewiseBubbleButton>
-                  </div>
-                </div>
-              ) : (
-                filteredConversations.map(conv => {
-                  const isSelected = conv.id === activeConvId;
-                  return (
-                    <div
-                      key={conv.id}
-                      onClick={() => setActiveConvId(conv.id)}
-                      style={{
-                        padding: '14px 16px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        backgroundColor: isSelected ? 'rgba(45, 197, 233, 0.12)' : 'transparent',
-                        borderLeft: isSelected ? '3px solid #2dc5e9' : '3px solid transparent',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                        transition: 'background-color 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      {/* Avatar */}
+          {/* =========================================================================
+              RIGHT COLUMN: ACTIVE CHAT THREAD (Shown on desktop or when conversation selected on mobile)
+          ========================================================================= */}
+          {(!isMobile || activeConvId) && (
+            <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#FFFFFF', minHeight: '600px' }}>
+              {activeConv ? (
+                <>
+                  {/* Chat Header */}
+                  <div
+                    style={{
+                      padding: '14px 20px',
+                      borderBottom: '1px solid #E2E8F0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#FFFFFF'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {/* Mobile Back Button */}
+                      {isMobile && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveConvId(null)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            backgroundColor: '#F1F5F9',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            color: '#172033',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                          aria-label="Back to conversations"
+                        >
+                          <ArrowLeft size={16} />
+                          <span>Back</span>
+                        </button>
+                      )}
+
                       <div
                         style={{
-                          width: '40px',
-                          height: '40px',
+                          width: '38px',
+                          height: '38px',
                           borderRadius: '50%',
-                          backgroundColor: 'rgba(30, 63, 216, 0.35)',
-                          border: '1px solid rgba(45, 197, 233, 0.4)',
+                          backgroundColor: '#EFF6FF',
+                          color: '#2563EB',
+                          border: '1px solid #DBEAFE',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '0.9rem',
-                          fontWeight: 700,
-                          color: '#ffffff',
-                          flexShrink: 0
+                          fontWeight: 700
                         }}
                       >
-                        {conv.otherUser?.name?.[0]?.toUpperCase() || 'M'}
+                        {activeConv.otherUser?.name?.[0]?.toUpperCase() || 'M'}
                       </div>
-
-                      {/* Content */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                          <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {conv.otherUser?.name}
-                          </span>
-                          <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                            {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <p style={{ fontSize: '0.78rem', color: isSelected ? '#cbd5e1' : '#94a3b8', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {conv.status === 'pending' && !conv.isInitiator ? '✉️ Message request...' : (conv.lastMessageText || 'No messages yet')}
-                          </p>
-                          {conv.unreadCount > 0 && (
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#2dc5e9', flexShrink: 0 }} />
-                          )}
-                        </div>
+                      <div>
+                        <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#172033', margin: 0 }}>
+                          {activeConv.otherUser?.name}
+                        </h3>
+                        <span style={{ fontSize: '0.76rem', color: '#64748B' }}>
+                          @{activeConv.otherUser?.handle}
+                        </span>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
 
-          {/* =========================================================================
-              RIGHT COLUMN: ACTIVE CHAT THREAD
-          ========================================================================= */}
-          <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#0a1f40' }}>
-            {activeConv ? (
-              <>
-                {/* Chat Header */}
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(74, 167, 242, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(7, 24, 49, 0.6)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#17387e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#ffffff' }}>
-                      {activeConv.otherUser?.name?.[0]?.toUpperCase() || 'M'}
-                    </div>
-                    <div>
-                      <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
-                        {activeConv.otherUser?.name}
-                      </h3>
-                      <span style={{ fontSize: '0.76rem', color: '#94a3b8' }}>
-                        @{activeConv.otherUser?.handle}
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Link
+                        to={`/profile/${activeConv.otherUser?.handle}`}
+                        style={{
+                          fontSize: '0.78rem',
+                          color: '#2563EB',
+                          textDecoration: 'none',
+                          padding: '5px 12px',
+                          borderRadius: '8px',
+                          background: '#EFF6FF',
+                          border: '1px solid #DBEAFE',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: 600
+                        }}
+                      >
+                        <span>Profile</span>
+                        <ExternalLink size={12} />
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => setBlockModalOpen(true)}
+                        style={{
+                          fontSize: '0.78rem',
+                          color: '#DC2626',
+                          background: '#FEF2F2',
+                          border: '1px solid #FEE2E2',
+                          padding: '5px 12px',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontWeight: 600
+                        }}
+                      >
+                        <Ban size={12} />
+                        <span>Block</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Link
-                      to={`/profile/${activeConv.otherUser?.handle}`}
-                      style={{ fontSize: '0.78rem', color: '#38bdf8', textDecoration: 'none', padding: '4px 10px', borderRadius: '8px', background: 'rgba(45, 197, 233, 0.1)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <span>Profile</span>
-                      <ExternalLink size={12} />
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => setBlockModalOpen(true)}
-                      style={{ fontSize: '0.78rem', color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', border: 'none', padding: '4px 10px', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Ban size={12} />
-                      <span>Block</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Request Banner if pending */}
-                {activeConv.status === 'pending' && (
-                  <div style={{ padding: '12px 20px', backgroundColor: 'rgba(234, 179, 8, 0.15)', borderBottom: '1px solid rgba(234, 179, 8, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ fontSize: '0.84rem', color: '#fef08a' }}>
-                      {activeConv.isInitiator
-                        ? 'Waiting for recipient to accept your message request.'
-                        : 'This maker requested to message you. Accept to start direct communication.'}
-                    </div>
-                    {!activeConv.isInitiator && (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <TracewiseBubbleButton size="sm" variant="primary" onClick={() => handleRequestResponse('accept')}>
-                          Accept
-                        </TracewiseBubbleButton>
-                        <TracewiseBubbleButton size="sm" variant="ghost" onClick={() => handleRequestResponse('decline')}>
-                          Decline
-                        </TracewiseBubbleButton>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Messages Scroll Area */}
-                <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {loadingMessages ? (
-                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', margin: 'auto' }}>
-                      Loading messages...
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', margin: 'auto' }}>
-                      No messages yet. Send a friendly message to begin collaborating!
-                    </div>
-                  ) : (
-                    messages.map((m, idx) => {
-                      const isMine = m.isMine;
-                      return (
-                        <div
-                          key={m.id || idx}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: isMine ? 'flex-end' : 'flex-start',
-                            maxWidth: '75%',
-                            alignSelf: isMine ? 'flex-end' : 'flex-start'
-                          }}
-                        >
-                          <div
-                            style={{
-                              padding: '10px 14px',
-                              borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                              backgroundColor: isMine ? '#1e3fd8' : '#071831',
-                              border: isMine ? '1px solid rgba(45, 197, 233, 0.4)' : '1px solid rgba(74, 167, 242, 0.25)',
-                              color: '#ffffff',
-                              fontSize: '0.88rem',
-                              lineHeight: 1.5,
-                              wordBreak: 'break-word',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                            }}
-                          >
-                            {m.content}
-
-                            {/* Render Attachments */}
-                            {m.attachments && m.attachments.length > 0 && (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
-                                {m.attachments.map((att, aIdx) => (
-                                  <div key={att.id || aIdx} style={{ borderRadius: '8px', overflow: 'hidden' }}>
-                                    {att.type === 'image' && att.url ? (
-                                      <a href={att.url} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                          src={att.url}
-                                          alt={att.name}
-                                          style={{ maxHeight: '160px', maxWidth: '240px', objectFit: 'cover', borderRadius: '8px', display: 'block' }}
-                                        />
-                                      </a>
-                                    ) : (
-                                      <a
-                                        href={att.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', backgroundColor: 'rgba(255,255,255,0.1)', color: '#38bdf8', borderRadius: '6px', textDecoration: 'none', fontSize: '0.78rem' }}
-                                      >
-                                        📄 {att.name}
-                                      </a>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Message Metadata (Timestamp & Status) */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px', fontSize: '0.7rem', color: '#94a3b8' }}>
-                            <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {isMine && (
-                              <span>
-                                {m.deliveryStatus === 'read' ? (
-                                  <CheckCheck size={12} color="#38bdf8" />
-                                ) : (
-                                  <Check size={12} color="#94a3b8" />
-                                )}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Message Input Bar */}
-                <form
-                  onSubmit={handleSendMessage}
-                  style={{
-                    padding: '16px 20px',
-                    borderTop: '1px solid rgba(74, 167, 242, 0.15)',
-                    backgroundColor: 'rgba(7, 24, 49, 0.8)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '10px'
-                  }}
-                >
-                  <MediaAttachmentPicker
-                    attachments={attachments}
-                    onChange={setAttachments}
-                    userId={user?.uid}
-                    disabled={sending}
-                  />
-
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      placeholder="Type a message..."
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      disabled={sending}
+                  {/* Request Banner if pending */}
+                  {activeConv.status === 'pending' && (
+                    <div
                       style={{
-                        flex: 1,
-                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        borderRadius: '14px',
-                        padding: '10px 16px',
-                        fontSize: '0.9rem',
-                        color: '#ffffff',
-                        outline: 'none'
+                        padding: '12px 20px',
+                        backgroundColor: '#FEF9C3',
+                        borderBottom: '1px solid #FEF08A',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '10px'
                       }}
-                    />
-
-                    <TracewiseBubbleButton
-                      type="submit"
-                      variant="primary"
-                      size="sm"
-                      disabled={sending || (!messageText.trim() && attachments.length === 0)}
                     >
-                      <Send size={15} />
-                      <span>Send</span>
-                    </TracewiseBubbleButton>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <div style={{ margin: 'auto', textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                <MessageSquare size={48} color="#17387e" style={{ marginBottom: '16px' }} />
-                <h3 style={{ fontSize: '1.2rem', color: '#ffffff', fontWeight: 700 }}>Select a Conversation</h3>
-                <p style={{ fontSize: '0.88rem', maxWidth: '340px', marginTop: '6px' }}>
-                  Choose an existing thread from the left, or send a new message request to connect with another maker.
-                </p>
-                <div style={{ marginTop: '16px' }}>
-                  <TracewiseBubbleButton
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      if (!isAuthenticated) setAuthModalOpen(true);
-                      else setNewModalOpen(true);
+                      <div style={{ fontSize: '0.84rem', color: '#854D0E' }}>
+                        {activeConv.isInitiator
+                          ? 'Waiting for recipient to accept your message request.'
+                          : 'This maker requested to message you. Accept to start direct communication.'}
+                      </div>
+                      {!activeConv.isInitiator && (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <TracewiseBubbleButton size="sm" variant="primary" onClick={() => handleRequestResponse('accept')}>
+                            Accept
+                          </TracewiseBubbleButton>
+                          <TracewiseBubbleButton size="sm" variant="ghost" onClick={() => handleRequestResponse('decline')} style={{ color: '#DC2626' }}>
+                            Decline
+                          </TracewiseBubbleButton>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Messages Scroll Area */}
+                  <div
+                    style={{
+                      flex: 1,
+                      padding: '20px',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      backgroundColor: '#FAFCFF'
                     }}
                   >
-                    Start a New Conversation
-                  </TracewiseBubbleButton>
+                    {loadingMessages ? (
+                      <div style={{ textAlign: 'center', color: '#64748B', fontSize: '0.85rem', margin: 'auto' }}>
+                        Loading messages...
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#64748B', fontSize: '0.85rem', margin: 'auto' }}>
+                        No messages yet. Send a friendly message to begin collaborating!
+                      </div>
+                    ) : (
+                      messages.map((m, idx) => {
+                        const isMine = m.isMine;
+                        return (
+                          <div
+                            key={m.id || idx}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: isMine ? 'flex-end' : 'flex-start',
+                              maxWidth: '78%',
+                              alignSelf: isMine ? 'flex-end' : 'flex-start'
+                            }}
+                          >
+                            <div
+                              style={{
+                                padding: '10px 16px',
+                                borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                                backgroundColor: isMine ? '#2563EB' : '#F1F5F9',
+                                border: isMine ? 'none' : '1px solid #E2E8F0',
+                                color: isMine ? '#FFFFFF' : '#172033',
+                                fontSize: '0.88rem',
+                                lineHeight: 1.5,
+                                wordBreak: 'break-word',
+                                boxShadow: isMine
+                                  ? '0 3px 10px rgba(37, 99, 235, 0.25)'
+                                  : '0 2px 6px rgba(0, 0, 0, 0.04)'
+                              }}
+                            >
+                              {m.content}
+
+                              {/* Render Attachments */}
+                              {m.attachments && m.attachments.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                                  {m.attachments.map((att, aIdx) => (
+                                    <div key={att.id || aIdx} style={{ borderRadius: '8px', overflow: 'hidden' }}>
+                                      {att.type === 'image' && att.url ? (
+                                        <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                          <img
+                                            src={att.url}
+                                            alt={att.name}
+                                            style={{
+                                              maxHeight: '160px',
+                                              maxWidth: '240px',
+                                              objectFit: 'cover',
+                                              borderRadius: '8px',
+                                              display: 'block'
+                                            }}
+                                          />
+                                        </a>
+                                      ) : (
+                                        <a
+                                          href={att.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '6px 10px',
+                                            backgroundColor: isMine ? 'rgba(255,255,255,0.2)' : '#FFFFFF',
+                                            color: isMine ? '#FFFFFF' : '#2563EB',
+                                            border: isMine ? 'none' : '1px solid #E2E8F0',
+                                            borderRadius: '6px',
+                                            textDecoration: 'none',
+                                            fontSize: '0.78rem'
+                                          }}
+                                        >
+                                          📄 {att.name}
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Message Metadata (Timestamp & Status) */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                marginTop: '4px',
+                                fontSize: '0.7rem',
+                                color: '#64748B'
+                              }}
+                            >
+                              <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {isMine && (
+                                <span>
+                                  {m.deliveryStatus === 'read' ? (
+                                    <CheckCheck size={12} color="#2563EB" />
+                                  ) : (
+                                    <Check size={12} color="#64748B" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Message Input Bar */}
+                  <form
+                    onSubmit={handleSendMessage}
+                    style={{
+                      padding: '16px 20px',
+                      borderTop: '1px solid #E2E8F0',
+                      backgroundColor: '#FFFFFF',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px'
+                    }}
+                  >
+                    <MediaAttachmentPicker
+                      attachments={attachments}
+                      onChange={setAttachments}
+                      userId={user?.uid}
+                      disabled={sending}
+                    />
+
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        placeholder="Type a message..."
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        disabled={sending}
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#F8FAFC',
+                          border: '1px solid #E2E8F0',
+                          borderRadius: '12px',
+                          padding: '11px 16px',
+                          fontSize: '0.9rem',
+                          color: '#172033',
+                          outline: 'none'
+                        }}
+                      />
+
+                      <TracewiseBubbleButton
+                        type="submit"
+                        variant="primary"
+                        size="sm"
+                        disabled={sending || (!messageText.trim() && attachments.length === 0)}
+                      >
+                        <Send size={15} />
+                        <span>Send</span>
+                      </TracewiseBubbleButton>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <div style={{ margin: 'auto', textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                  <MessageSquare size={44} color="#94A3B8" style={{ marginBottom: '14px' }} />
+                  <h3 style={{ fontSize: '1.15rem', color: '#172033', fontWeight: 700, margin: 0 }}>
+                    Select a Conversation
+                  </h3>
+                  <p style={{ fontSize: '0.88rem', maxWidth: '340px', margin: '6px auto 0' }}>
+                    Choose an existing discussion thread from the left or start a new introduction message request.
+                  </p>
+                  <div style={{ marginTop: '18px' }}>
+                    <TracewiseBubbleButton
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        if (!isAuthenticated) setAuthModalOpen(true);
+                        else setNewModalOpen(true);
+                      }}
+                    >
+                      Start a New Conversation
+                    </TracewiseBubbleButton>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* =========================================================================
-          NEW MESSAGE MODAL
+          NEW MESSAGE MODAL (Light Theme)
       ========================================================================= */}
       {newModalOpen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(7, 24, 49, 0.8)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(7, 24, 49, 0.65)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -699,14 +958,15 @@ export function MessagesPage() {
           onClick={() => setNewModalOpen(false)}
         >
           <div
+            className="glass-card"
             style={{
               width: '100%',
-              maxWidth: '520px',
-              backgroundColor: '#071831',
-              border: '1px solid rgba(74, 167, 242, 0.3)',
+              maxWidth: '500px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
               borderRadius: '24px',
               padding: '28px',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.25)',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px'
@@ -714,34 +974,43 @@ export function MessagesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#172033', margin: 0 }}>
                 Start a Conversation
               </h3>
               <button
                 type="button"
                 onClick={() => setNewModalOpen(false)}
-                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer', padding: 0 }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: '0.84rem', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
-              Send an introduction message request. The conversation will begin once the maker accepts.
+            <p style={{ fontSize: '0.85rem', color: '#64748B', margin: 0, lineHeight: 1.5 }}>
+              Send an introduction message request. The conversation will open once the maker accepts.
             </p>
 
             {newModalError && (
-              <div style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.82rem' }}>
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FEF2F2',
+                  border: '1px solid #FEE2E2',
+                  color: '#DC2626',
+                  fontSize: '0.84rem'
+                }}
+              >
                 {newModalError}
               </div>
             )}
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#172033', marginBottom: '6px' }}>
                 Recipient Username Handle
               </label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>@</span>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748B' }}>@</span>
                 <input
                   type="text"
                   placeholder="e.g. alex_circuits"
@@ -749,12 +1018,12 @@ export function MessagesPage() {
                   onChange={(e) => setTargetHandle(e.target.value.replace(/^@/, ''))}
                   style={{
                     width: '100%',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '12px',
+                    backgroundColor: '#F8FAFC',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '10px',
                     padding: '10px 12px 10px 30px',
                     fontSize: '0.9rem',
-                    color: '#ffffff',
+                    color: '#172033',
                     outline: 'none'
                   }}
                 />
@@ -762,7 +1031,7 @@ export function MessagesPage() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#172033', marginBottom: '6px' }}>
                 Introduction Message
               </label>
               <textarea
@@ -772,19 +1041,19 @@ export function MessagesPage() {
                 onChange={(e) => setInitialMsgText(e.target.value)}
                 style={{
                   width: '100%',
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '12px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '10px',
                   padding: '10px 12px',
                   fontSize: '0.9rem',
-                  color: '#ffffff',
+                  color: '#172033',
                   outline: 'none',
                   resize: 'none'
                 }}
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
               <TracewiseBubbleButton variant="ghost" size="sm" onClick={() => setNewModalOpen(false)}>
                 Cancel
               </TracewiseBubbleButton>
@@ -838,15 +1107,15 @@ export function MessagesPage() {
       )}
 
       {/* =========================================================================
-          BLOCK USER MODAL
+          BLOCK USER MODAL (Light Theme)
       ========================================================================= */}
       {blockModalOpen && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(7, 24, 49, 0.8)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(7, 24, 49, 0.65)',
+            backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -856,29 +1125,30 @@ export function MessagesPage() {
           onClick={() => setBlockModalOpen(false)}
         >
           <div
+            className="glass-card"
             style={{
               width: '100%',
               maxWidth: '460px',
-              backgroundColor: '#071831',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #FCA5A5',
               borderRadius: '24px',
               padding: '28px',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.25)',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#f87171' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#DC2626' }}>
               <ShieldAlert size={22} />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: '#ffffff' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#172033' }}>
                 Block @{activeConv?.otherUser?.handle}?
               </h3>
             </div>
 
-            <p style={{ fontSize: '0.86rem', color: '#cbd5e1', margin: 0, lineHeight: 1.5 }}>
-              Blocked users cannot send you messages or view your private projects. You can unblock them at any time in Settings.
+            <p style={{ fontSize: '0.86rem', color: '#64748B', margin: 0, lineHeight: 1.5 }}>
+              Blocked users cannot send you messages or view your private projects. You can unblock them at any time.
             </p>
 
             <textarea
@@ -888,12 +1158,12 @@ export function MessagesPage() {
               onChange={(e) => setBlockReason(e.target.value)}
               style={{
                 width: '100%',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '12px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #CBD5E1',
+                borderRadius: '10px',
                 padding: '10px 12px',
                 fontSize: '0.86rem',
-                color: '#ffffff',
+                color: '#172033',
                 outline: 'none',
                 resize: 'none'
               }}

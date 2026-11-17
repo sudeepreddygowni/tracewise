@@ -154,6 +154,11 @@ export async function getCommunityPosts({ category = 'All', authorUid = null, li
 }
 
 export async function getCommunityPostById(postId) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId);
+  if (!isUuid) {
+    return PREVIEW_COMMUNITY_POSTS.find(p => p.id === postId) || null;
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -182,7 +187,8 @@ export async function getCommunityPostById(postId) {
   }
 }
 
-export async function createCommunityPost(postData, author) {
+export async function createCommunityPost(postData, maybeAuthor) {
+  const author = maybeAuthor || postData?.author;
   if (!author) {
     throw new Error('You must be signed in to post in the community.');
   }
@@ -335,6 +341,17 @@ export async function deleteCommunityPost(postId, author) {
 // -----------------------------------------------------------------------------
 
 export async function getPostComments(postId) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId);
+  if (!isUuid) {
+    try {
+      const raw = localStorage.getItem(LOCAL_COMMENTS_KEY);
+      const comments = raw ? JSON.parse(raw) : [];
+      return comments.filter(c => c.postId === postId);
+    } catch (e) {
+      return [];
+    }
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -348,7 +365,7 @@ export async function getPostComments(postId) {
       return (data || []).map(mapCommentRow);
     } catch (err) {
       console.error('Supabase comments query error:', err.message);
-      throw err;
+      return [];
     }
   }
 
@@ -363,11 +380,15 @@ export async function getPostComments(postId) {
 }
 
 export async function addComment(postId, body, author, attachments = []) {
-  if (!author) {
+  const cleanBody = (typeof body === 'string' ? body : (body?.text || body?.body || '')).trim();
+  const cleanAttachments = Array.isArray(attachments) ? attachments : (body?.attachments || []);
+  const actualAuthor = author || (typeof body === 'object' ? body?.author : null);
+
+  if (!actualAuthor) {
     throw new Error('You must be signed in to comment.');
   }
 
-  if (author.isAnonymous) {
+  if (actualAuthor.isAnonymous) {
     throw new Error('Guest visitors cannot post public comments. Please save or connect an account first.');
   }
 
@@ -375,11 +396,11 @@ export async function addComment(postId, body, author, attachments = []) {
     try {
       const row = {
         post_id: postId,
-        author_id: author.uid,
-        author_name: author.displayName || 'Student Maker',
-        author_handle: author.handle || 'student',
-        body: body.trim(),
-        attachments: attachments || [],
+        author_id: actualAuthor.uid,
+        author_name: actualAuthor.displayName || 'Student Maker',
+        author_handle: actualAuthor.handle || 'student',
+        body: cleanBody,
+        attachments: cleanAttachments || [],
         moderation_status: 'approved',
         likes: 0
       };
@@ -1047,6 +1068,66 @@ export async function removeGroupMember(groupId, targetUserId, actorUser) {
   return true;
 }
 
+export async function deleteCommunityGroup(groupId, actorUser) {
+  if (!actorUser || actorUser.isAnonymous || !isSupabaseConfigured() || !supabase) {
+    throw new Error('You must be signed in with an authorized account to delete a group.');
+  }
+
+  // 1. Verify group exists and check creator_id
+  const { data: group, error: groupErr } = await supabase
+    .from('community_groups')
+    .select('id, name, creator_id')
+    .eq('id', groupId)
+    .single();
+
+  if (groupErr || !group) {
+    throw new Error('Group not found or already deleted.');
+  }
+
+  // 2. Query actor's role in this group
+  const { data: member } = await supabase
+    .from('community_group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', actorUser.uid)
+    .single();
+
+  const isOwner = member?.role === 'owner' || group.creator_id === actorUser.uid;
+  const isAdmin = member?.role === 'admin';
+
+  if (!isOwner && !isAdmin) {
+    throw new Error('Permission denied: Only group owners and admins can permanently delete this group.');
+  }
+
+  // 3. Delete from community_groups table
+  // The PostgreSQL foreign key CASCADE will delete all related records in:
+  // - community_group_members
+  // - community_group_posts
+  // - community_group_comments
+  // - community_group_join_requests
+  const { error: deleteErr } = await supabase
+    .from('community_groups')
+    .delete()
+    .eq('id', groupId);
+
+  if (deleteErr) {
+    console.error('Delete group error from Supabase:', deleteErr);
+    throw new Error(deleteErr.message || 'Failed to delete group from database.');
+  }
+
+  // 4. Also clean up any localStorage fallback entries if present
+  try {
+    const raw = localStorage.getItem('tracewise_community_groups_v1');
+    if (raw) {
+      const list = JSON.parse(raw);
+      const filtered = list.filter(g => g.id !== groupId);
+      localStorage.setItem('tracewise_community_groups_v1', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+
+  return true;
+}
+
 export async function getGroupDiscussions(groupId) {
   if (!isSupabaseConfigured() || !supabase) return [];
   try {
@@ -1077,7 +1158,8 @@ export async function getGroupDiscussions(groupId) {
   }
 }
 
-export async function createGroupDiscussion(groupId, postData, author) {
+export async function createGroupDiscussion(groupId, postData, maybeAuthor) {
+  const author = maybeAuthor || postData?.author;
   if (!author || author.isAnonymous) {
     throw new Error('Please sign in or save an account to start group discussions.');
   }
@@ -1153,10 +1235,25 @@ export async function getGroupComments(postId) {
   }
 }
 
-export async function addGroupComment(groupId, postId, body, attachments = [], author) {
+export async function addGroupComment(groupId, postId, body, maybeAttachmentsOrAuthor = [], maybeAuthor) {
+  let attachments = [];
+  let author = null;
+
+  if (Array.isArray(maybeAttachmentsOrAuthor)) {
+    attachments = maybeAttachmentsOrAuthor;
+    author = maybeAuthor;
+  } else if (maybeAttachmentsOrAuthor && typeof maybeAttachmentsOrAuthor === 'object' && maybeAttachmentsOrAuthor.uid) {
+    author = maybeAttachmentsOrAuthor;
+    attachments = Array.isArray(maybeAuthor) ? maybeAuthor : [];
+  } else {
+    author = maybeAuthor;
+  }
+
   if (!author || author.isAnonymous) {
     throw new Error('Please sign in or save an account to reply in group discussions.');
   }
+
+  const cleanBody = (typeof body === 'string' ? body : (body?.text || body?.body || '')).trim();
 
   if (isSupabaseConfigured() && supabase) {
     const row = {
@@ -1165,7 +1262,7 @@ export async function addGroupComment(groupId, postId, body, attachments = [], a
       author_id: author.uid,
       author_name: author.displayName || 'Student Maker',
       author_handle: author.handle || 'maker',
-      body: (body || '').trim(),
+      body: cleanBody,
       attachments: attachments || [],
       likes: 0
     };
@@ -1200,7 +1297,7 @@ export async function getPublishedProjects({ limitCount = 30 } = {}) {
       const { data, error } = await supabase
         .from('published_projects')
         .select('*')
-        .order('likes', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(limitCount);
 
       if (error) {
@@ -1211,6 +1308,9 @@ export async function getPublishedProjects({ limitCount = 30 } = {}) {
         id: p.id,
         title: p.title,
         description: p.description,
+        category: p.category || 'General',
+        coverUrl: p.cover_url || null,
+        authorId: p.author_id,
         authorName: p.author_name,
         authorHandle: p.author_handle,
         projectData: p.project_data,
@@ -1224,6 +1324,111 @@ export async function getPublishedProjects({ limitCount = 30 } = {}) {
     }
   }
   return PREVIEW_PROJECTS;
+}
+
+export async function getPublishedProjectById(projectId) {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('published_projects')
+        .select('*')
+        .eq('id', projectId)
+        .single();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          category: data.category || 'General',
+          coverUrl: data.cover_url || null,
+          authorId: data.author_id,
+          authorName: data.author_name,
+          authorHandle: data.author_handle,
+          projectData: data.project_data,
+          tags: data.tags || [],
+          likes: data.likes || 0,
+          remixCount: data.remix_count || 0,
+          createdAt: data.created_at
+        };
+      }
+    } catch (err) {
+      console.warn('Get published project error:', err);
+    }
+  }
+
+  return PREVIEW_PROJECTS.find(p => p.id === projectId) || null;
+}
+
+export async function publishCommunityProject(projectPayload, author) {
+  if (!author || author.isAnonymous || !isSupabaseConfigured() || !supabase) {
+    throw new Error('You must be signed in with an authorized account to publish projects to the Community.');
+  }
+
+  const { title, description, category, tags, coverUrl, projectData } = projectPayload;
+  if (!title || !title.trim()) {
+    throw new Error('Project title is required.');
+  }
+
+  const row = {
+    title: title.trim(),
+    description: (description || '').trim(),
+    category: category || 'General',
+    tags: Array.isArray(tags) ? tags : [],
+    cover_url: coverUrl || null,
+    author_id: author.uid,
+    author_name: author.displayName || 'Student Maker',
+    author_handle: author.handle || 'maker',
+    project_data: projectData || {},
+    likes: 0,
+    remix_count: 0
+  };
+
+  const { data, error } = await supabase
+    .from('published_projects')
+    .insert(row)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Publish project error:', error);
+    throw new Error(error.message || 'Failed to publish project to Community.');
+  }
+
+  return {
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    category: data.category,
+    coverUrl: data.cover_url,
+    authorId: data.author_id,
+    authorName: data.author_name,
+    authorHandle: data.author_handle,
+    projectData: data.project_data,
+    tags: data.tags || [],
+    likes: data.likes || 0,
+    remixCount: data.remix_count || 0,
+    createdAt: data.created_at
+  };
+}
+
+export async function unpublishCommunityProject(publishedProjectId, author) {
+  if (!author || author.isAnonymous || !isSupabaseConfigured() || !supabase) {
+    throw new Error('You must be signed in with an authorized account to unpublish projects.');
+  }
+
+  const { error } = await supabase
+    .from('published_projects')
+    .delete()
+    .eq('id', publishedProjectId)
+    .eq('author_id', author.uid);
+
+  if (error) {
+    console.error('Unpublish project error:', error);
+    throw new Error(error.message || 'Failed to unpublish project.');
+  }
+
+  return true;
 }
 
 // -----------------------------------------------------------------------------
@@ -1330,6 +1535,9 @@ export async function searchCommunity({ query = '', type = 'all', limitCount = 2
             id: p.id,
             title: p.title,
             description: p.description,
+            category: p.category || 'General',
+            coverUrl: p.cover_url || null,
+            authorId: p.author_id,
             authorName: p.author_name,
             authorHandle: p.author_handle,
             projectData: p.project_data,
@@ -1397,10 +1605,24 @@ export async function searchCommunity({ query = '', type = 'all', limitCount = 2
 }
 
 // Backwards-compatible aliases
-export const addPostComment = (postId, data, author) => {
-  const body = typeof data === 'string' ? data : (data?.text || data?.body || '');
-  const authUser = author || (typeof data === 'object' ? data?.author : null);
-  return addComment(postId, body, authUser);
+export const addPostComment = (postId, data, maybeAuthorOrAttachments, maybeAttachments) => {
+  let body = '';
+  let author = null;
+  let attachments = [];
+
+  if (typeof data === 'string') {
+    body = data;
+    author = maybeAuthorOrAttachments;
+    attachments = Array.isArray(maybeAttachments) ? maybeAttachments : [];
+  } else if (typeof data === 'object') {
+    body = data?.text || data?.body || '';
+    author = data?.author || (maybeAuthorOrAttachments?.uid ? maybeAuthorOrAttachments : null);
+    attachments = Array.isArray(maybeAuthorOrAttachments)
+      ? maybeAuthorOrAttachments
+      : (Array.isArray(maybeAttachments) ? maybeAttachments : (data?.attachments || []));
+  }
+
+  return addComment(postId, body, author, attachments);
 };
 
 export const deletePostComment = (postId, commentId, author) => {

@@ -25,6 +25,7 @@ export function CircuitCanvas({
   selectedComponentId,
   onSelectComponent,
   onMoveComponent,
+  onRemoveComponent,
   onAddConnection,
   onRemoveConnection,
   onCommitHistory,
@@ -44,6 +45,9 @@ export function CircuitCanvas({
   const [selectedWireId, setSelectedWireId] = useState(null);
   const [activeWireColor, setActiveWireColor] = useState(WIRE_COLORS[2].hex); // Default Cyan
   const [showGrid, setShowGrid] = useState(true);
+  const [confirmDeleteComp, setConfirmDeleteComp] = useState(null);
+
+  const selectedComponent = (project.components || []).find(c => c.id === selectedComponentId);
 
   const containerRef = useRef(null);
 
@@ -395,22 +399,55 @@ export function CircuitCanvas({
     handlePointerUp(e);
   };
 
-  // Keyboard shortcut to delete selected wire or cancel rubberband
+  const handleRequestDeleteComp = useCallback((comp) => {
+    if (!comp) return;
+    const attachedWires = (project.connections || []).filter(
+      w => w.from?.componentId === comp.id || w.to?.componentId === comp.id
+    );
+    if (attachedWires.length > 0) {
+      setConfirmDeleteComp({ comp, wireCount: attachedWires.length });
+    } else {
+      if (onRemoveComponent) onRemoveComponent(comp.id);
+      onSelectComponent(null);
+    }
+  }, [project.connections, onRemoveComponent, onSelectComponent]);
+
+  const handleConfirmDeleteComponent = useCallback(() => {
+    if (confirmDeleteComp && onRemoveComponent) {
+      onRemoveComponent(confirmDeleteComp.comp.id);
+      onSelectComponent(null);
+      setConfirmDeleteComp(null);
+    }
+  }, [confirmDeleteComp, onRemoveComponent, onSelectComponent]);
+
+  // Keyboard shortcut to delete selected component or wire, or cancel rubberband
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
+        activeEl.isContentEditable ||
+        activeEl.classList?.contains('monaco-editor')
+      );
+      if (isInput) return;
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedWireId && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        if (selectedWireId) {
           onRemoveConnection(selectedWireId);
           setSelectedWireId(null);
+        } else if (selectedComponentId && selectedComponent) {
+          handleRequestDeleteComp(selectedComponent);
         }
       } else if (e.key === 'Escape') {
         setPendingWireStart(null);
         setSelectedWireId(null);
+        onSelectComponent(null);
+        setConfirmDeleteComp(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedWireId, onRemoveConnection]);
+  }, [selectedWireId, selectedComponentId, selectedComponent, onRemoveConnection, onSelectComponent, handleRequestDeleteComp]);
 
   // Handle Pin Click (Starting or Finishing a Wire)
   const handlePinClick = (comp, pin) => {
@@ -670,6 +707,25 @@ export function CircuitCanvas({
               <span>Delete Wire</span>
             </TracewiseBubbleButton>
           )}
+
+          {selectedComponent && (
+            <TracewiseBubbleButton
+              onClick={() => handleRequestDeleteComp(selectedComponent)}
+              title="Delete Selected Component (Del / Backspace)"
+              variant="danger"
+              size="sm"
+              style={{
+                marginLeft: '4px',
+                padding: '6px 12px',
+                minHeight: '36px',
+                fontSize: '0.75rem',
+                gap: '4px'
+              }}
+            >
+              <Trash2 size={13} />
+              <span>Delete {selectedComponent.name || 'Component'}</span>
+            </TracewiseBubbleButton>
+          )}
         </div>
       </TracewiseBubbleArea>
 
@@ -810,21 +866,91 @@ export function CircuitCanvas({
                 transition: draggingCompId === comp.id ? 'none' : 'filter 0.15s ease'
               }}
             >
-              {/* Component selection indicator bounding box */}
+              {/* Component selection indicator bounding box & quick action badge */}
               {isSelected && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: -8,
-                    left: -8,
-                    right: -8,
-                    bottom: -8,
-                    border: '2px dashed var(--tw-brand)',
-                    borderRadius: '12px',
-                    pointerEvents: 'none',
-                    background: 'rgba(30, 63, 216, 0.04)'
-                  }}
-                />
+                <>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -8,
+                      left: -8,
+                      right: -8,
+                      bottom: -8,
+                      border: '2px dashed var(--tw-brand)',
+                      borderRadius: '12px',
+                      pointerEvents: 'none',
+                      background: 'rgba(30, 63, 216, 0.04)'
+                    }}
+                  />
+                  {/* Floating Action Badge Over Selected Component */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -42,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: 'rgba(7, 24, 49, 0.94)',
+                      backdropFilter: 'blur(8px)',
+                      padding: '4px 8px 4px 10px',
+                      borderRadius: '20px',
+                      boxShadow: '0 4px 18px rgba(0,0,0,0.3)',
+                      zIndex: 100,
+                      whiteSpace: 'nowrap',
+                      pointerEvents: 'auto',
+                      border: '1px solid rgba(45, 197, 233, 0.4)'
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span style={{ fontSize: '0.74rem', color: '#ffffff', fontWeight: 600 }}>
+                      {comp.name || def.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRequestDeleteComp(comp)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        backgroundColor: '#ef4444',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '3px 8px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                      title="Delete Component (Del / Backspace)"
+                    >
+                      <Trash2 size={12} />
+                      <span>Delete</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelectComponent(null)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.18)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                      title="Deselect"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                </>
               )}
 
               {/* Render Component SVG with Exact Pin Alignment */}
@@ -839,6 +965,69 @@ export function CircuitCanvas({
           );
         })}
       </div>
+
+      {/* Confirmation Dialog for Deleting Component with Attached Wires */}
+      {confirmDeleteComp && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 90,
+            backgroundColor: 'rgba(7, 24, 49, 0.65)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={() => setConfirmDeleteComp(null)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '20px',
+              padding: '24px',
+              maxWidth: '440px',
+              width: '100%',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              border: '1px solid var(--tw-border)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#dc2626' }}>
+              <Trash2 size={22} />
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--tw-text)' }}>
+                Delete {confirmDeleteComp.comp.name || 'Component'}?
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              This component is connected to your circuit. Deleting it will also remove its{' '}
+              <strong style={{ color: 'var(--tw-text)' }}>{confirmDeleteComp.wireCount} attached wire{confirmDeleteComp.wireCount > 1 ? 's' : ''}</strong>.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+              <TracewiseBubbleButton
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDeleteComp(null)}
+              >
+                Cancel
+              </TracewiseBubbleButton>
+              <TracewiseBubbleButton
+                variant="danger"
+                size="sm"
+                onClick={handleConfirmDeleteComponent}
+              >
+                <Trash2 size={14} />
+                <span>Delete Component & Wires</span>
+              </TracewiseBubbleButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

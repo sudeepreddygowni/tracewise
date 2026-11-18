@@ -1,4 +1,12 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
+import {
+  parseMessageSecurity,
+  getOrCreateDeviceIdentity,
+  fetchRecipientPublicKey,
+  deriveSharedSessionKey,
+  encryptDirectMessage,
+  decryptDirectMessage
+} from './e2eeService.js';
 
 const LOCAL_MESSAGES_KEY = 'tracewise_direct_messages_v1';
 const LOCAL_CONVERSATIONS_KEY = 'tracewise_conversations_v1';
@@ -94,17 +102,77 @@ export async function getConversationMessages(conversationId, userId) {
 
       if (error) throw error;
 
-      return (data || []).map(m => ({
-        id: m.id,
-        conversationId: m.conversation_id,
-        senderId: m.sender_id,
-        senderName: m.sender_name,
-        senderHandle: m.sender_handle,
-        content: m.content,
-        attachments: m.attachments || [],
-        deliveryStatus: m.delivery_status || 'sent',
-        createdAt: m.created_at,
-        isMine: m.sender_id === userId
+      // Identify the other participant in this conversation for cryptographic derivation
+      let otherUserId = null;
+      try {
+        const { data: participants } = await supabase
+          .from('conversation_participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId);
+        const other = (participants || []).find(p => p.user_id !== userId);
+        if (other) otherUserId = other.user_id;
+      } catch {
+        // Fallback without participant query
+      }
+
+      // Check if current user has cryptographic identity
+      let myIdentity = null;
+      let sharedSessionKey = null;
+      if (userId && otherUserId) {
+        try {
+          myIdentity = await getOrCreateDeviceIdentity(userId);
+          const otherKeyRecord = await fetchRecipientPublicKey(otherUserId);
+          if (myIdentity?.keyPair?.privateKey && otherKeyRecord?.publicKeyJwk) {
+            sharedSessionKey = await deriveSharedSessionKey(
+              myIdentity.keyPair.privateKey,
+              otherKeyRecord.publicKeyJwk,
+              conversationId
+            );
+          }
+        } catch (err) {
+          console.warn('Session key derivation notice:', err.message);
+        }
+      }
+
+      return await Promise.all((data || []).map(async (m) => {
+        const sec = parseMessageSecurity(m);
+        let displayText = m.content;
+        let isDecrypted = false;
+        let isKeyMissing = false;
+
+        if (sec.isEncrypted && sec.payload) {
+          if (sharedSessionKey) {
+            try {
+              displayText = await decryptDirectMessage(sec.payload, sharedSessionKey);
+              isDecrypted = true;
+            } catch (decErr) {
+              console.warn('Decryption tag mismatch or error:', decErr.message);
+              displayText = '[Encrypted message - could not verify authentication tag]';
+              isKeyMissing = true;
+            }
+          } else {
+            displayText = '[Encrypted message - key not registered on this device]';
+            isKeyMissing = true;
+          }
+        }
+
+        return {
+          id: m.id,
+          conversationId: m.conversation_id,
+          senderId: m.sender_id,
+          senderName: m.sender_name,
+          senderHandle: m.sender_handle,
+          content: displayText,
+          attachments: m.attachments || [],
+          deliveryStatus: m.delivery_status || 'sent',
+          createdAt: m.created_at,
+          isMine: m.sender_id === userId,
+          isEncrypted: sec.isEncrypted,
+          isDecrypted,
+          isKeyMissing,
+          isLegacy: sec.isLegacy,
+          securityBadge: sec.badge
+        };
       }));
     } catch (err) {
       console.warn('Get messages note:', err.message);
@@ -262,8 +330,42 @@ export async function respondToConversationRequest(conversationId, action, user)
 
 // -----------------------------------------------------------------------------
 // SEND MESSAGE IN AN EXISTING CONVERSATION
+// Supports both typed options object and legacy positional contracts
 // -----------------------------------------------------------------------------
-export async function sendMessage(conversationId, content, attachments = [], sender) {
+export async function sendMessage(arg1, arg2, arg3, arg4) {
+  let conversationId;
+  let content = '';
+  let attachments = [];
+  let sender = null;
+
+  // Case 1: Typed Request Object { conversationId, content, attachments, sender }
+  if (typeof arg1 === 'object' && arg1 !== null && !Array.isArray(arg1) && (arg1.conversationId || arg1.content !== undefined || arg1.sender)) {
+    conversationId = arg1.conversationId;
+    content = arg1.content || '';
+    attachments = Array.isArray(arg1.attachments) ? arg1.attachments : [];
+    sender = arg1.sender;
+  } else {
+    // Case 2: Positional Call
+    conversationId = arg1;
+
+    // Detect inverted call: sendMessage(conversationId, userObj, contentStr, attachmentsArr)
+    if (typeof arg2 === 'object' && arg2 !== null && (arg2.uid || arg2.id)) {
+      sender = arg2;
+      content = arg3 || '';
+      attachments = Array.isArray(arg4) ? arg4 : [];
+    } else if (typeof arg2 === 'string' && typeof arg3 === 'string') {
+      // Called with (conversationId, senderIdString, contentString, attachmentsArr)
+      sender = { uid: arg2, displayName: 'User', handle: 'user' };
+      content = arg3;
+      attachments = Array.isArray(arg4) ? arg4 : [];
+    } else {
+      // Standard signature: sendMessage(conversationId, content, attachments, sender)
+      content = arg2 || '';
+      attachments = Array.isArray(arg3) ? arg3 : [];
+      sender = arg4;
+    }
+  }
+
   if (!sender || sender.isAnonymous) {
     throw new Error('Please sign in or save an account to send messages.');
   }
@@ -275,6 +377,40 @@ export async function sendMessage(conversationId, content, attachments = [], sen
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      // Determine recipient ID and check for cryptographic device key
+      let isEncrypted = false;
+      let storedContent = cleanText;
+      let previewSnippet = cleanText || (attachments.length > 0 ? 'Sent an attachment' : '');
+
+      try {
+        const { data: participants } = await supabase
+          .from('conversation_participants')
+          .select('user_id')
+          .eq('conversation_id', conversationId);
+        const recipient = (participants || []).find(p => p.user_id !== sender.uid);
+
+        if (recipient?.user_id) {
+          const recipientKeyRecord = await fetchRecipientPublicKey(recipient.user_id);
+          if (recipientKeyRecord?.publicKeyJwk) {
+            const myIdentity = await getOrCreateDeviceIdentity(sender.uid);
+            if (myIdentity?.keyPair?.privateKey) {
+              const sharedKey = await deriveSharedSessionKey(
+                myIdentity.keyPair.privateKey,
+                recipientKeyRecord.publicKeyJwk,
+                conversationId
+              );
+              const encryptedPayload = await encryptDirectMessage(cleanText, sharedKey);
+              storedContent = JSON.stringify(encryptedPayload);
+              isEncrypted = true;
+              // Guard preview text: do not leak plaintext to unauthenticated observers
+              previewSnippet = '🔒 Encrypted message';
+            }
+          }
+        }
+      } catch (cryptoErr) {
+        console.warn('E2EE key negotiation notice, standard transport used:', cryptoErr.message);
+      }
+
       // 1. Insert message
       const { data: msg, error: msgErr } = await supabase
         .from('messages')
@@ -283,9 +419,10 @@ export async function sendMessage(conversationId, content, attachments = [], sen
           sender_id: sender.uid,
           sender_name: sender.displayName || 'Sender',
           sender_handle: sender.handle || 'sender',
-          content: cleanText,
+          content: storedContent,
           attachments: attachments || [],
-          delivery_status: 'delivered'
+          delivery_status: 'delivered',
+          is_encrypted: isEncrypted
         })
         .select()
         .single();
@@ -296,7 +433,7 @@ export async function sendMessage(conversationId, content, attachments = [], sen
       await supabase
         .from('conversations')
         .update({
-          last_message_text: cleanText || (attachments.length > 0 ? 'Sent an attachment' : ''),
+          last_message_text: previewSnippet,
           last_message_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -315,11 +452,14 @@ export async function sendMessage(conversationId, content, attachments = [], sen
         senderId: msg.sender_id,
         senderName: msg.sender_name,
         senderHandle: msg.sender_handle,
-        content: msg.content,
+        content: cleanText, // Return decrypted plaintext to sender UI
         attachments: msg.attachments || [],
         deliveryStatus: msg.delivery_status,
         createdAt: msg.created_at,
-        isMine: true
+        isMine: true,
+        isEncrypted,
+        isDecrypted: isEncrypted,
+        securityBadge: isEncrypted ? 'E2EE (Web Crypto AES-GCM-256)' : 'Legacy Plaintext'
       };
     } catch (err) {
       console.error('Send message failed:', err);

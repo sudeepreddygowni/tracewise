@@ -33,6 +33,7 @@ import { STARTER_PROJECTS } from '../data/starterProjects';
 import { useProject } from '../store/useProjectStore';
 import { SafeMarkdown } from '../components/studio/SafeMarkdown';
 import { CREATOR_CONFIG } from '../config/creatorConfig';
+import { SignalPathFooter } from '../components/layout/SignalPathFooter';
 import { planProjectFromPrompt, detectUnsupportedHardware } from '../domain/projectBuilder/projectPlanner';
 
 export function HomePage() {
@@ -288,26 +289,24 @@ export function HomePage() {
         <div className="container-tw" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ maxWidth: '960px', width: '100%', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
-            {/* Main Headline */}
-            <AnimatedContent trigger="mount" distance={35} delay={0.1} duration={0.8}>
-              <h1
-                style={{
-                  fontSize: 'clamp(2.9rem, 5.6vw, 4.8rem)',
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  letterSpacing: '-0.045em',
-                  lineHeight: 1.08,
-                  maxWidth: '920px',
-                  margin: '0 auto',
-                  textAlign: 'center',
-                  textShadow: '0 4px 30px rgba(7, 24, 49, 0.7)'
-                }}
-              >
-                Make the circuit.
-                <br />
-                Understand every change.
-              </h1>
-            </AnimatedContent>
+            {/* Main Headline - Rendered directly for instant LCP without mount opacity delay */}
+            <h1
+              style={{
+                fontSize: 'clamp(2.9rem, 5.6vw, 4.8rem)',
+                fontWeight: 700,
+                color: '#ffffff',
+                letterSpacing: '-0.045em',
+                lineHeight: 1.08,
+                maxWidth: '920px',
+                margin: '0 auto',
+                textAlign: 'center',
+                textShadow: '0 4px 30px rgba(7, 24, 49, 0.7)'
+              }}
+            >
+              Make the circuit.
+              <br />
+              Understand every change.
+            </h1>
 
             {/* Supporting Copy */}
             <AnimatedContent trigger="mount" distance={30} delay={0.2} duration={0.8}>
@@ -955,162 +954,9 @@ export function HomePage() {
       </section>
 
       {/* =========================================================================
-          SECTION 8: FOOTER — BRANDING, NAVIGATION, CREATOR & COPYRIGHT
+          SECTION 8: SIGNAL PATH INTERACTIVE FOOTER
       ========================================================================= */}
-      <footer style={{ backgroundColor: '#071831', borderTop: '1px solid rgba(74, 167, 242, 0.18)', padding: '54px 0 34px', color: '#94a3b8' }}>
-        <div className="container-tw" style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
-          
-          {/* Main Footer Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '32px' }}>
-            
-            {/* Left: Brand & Description */}
-            <div style={{ maxWidth: '380px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                <img
-                  src="/assets/brand/tracewise-logo-light.png"
-                  alt="Tracewise"
-                  style={{ height: '34px', width: 'auto', display: 'block', objectFit: 'contain' }}
-                />
-              </div>
-              <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.6, margin: 0 }}>
-                AI-assisted electronics, robotics, and circuit engineering platform for students. Prototype, simulate, code, and prepare winning science fair presentations.
-              </p>
-            </div>
-
-            {/* Center: Real Working Navigation */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Engineering Platform
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.86rem' }}>
-                <Link to="/app" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
-                  Studio & Simulation
-                </Link>
-                <Link to="/projects" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
-                  Student Projects
-                </Link>
-                <Link to="/community" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
-                  Community & Groups
-                </Link>
-                <Link to="/app/pitch" style={{ color: '#cbd5e1', textDecoration: 'none', transition: 'color 0.15s ease' }}>
-                  Pitch Lab & Rehearsal
-                </Link>
-              </div>
-            </div>
-
-            {/* Right: Creator & Verified Contacts */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '240px' }}>
-              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Creator & Authorship
-              </div>
-              <div style={{ fontSize: '0.94rem', fontWeight: 700, color: '#ffffff' }}>
-                Created by {CREATOR_CONFIG.name}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '2px' }}>
-                <a
-                  href={`mailto:${CREATOR_CONFIG.email}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '7px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.16)',
-                    color: '#f8fafc',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                    wordBreak: 'break-word',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.14)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
-                >
-                  <Mail size={14} style={{ flexShrink: 0 }} />
-                  <span>{CREATOR_CONFIG.email}</span>
-                </a>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <a
-                    href={CREATOR_CONFIG.githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '7px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.16)',
-                      color: '#f8fafc',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.14)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
-                  >
-                    <Github size={14} />
-                    <span>GitHub @sudeepreddygowni</span>
-                  </a>
-
-                  {CREATOR_CONFIG.linkedinUrl && (
-                    <a
-                      href={CREATOR_CONFIG.linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '7px 12px',
-                        borderRadius: '8px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                        border: '1px solid rgba(255, 255, 255, 0.16)',
-                        color: '#f8fafc',
-                        fontSize: '0.8rem',
-                        fontWeight: 600,
-                        textDecoration: 'none',
-                        transition: 'all 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.14)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
-                    >
-                      <Linkedin size={14} />
-                      <span>LinkedIn @sudeepreddy</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Copyright & Rights Row */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              paddingTop: '20px',
-              fontSize: '0.78rem',
-              flexWrap: 'wrap',
-              gap: '12px',
-              color: '#64748b'
-            }}
-          >
-            <div>
-              © 2026 Sudeep Reddy. All rights reserved.
-            </div>
-            <div>
-              Tracewise original software & architecture. Third-party open-source components and simulator runtimes remain property of their respective authors.
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SignalPathFooter />
 
       {/* =========================================================================
           HOMEPAGE ASSISTANT & HELP MODAL (Preserves Homepage, No Forced Project)

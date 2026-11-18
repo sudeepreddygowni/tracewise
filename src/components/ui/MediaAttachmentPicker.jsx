@@ -8,7 +8,8 @@ export function MediaAttachmentPicker({
   onChange,
   userId = null,
   disabled = false,
-  maxAttachments = MAX_ATTACHMENTS_PER_POST
+  maxAttachments = MAX_ATTACHMENTS_PER_POST,
+  category = 'community'
 }) {
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -48,6 +49,7 @@ export function MediaAttachmentPicker({
       for (let i = 0; i < filesToUpload.length; i++) {
         const f = filesToUpload[i];
         const res = await uploadMediaAttachment(f, userId, {
+          category,
           onProgress: (p) => setUploadProgress(Math.round(((i + (p / 100)) / filesToUpload.length) * 100))
         });
         uploadedResults.push(res);

@@ -1,0 +1,56 @@
+{
+  "historicalRevision": {
+    "commit": "6aba8ba6f5c5ebf4fea4bf19faf5421d1a38cd77",
+    "shortCommit": "6aba8ba",
+    "date": "2026-11-15T21:05:55+05:30",
+    "deploymentUrl": "https://tracewise-yiic9-before.vercel.app",
+    "vercelProjectId": "prj_KmDWB8hDR6HUVOSwyvXmBkrhEQNH",
+    "vercelProjectName": "tracewise-yiic9-before",
+    "isolationStatus": "Completely separate Vercel project, isolated Git worktree, no production keys or real user records connected."
+  },
+  "currentProduction": {
+    "commit": "644d7baabf3863f9c05dec3413a83b0a7dd6e116",
+    "deploymentUrl": "https://tracewise-nine.vercel.app",
+    "vercelProjectId": "prj_8ny8tYuButXWUxhbgSM9WueEW2QH",
+    "vercelProjectName": "tracewise",
+    "verifiedUntouched": true
+  },
+  "captureDate": "2026-11-18T10:49:00+05:30",
+  "screenshotPairs": [
+    {
+      "category": "Landing Page Hero & Global Navigation",
+      "desktopViewport": "1280x800",
+      "before": "before_home_desktop.png",
+      "after": "after_home_desktop.png",
+      "notes": "Historical version had mountain photography backdrop and cluttered navigation; current version features engineering digital code matrix, clean centered navigation, and refined value proposition."
+    },
+    {
+      "category": "Projects / Starter Explorer",
+      "desktopViewport": "1280x800",
+      "before": "before_projects_desktop.png",
+      "after": "after_projects_desktop.png",
+      "notes": "Historical version had schematic illustrations with only fork/open actions; current version introduces editorial studio-lit hardware photography, community publishing, and category filtering."
+    },
+    {
+      "category": "Studio & Circuit Simulation Laboratory",
+      "desktopViewport": "1280x800",
+      "before": "before_studio_desktop.png",
+      "after": "after_studio_desktop.png",
+      "notes": "Historical version was purely static with 5 components and 0 simulation capability; current version features interactive ATmega328P AVR simulation engine, 33-component library, live clock, serial monitor, and multi-target compiler."
+    },
+    {
+      "category": "Creator Attribution & Footer",
+      "desktopViewport": "1280x800",
+      "before": "before_footer_desktop.png",
+      "after": "after_footer_desktop.png",
+      "notes": "Historical version was an anonymous minimal strip; current version features complete creator attribution for Sudeep Reddy, verified contact links (email, GitHub, LinkedIn), and copyright notices."
+    },
+    {
+      "category": "Mobile Usability",
+      "mobileViewport": "390x844",
+      "before": "before_home_mobile.png",
+      "after": "after_home_mobile.png",
+      "notes": "Historical version had basic hamburger and scaling issues; current version features responsive code background, floating mobile pill navigation, 44x44px touch targets, and zero horizontal page overflow."
+    }
+  ]
+}

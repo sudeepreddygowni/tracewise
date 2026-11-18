@@ -1555,7 +1555,7 @@ export async function searchCommunity({ query = '', type = 'all', limitCount = 2
     // Add sample public contributors if empty
     if (results.people.length === 0) {
       const publicContributors = [
-        { id: 'usr-sudeep', displayName: 'Sudeep Reddy', handle: 'sudeepreddy', role: 'creator', bio: 'Founder & Lead Architect at TraceWise.', linkedinUrl: 'https://linkedin.com/in/sudeepreddy' },
+        { id: 'usr-sudeep', displayName: 'Sudeep Reddy', handle: 'sudeepreddy', role: 'creator', bio: 'Founder & Lead Architect at TraceWise.', linkedinUrl: 'https://www.linkedin.com/in/sudeepreddygowni/' },
         { id: 'usr-alex', displayName: 'Alex Rivera', handle: 'alex_circuits', role: 'student', bio: 'High-school robotics lead and Arduino tinkerer.', linkedinUrl: null },
         { id: 'usr-maya', displayName: 'Maya Patel', handle: 'maya_robotics', role: 'student', bio: 'Electronics enthusiast focused on autonomous rovers.', linkedinUrl: null }
       ];

@@ -1,0 +1,16 @@
+# Tracewise robots.txt
+User-agent: *
+Allow: /
+Allow: /projects
+Allow: /community
+Allow: /learn
+
+# Protect private workspaces, user messages, and personal settings from search crawlers
+Disallow: /app/
+Disallow: /messages/
+Disallow: /settings/
+Disallow: /profile/edit/
+Disallow: /reset-password/
+
+# Host configuration
+Host: https://tracewise-nine.vercel.app

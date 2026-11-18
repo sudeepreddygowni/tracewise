@@ -16,7 +16,9 @@ import {
   Users,
   Paperclip,
   ExternalLink,
-  Ban
+  Ban,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../store/useAuthStore';
 import { supabase } from '../services/supabase';
@@ -210,7 +212,12 @@ export function MessagesPage() {
     setAttachments([]);
 
     try {
-      const saved = await sendMessage(activeConvId, user.uid, pendingText, pendingAttachments);
+      const saved = await sendMessage({
+        conversationId: activeConvId,
+        content: pendingText,
+        attachments: pendingAttachments,
+        sender: user
+      });
       setMessages(prev => prev.map(m => m.id === tempId ? { ...saved, isMine: true } : m));
       // Refresh conversation list to bump recent message
       loadConversations();
@@ -678,9 +685,29 @@ export function MessagesPage() {
                         )}
                       </div>
                       <div>
-                        <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#172033', margin: 0 }}>
-                          {activeConv.otherUser?.name}
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#172033', margin: 0 }}>
+                            {activeConv.otherUser?.name}
+                          </h3>
+                          <span
+                            title="Direct messages are protected with Web Crypto AES-256-GCM authenticated encryption."
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              color: '#059669',
+                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                              border: '1px solid rgba(16, 185, 129, 0.25)',
+                              borderRadius: '12px',
+                              padding: '1px 7px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <ShieldCheck size={11} />
+                            <span>E2EE (AES-GCM-256)</span>
+                          </span>
+                        </div>
                         <span style={{ fontSize: '0.76rem', color: '#64748B' }}>
                           @{activeConv.otherUser?.handle}
                         </span>
@@ -872,6 +899,16 @@ export function MessagesPage() {
                               }}
                             >
                               <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {m.isEncrypted && (
+                                <span title="End-to-End Encrypted with AES-GCM-256" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#059669', marginLeft: '2px' }}>
+                                  <Lock size={10} />
+                                </span>
+                              )}
+                              {m.isLegacy && (
+                                <span title="Legacy message" style={{ fontSize: '0.65rem', color: '#94A3B8', marginLeft: '2px' }}>
+                                  (Legacy)
+                                </span>
+                              )}
                               {isMine && (
                                 <span>
                                   {m.deliveryStatus === 'read' ? (
@@ -906,6 +943,7 @@ export function MessagesPage() {
                       onChange={setAttachments}
                       userId={user?.uid}
                       disabled={sending}
+                      category="direct_message"
                     />
 
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

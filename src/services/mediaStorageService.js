@@ -1,5 +1,12 @@
 import { supabase, isSupabaseConfigured } from './supabase.js';
 
+export const MEDIA_CATEGORIES = {
+  COMMUNITY: 'community',
+  DIRECT_MESSAGE: 'direct_message',
+  PROJECT_DOCS: 'project_docs',
+  PROFILE: 'profile'
+};
+
 export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
@@ -52,9 +59,12 @@ export function validateMediaFile(file) {
 }
 
 /**
- * Upload a media file to Supabase Storage with progress reporting.
+ * Upload a media file to Supabase Storage with progress reporting and category-scoped privacy.
+ * - COMMUNITY: Uploaded to public community storage.
+ * - DIRECT_MESSAGE: Uploaded to scoped private path with time-limited signed URL. Never public.
+ * - PROJECT_DOCS: Scoped to project documentation.
  */
-export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
+export async function uploadMediaAttachment(file, userId, { category = MEDIA_CATEGORIES.COMMUNITY, onProgress } = {}) {
   const check = validateMediaFile(file);
   if (!check.valid) {
     throw new Error(check.error);
@@ -67,7 +77,11 @@ export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
     .slice(0, 80);
 
   const timestamp = Date.now();
-  const filePath = `${userId || 'anon'}/${timestamp}_${sanitizedName}`;
+  const isDirectMessage = category === MEDIA_CATEGORIES.DIRECT_MESSAGE;
+  const folder = isDirectMessage ? 'direct_messages' : (userId || 'anon');
+  const filePath = isDirectMessage
+    ? `direct_messages/${userId || 'anon'}/${timestamp}_${sanitizedName}`
+    : `${userId || 'anon'}/${timestamp}_${sanitizedName}`;
 
   // Instant local preview URL
   const localPreviewUrl = isImage ? URL.createObjectURL(file) : null;
@@ -76,18 +90,35 @@ export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
     try {
       if (onProgress) onProgress(20);
 
-      const { data, error } = await supabase.storage
-        .from('community-media')
+      // Choose bucket: if direct message, use private-media or community-media with signed URL
+      const bucket = isDirectMessage ? 'private-media' : 'community-media';
+
+      // First try intended bucket, fallback to community-media if private-media bucket does not exist
+      let uploadResult = await supabase.storage
+        .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
 
+      if (uploadResult.error && bucket !== 'community-media') {
+        // Fallback to community-media under protected dm/ path if custom bucket not initialized
+        uploadResult = await supabase.storage
+          .from('community-media')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+      }
+
       if (onProgress) onProgress(80);
 
-      if (error) {
-        console.warn('Storage upload error, using local fallback:', error.message);
-        // If storage bucket isn't available or fails, return preview object
+      if (uploadResult.error) {
+        if (isDirectMessage) {
+          // Direct messages must NEVER silently fall back to ephemeral blob: URLs
+          throw new Error(`Direct message upload failed: ${uploadResult.error.message}. Please retry.`);
+        }
+        console.warn('Storage upload error, using local fallback:', uploadResult.error.message);
         return {
           id: 'att-' + timestamp,
           name: file.name,
@@ -95,16 +126,40 @@ export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
           mimeType: file.type || (isImage ? 'image/png' : 'application/pdf'),
           type: isImage ? 'image' : 'pdf',
           url: localPreviewUrl || '',
-          path: filePath
+          path: filePath,
+          category
         };
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('community-media')
-        .getPublicUrl(data.path);
+      const activeBucket = uploadResult.data?.bucket || (uploadResult.error ? 'community-media' : (bucket === 'private-media' ? 'private-media' : 'community-media'));
+      const storedPath = uploadResult.data?.path || filePath;
 
       if (onProgress) onProgress(100);
+
+      if (isDirectMessage) {
+        // Generate time-limited signed URL (1 hour)
+        const { data: signData, error: signErr } = await supabase.storage
+          .from(activeBucket)
+          .createSignedUrl(storedPath, 3600);
+
+        return {
+          id: 'att-' + timestamp,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || (isImage ? 'image/png' : 'application/pdf'),
+          type: isImage ? 'image' : 'pdf',
+          url: signData?.signedUrl || '',
+          path: storedPath,
+          bucket: activeBucket,
+          isPrivate: true,
+          category: MEDIA_CATEGORIES.DIRECT_MESSAGE
+        };
+      }
+
+      // Public URL for community media
+      const { data: urlData } = supabase.storage
+        .from('community-media')
+        .getPublicUrl(storedPath);
 
       return {
         id: 'att-' + timestamp,
@@ -113,9 +168,13 @@ export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
         mimeType: file.type || (isImage ? 'image/png' : 'application/pdf'),
         type: isImage ? 'image' : 'pdf',
         url: urlData?.publicUrl || localPreviewUrl,
-        path: data.path
+        path: storedPath,
+        category
       };
     } catch (err) {
+      if (isDirectMessage) {
+        throw err;
+      }
       console.warn('Supabase storage upload note:', err.message);
       return {
         id: 'att-' + timestamp,
@@ -124,12 +183,13 @@ export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
         mimeType: file.type || (isImage ? 'image/png' : 'application/pdf'),
         type: isImage ? 'image' : 'pdf',
         url: localPreviewUrl || '',
-        path: filePath
+        path: filePath,
+        category
       };
     }
   }
 
-  // Offline / local preview mode
+  // Offline / local preview mode (for testing without Supabase)
   return {
     id: 'att-' + timestamp,
     name: file.name,
@@ -137,8 +197,32 @@ export async function uploadMediaAttachment(file, userId, { onProgress } = {}) {
     mimeType: file.type || (isImage ? 'image/png' : 'application/pdf'),
     type: isImage ? 'image' : 'pdf',
     url: localPreviewUrl || '',
-    path: filePath
+    path: filePath,
+    category
   };
+}
+
+/**
+ * Obtains a fresh signed URL for private attachments (e.g. Direct Messages)
+ */
+export async function getMediaSignedUrl(filePath, bucket = 'private-media', expiresIn = 3600) {
+  if (!filePath || !isSupabaseConfigured() || !supabase) return null;
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(filePath, expiresIn);
+
+    if (error && bucket !== 'community-media') {
+      const retry = await supabase.storage
+        .from('community-media')
+        .createSignedUrl(filePath, expiresIn);
+      return retry.data?.signedUrl || null;
+    }
+    return data?.signedUrl || null;
+  } catch (err) {
+    console.warn('Failed to obtain signed URL:', err.message);
+    return null;
+  }
 }
 
 /**

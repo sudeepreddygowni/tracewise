@@ -508,7 +508,7 @@ export function ProjectDetailPage() {
 
         {/* TAB 1: OVERVIEW & PRINCIPLE */}
         {activeTab === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>
             {/* Left Column: Problem, Solution, Working Principle */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ backgroundColor: '#0a1f40', border: '1px solid rgba(45, 197, 233, 0.22)', borderRadius: '16px', padding: '24px' }}>

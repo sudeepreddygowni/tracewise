@@ -747,7 +747,7 @@ export function CommunityPage() {
                 </TracewiseBubbleButton>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                 {(debouncedQuery ? searchResults.groups : groups).map((group) => {
                   const isJoined = joinedGroupIds.has(group.id);
                   const isActionLoading = groupActionLoading === group.id;
@@ -855,7 +855,7 @@ export function CommunityPage() {
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                 {searchResults.people.map((person) => (
                   <div
                     key={person.id}
@@ -974,7 +974,7 @@ export function CommunityPage() {
                 </TracewiseBubbleButton>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                 {(debouncedQuery ? searchResults.projects : publishedProjects).map((proj) => {
                   const isAuthor = user && (proj.authorId === user.uid || proj.author_id === user.uid);
                   const compCount = (proj.projectData?.components || []).length;

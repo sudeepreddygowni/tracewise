@@ -122,84 +122,112 @@ export function ProjectsPage() {
             </div>
 
             {/* Detailed Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px', marginTop: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '24px', marginTop: '24px' }}>
               {filtered.map((starter) => (
                 <div
                   key={starter.id}
                   className="glass-card"
                   style={{
-                    padding: '24px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    gap: '16px',
-                    borderRadius: '20px'
+                    borderRadius: '20px',
+                    overflow: 'hidden'
                   }}
                 >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span
+                  {starter.thumbnail && (
+                    <div style={{ width: '100%', height: '160px', overflow: 'hidden', backgroundColor: '#071831', position: 'relative' }}>
+                      <img
+                        src={starter.thumbnail}
+                        alt={starter.title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        loading="lazy"
+                      />
+                      <div
                         style={{
-                          fontSize: '0.74rem',
+                          position: 'absolute',
+                          top: 10,
+                          left: 10,
+                          backgroundColor: 'rgba(7, 24, 49, 0.75)',
+                          backdropFilter: 'blur(4px)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.72rem',
                           fontWeight: 700,
-                          color: 'var(--tw-brand)',
-                          background: 'var(--tw-brand-soft)',
-                          padding: '4px 10px',
-                          borderRadius: '12px'
+                          color: '#38bdf8'
                         }}
                       >
                         {starter.category}
-                      </span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>
-                        Level: <b>{starter.level}</b>
-                      </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ padding: '20px 22px 22px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: '16px' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            fontWeight: 700,
+                            color: 'var(--tw-brand)',
+                            background: 'var(--tw-brand-soft)',
+                            padding: '4px 10px',
+                            borderRadius: '12px'
+                          }}
+                        >
+                          {starter.category}
+                        </span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--tw-text-muted)' }}>
+                          Level: <b>{starter.level}</b>
+                        </span>
+                      </div>
+
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '8px', fontFamily: 'var(--font-display)' }}>
+                        {starter.title}
+                      </h3>
+                      <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5 }}>
+                        {starter.description}
+                      </p>
                     </div>
 
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--tw-text)', marginBottom: '8px', fontFamily: 'var(--font-display)' }}>
-                      {starter.title}
-                    </h3>
-                    <p style={{ fontSize: '0.88rem', color: 'var(--tw-text-secondary)', lineHeight: 1.5 }}>
-                      {starter.description}
-                    </p>
-                  </div>
+                    {/* Technical specs pill */}
+                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem', color: 'var(--tw-text-muted)', paddingTop: '10px', borderTop: '1px solid var(--tw-border)' }}>
+                      <span>{(starter.components || []).length} Components</span>
+                      <span>•</span>
+                      <span>{(starter.connections || []).length} Wires</span>
+                      <span>•</span>
+                      <span>Arduino Uno R3</span>
+                    </div>
 
-                  {/* Technical specs pill */}
-                  <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem', color: 'var(--tw-text-muted)', paddingTop: '10px', borderTop: '1px solid var(--tw-border)' }}>
-                    <span>{(starter.components || []).length} Components</span>
-                    <span>•</span>
-                    <span>{(starter.connections || []).length} Wires</span>
-                    <span>•</span>
-                    <span>Arduino Uno R3</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <TracewiseBubbleButton
-                      onClick={() => handleFork(starter)}
-                      variant="secondary"
-                      size="sm"
-                      style={{ flex: 1 }}
-                    >
-                      <GitFork size={14} />
-                      <span>Fork Remix</span>
-                    </TracewiseBubbleButton>
-                    <TracewiseBubbleButton
-                      onClick={() => handleOpen(starter)}
-                      variant="primary"
-                      size="sm"
-                      style={{ flex: 1 }}
-                    >
-                      <Play size={14} />
-                      <span>Open Circuit</span>
-                    </TracewiseBubbleButton>
-                    <TracewiseBubbleButton
-                      onClick={() => setPublishModalProject(starter)}
-                      variant="ghost"
-                      size="sm"
-                      title="Publish this starter to Community"
-                      style={{ padding: '6px 10px', minHeight: '36px' }}
-                    >
-                      <Globe size={15} color="var(--tw-brand)" />
-                    </TracewiseBubbleButton>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <TracewiseBubbleButton
+                        onClick={() => handleFork(starter)}
+                        variant="secondary"
+                        size="sm"
+                        style={{ flex: 1, minWidth: '100px' }}
+                      >
+                        <GitFork size={14} />
+                        <span>Fork Remix</span>
+                      </TracewiseBubbleButton>
+                      <TracewiseBubbleButton
+                        onClick={() => handleOpen(starter)}
+                        variant="primary"
+                        size="sm"
+                        style={{ flex: 1, minWidth: '100px' }}
+                      >
+                        <Play size={14} />
+                        <span>Open Circuit</span>
+                      </TracewiseBubbleButton>
+                      <TracewiseBubbleButton
+                        onClick={() => setPublishModalProject(starter)}
+                        variant="ghost"
+                        size="sm"
+                        title="Publish this starter to Community"
+                        style={{ padding: '6px 10px', minHeight: '36px' }}
+                      >
+                        <Globe size={15} color="var(--tw-brand)" />
+                      </TracewiseBubbleButton>
+                    </div>
                   </div>
                 </div>
               ))}

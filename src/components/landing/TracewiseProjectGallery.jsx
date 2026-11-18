@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FanGallery } from '../fan-gallery';
 import { ArrowRight, GitFork, Play } from 'lucide-react';
@@ -10,29 +10,24 @@ export function TracewiseProjectGallery() {
   const navigate = useNavigate();
   const { forkActive, loadProject } = useProject();
   const [selectedStarter, setSelectedStarter] = useState(STARTER_PROJECTS[0]);
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
 
-  const items = [
-    {
-      src: '/assets/starters/traffic-light.webp',
-      alt: 'Arduino traffic light project'
-    },
-    {
-      src: '/assets/starters/button-led.webp',
-      alt: 'Arduino LED and push button project'
-    },
-    {
-      src: '/assets/starters/led-blink.webp',
-      alt: 'Arduino LED blinking project'
-    },
-    {
-      src: '/assets/starters/circuit-code.webp',
-      alt: 'Arduino circuit and code project'
-    },
-    {
-      src: '/assets/starters/project-remix.webp',
-      alt: 'Electronics project remix and comparison'
-    }
-  ];
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Canonical items mapped 1:1 with STARTER_PROJECTS array
+  const items = STARTER_PROJECTS.map((p) => ({
+    src: p.thumbnail,
+    alt: `${p.title} — ${p.category} (${p.level})`
+  }));
+
+  const cardWidth = windowWidth < 480 ? 116 : windowWidth < 768 ? 138 : 162;
+  const lift = windowWidth < 480 ? 28 : 42;
 
   const handleOpenStudio = (starter) => {
     loadProject(starter.id);
@@ -50,15 +45,15 @@ export function TracewiseProjectGallery() {
   return (
     <div style={{ width: '100%', position: 'relative' }}>
       {/* Official Fan Gallery with specified exact settings */}
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0 28px', overflow: 'hidden' }}>
         <FanGallery
           items={items}
-          cardWidth={162}
+          cardWidth={cardWidth}
           aspectRatio={0.8}
           spacing={0.69}
           curve={0.14}
           tilt={14.5}
-          lift={42}
+          lift={lift}
           spread={0.2}
           stackFrom="left"
           speed={0.7}
@@ -84,7 +79,7 @@ export function TracewiseProjectGallery() {
         <div
           className="glass-card"
           style={{
-            padding: '24px 32px',
+            padding: windowWidth < 600 ? '18px 16px' : '24px 32px',
             background: 'rgba(255, 255, 255, 0.9)',
             boxShadow: '0 20px 48px rgba(11, 35, 72, 0.12)',
             display: 'flex',

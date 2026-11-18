@@ -25,11 +25,14 @@ import {
   ChevronDown,
   ExternalLink,
   Github,
+  Mail,
+  Linkedin,
   X
 } from 'lucide-react';
 import { STARTER_PROJECTS } from '../data/starterProjects';
 import { useProject } from '../store/useProjectStore';
 import { SafeMarkdown } from '../components/studio/SafeMarkdown';
+import { CREATOR_CONFIG } from '../config/creatorConfig';
 import { planProjectFromPrompt, detectUnsupportedHardware } from '../domain/projectBuilder/projectPlanner';
 
 export function HomePage() {
@@ -499,7 +502,7 @@ export function HomePage() {
           </AnimatedContent>
 
           <TracewiseBubbleArea theme="dark">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>
               {/* Path 1: Starter Circuits */}
               <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRadius: '24px', backgroundColor: '#0a1f40', border: '1px solid rgba(74, 167, 242, 0.25)', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
                 <div>
@@ -643,7 +646,7 @@ export function HomePage() {
               </div>
 
               {/* Split Diffs View */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '24px' }}>
                 {/* Left: Circuit Delta */}
                 <div style={{ background: '#0b2348', padding: '20px', borderRadius: '16px', border: '1px solid rgba(74, 167, 242, 0.2)' }}>
                   <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--tw-cyan)', marginBottom: '12px' }}>
@@ -996,36 +999,91 @@ export function HomePage() {
             </div>
 
             {/* Right: Creator & Verified Contacts */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '240px' }}>
               <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Creator & Authorship
               </div>
               <div style={{ fontSize: '0.94rem', fontWeight: 700, color: '#ffffff' }}>
-                Created by Sudeep Reddy
+                Created by {CREATOR_CONFIG.name}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '2px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '2px' }}>
                 <a
-                  href="https://github.com/sudeepreddygowni"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={`mailto:${CREATOR_CONFIG.email}`}
                   style={{
-                    display: 'flex',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
+                    gap: '8px',
+                    padding: '7px 12px',
                     borderRadius: '8px',
                     backgroundColor: 'rgba(255, 255, 255, 0.08)',
                     border: '1px solid rgba(255, 255, 255, 0.16)',
                     color: '#f8fafc',
-                    fontSize: '0.8rem',
+                    fontSize: '0.82rem',
                     fontWeight: 600,
                     textDecoration: 'none',
+                    wordBreak: 'break-word',
                     transition: 'all 0.15s ease'
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.14)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
                 >
-                  <Github size={14} />
-                  <span>GitHub @sudeepreddygowni</span>
+                  <Mail size={14} style={{ flexShrink: 0 }} />
+                  <span>{CREATOR_CONFIG.email}</span>
                 </a>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <a
+                    href={CREATOR_CONFIG.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.16)',
+                      color: '#f8fafc',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.14)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                  >
+                    <Github size={14} />
+                    <span>GitHub @sudeepreddygowni</span>
+                  </a>
+
+                  {CREATOR_CONFIG.linkedinUrl && (
+                    <a
+                      href={CREATOR_CONFIG.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '7px 12px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                        border: '1px solid rgba(255, 255, 255, 0.16)',
+                        color: '#f8fafc',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.14)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                    >
+                      <Linkedin size={14} />
+                      <span>LinkedIn @sudeepreddy</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>

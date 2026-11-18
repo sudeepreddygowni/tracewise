@@ -109,6 +109,8 @@ export interface FanGalleryItem {
 }
 export interface FanGalleryProps extends Partial<FanOptions> {
   items: FanGalleryItem[];
+  /** Callback fired when a card is selected/clicked/focused with its index. */
+  onSelect?: (index: number) => void;
   /**
    * How cards arrive: a closed stack opening like a swatch book (stack),
    * thrown from a deck (deal), rising from below (rise), flipped in place
@@ -182,6 +184,7 @@ export const FanGallery = forwardRef<FanGalleryHandle, FanGalleryProps>(function
     viewportStartUp,
     once = true,
     ariaLabel = 'Fan gallery',
+    onSelect,
     onLayout,
     className = '',
     style,
@@ -293,7 +296,10 @@ export const FanGallery = forwardRef<FanGalleryHandle, FanGalleryProps>(function
               cards.current[i] = node;
             },
             'aria-label': item.alt || `Image ${i + 1}`,
-            onFocus: () => playback.current?.activate(i),
+            onFocus: () => {
+              playback.current?.activate(i);
+              onSelect?.(i);
+            },
             onKeyDown: (event: React.KeyboardEvent) => {
               const next =
                 event.key === 'ArrowRight'
@@ -319,11 +325,27 @@ export const FanGallery = forwardRef<FanGalleryHandle, FanGalleryProps>(function
             <img src={item.src} alt={item.alt} draggable={false} loading="lazy" decoding="async" />
           );
           return item.href ? (
-            <a key={i} {...props} href={item.href}>
+            <a
+              key={i}
+              {...props}
+              href={item.href}
+              onClick={() => {
+                playback.current?.activate(i);
+                onSelect?.(i);
+              }}
+            >
               {image}
             </a>
           ) : (
-            <button key={i} {...props} type="button" onClick={() => playback.current?.activate(i)}>
+            <button
+              key={i}
+              {...props}
+              type="button"
+              onClick={() => {
+                playback.current?.activate(i);
+                onSelect?.(i);
+              }}
+            >
               {image}
             </button>
           );

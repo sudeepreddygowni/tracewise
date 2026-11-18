@@ -82,6 +82,20 @@ export function PhotoReconstructionPage() {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showBoundingBoxes, setShowBoundingBoxes] = useState(true);
 
+  // Responsive mobile state
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
+  );
+  const [mobileSection, setMobileSection] = useState('photo'); // 'photo' | 'layout' | 'review'
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 900;
+
   // Load base project if query param exists
   useEffect(() => {
     if (projectIdParam) {
@@ -205,17 +219,19 @@ export function PhotoReconstructionPage() {
       {/* Top Application Bar */}
       <header
         style={{
-          height: '60px',
+          minHeight: '60px',
           backgroundColor: '#0a1f40',
           borderBottom: '1px solid rgba(45, 197, 233, 0.25)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 24px',
+          padding: isMobile ? '8px 14px' : '0 24px',
+          flexWrap: 'wrap',
+          gap: '10px',
           flexShrink: 0
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '16px', flexWrap: 'wrap' }}>
           <Link
             to={baseProject ? `/app/projects/${baseProject.id}` : '/app'}
             style={{
@@ -237,27 +253,80 @@ export function PhotoReconstructionPage() {
           <div style={{ height: '20px', width: '1px', backgroundColor: 'rgba(255, 255, 255, 0.15)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Camera size={18} color="#38bdf8" />
-            <h1 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: '#ffffff' }}>
-              Photo-to-Project Circuit Reconstruction
+            <h1 style={{ fontSize: isMobile ? '0.94rem' : '1.05rem', fontWeight: 700, margin: 0, color: '#ffffff' }}>
+              {isMobile ? 'Photo Reconstruction' : 'Photo-to-Project Circuit Reconstruction'}
             </h1>
           </div>
         </div>
 
         {/* Generate Project Action */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {analysisResult && (
             <TracewiseBubbleButton
               onClick={handleGenerateProject}
               variant="accent"
               size="sm"
-              style={{ fontWeight: 700, gap: '6px' }}
+              style={{ fontWeight: 700, gap: '6px', fontSize: '0.82rem', padding: '6px 12px' }}
             >
               <Cpu size={14} />
-              <span>Generate Editable Project ({candidates.length} parts) →</span>
+              <span>{isMobile ? `Generate (${candidates.length})` : `Generate Editable Project (${candidates.length} parts) →`}</span>
             </TracewiseBubbleButton>
           )}
         </div>
       </header>
+
+      {/* Mobile 3-Step Segmented Bar */}
+      {isMobile && (
+        <div
+          role="tablist"
+          aria-label="Reconstruction view selector"
+          style={{
+            display: 'flex',
+            backgroundColor: '#071831',
+            borderBottom: '1px solid rgba(74, 167, 242, 0.25)',
+            padding: '6px 8px',
+            gap: '6px',
+            flexShrink: 0
+          }}
+        >
+          {[
+            { id: 'photo', label: '1. Photo', icon: Eye },
+            { id: 'layout', label: '2. Schematic', icon: Layers },
+            { id: 'review', label: `3. Audit (${candidates.length})`, icon: Cpu }
+          ].map(sec => {
+            const Icon = sec.icon;
+            const isActive = mobileSection === sec.id;
+            return (
+              <button
+                key={sec.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setMobileSection(sec.id)}
+                style={{
+                  flex: '1 1 0',
+                  minHeight: '44px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  backgroundColor: isActive ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                  border: isActive ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid transparent',
+                  borderRadius: '8px',
+                  color: isActive ? '#38bdf8' : '#94a3b8',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '6px 8px'
+                }}
+              >
+                <Icon size={14} />
+                <span>{sec.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Main Reconstruction Workspace */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -267,11 +336,11 @@ export function PhotoReconstructionPage() {
         ========================================================================= */}
         <div
           style={{
-            width: '35%',
-            minWidth: '320px',
+            width: isMobile ? '100%' : '35%',
+            minWidth: isMobile ? '0' : '320px',
             backgroundColor: '#071831',
-            borderRight: '1px solid rgba(74, 167, 242, 0.18)',
-            display: 'flex',
+            borderRight: isMobile ? 'none' : '1px solid rgba(74, 167, 242, 0.18)',
+            display: isMobile && mobileSection !== 'photo' ? 'none' : 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
           }}
@@ -502,11 +571,11 @@ export function PhotoReconstructionPage() {
         ========================================================================= */}
         <div
           style={{
-            width: '35%',
-            minWidth: '320px',
+            width: isMobile ? '100%' : '35%',
+            minWidth: isMobile ? '0' : '320px',
             backgroundColor: '#0a1f40',
-            borderRight: '1px solid rgba(74, 167, 242, 0.18)',
-            display: 'flex',
+            borderRight: isMobile ? 'none' : '1px solid rgba(74, 167, 242, 0.18)',
+            display: isMobile && mobileSection !== 'layout' ? 'none' : 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
           }}
@@ -605,8 +674,9 @@ export function PhotoReconstructionPage() {
         <div
           style={{
             flex: 1,
+            width: isMobile ? '100%' : undefined,
             backgroundColor: '#071831',
-            display: 'flex',
+            display: isMobile && mobileSection !== 'review' ? 'none' : 'flex',
             flexDirection: 'column',
             overflow: 'hidden'
           }}

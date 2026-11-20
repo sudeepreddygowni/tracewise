@@ -34,6 +34,7 @@ export async function getPitchPreparation(projectId, user) {
         return {
           brief: data.brief || {},
           pitches: data.pitches || {},
+          slides: data.brief?._presentationSlides || [],
           source: 'supabase'
         };
       }
@@ -55,12 +56,18 @@ export async function getPitchPreparation(projectId, user) {
   }
 }
 
-export async function savePitchPreparation(projectId, { brief, pitches }, user) {
+export async function savePitchPreparation(projectId, { brief, pitches, slides }, user) {
   if (!projectId) return { success: false, status: 'error', message: 'Missing project ID' };
 
+  const enrichedBrief = {
+    ...(brief || {}),
+    ...(slides ? { _presentationSlides: slides } : {})
+  };
+
   const payload = {
-    brief: brief || {},
-    pitches: pitches || {}
+    brief: enrichedBrief,
+    pitches: pitches || {},
+    slides: slides || []
   };
 
   let cloudSuccess = false;

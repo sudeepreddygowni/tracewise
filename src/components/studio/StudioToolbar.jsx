@@ -14,7 +14,8 @@ import {
   Mic,
   MoreVertical,
   X,
-  Globe
+  Globe,
+  Layers
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -33,7 +34,9 @@ export function StudioToolbar({
   onUndo,
   onRedo,
   onUpdateTitle,
-  validation
+  validation,
+  isComponentLibraryOpen = true,
+  onToggleComponentLibrary = null
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project?.title || '');
@@ -178,6 +181,33 @@ export function StudioToolbar({
                 {project?.version?.label || 'v1.0'}
               </span>
             </div>
+          )}
+
+          {/* Component Library Toggle Button */}
+          {onToggleComponentLibrary && (
+            <TracewiseBubbleButton
+              onClick={onToggleComponentLibrary}
+              variant={isComponentLibraryOpen ? 'secondary' : 'primary'}
+              size="sm"
+              title={isComponentLibraryOpen ? "Hide Component Library (expand workspace)" : "Open Component Library (33 parts)"}
+              style={{
+                fontSize: '0.78rem',
+                gap: '6px',
+                padding: '6px 10px',
+                minHeight: '34px',
+                fontWeight: 600,
+                flexShrink: 0,
+                backgroundColor: isComponentLibraryOpen ? '#f1f5f9' : 'var(--tw-brand)',
+                color: isComponentLibraryOpen ? 'var(--tw-text)' : '#ffffff',
+                border: isComponentLibraryOpen ? '1px solid var(--tw-border)' : 'none',
+                boxShadow: isComponentLibraryOpen ? 'none' : '0 2px 8px rgba(30, 63, 216, 0.25)'
+              }}
+            >
+              <Layers size={14} color={isComponentLibraryOpen ? 'var(--tw-brand)' : '#ffffff'} />
+              <span className="hide-on-compact-mobile">
+                {isComponentLibraryOpen ? 'Hide Parts' : 'Show Parts'}
+              </span>
+            </TracewiseBubbleButton>
           )}
         </div>
 

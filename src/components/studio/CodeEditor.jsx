@@ -39,7 +39,7 @@ export function CodeEditor({
 }) {
   const [copied, setCopied] = useState(false);
   const [detectedPins, setDetectedPins] = useState([]);
-  const [showFileExplorer, setShowFileExplorer] = useState(true);
+  const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [newFileModalOpen, setNewFileModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [syntaxNotice, setSyntaxNotice] = useState(null);
@@ -334,20 +334,35 @@ export function CodeEditor({
               onClick={() => setShowFileExplorer(v => !v)}
               style={{
                 padding: '8px 12px',
-                backgroundColor: 'transparent',
+                backgroundColor: showFileExplorer ? 'rgba(56, 189, 248, 0.16)' : 'transparent',
                 border: 'none',
                 borderRight: '1px solid rgba(74, 167, 242, 0.15)',
                 color: showFileExplorer ? '#38bdf8' : '#94a3b8',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.76rem'
+                gap: '6px',
+                fontSize: '0.76rem',
+                fontWeight: showFileExplorer ? 700 : 500,
+                transition: 'all 0.15s ease'
               }}
-              title="Toggle Project Explorer"
+              title="Toggle Project Files Drawer (Overlay)"
+              aria-label="Toggle Project Files"
             >
-              <FolderOpen size={14} />
+              <FolderOpen size={14} color={showFileExplorer ? '#38bdf8' : 'currentColor'} />
               <span>Files</span>
+              <span
+                style={{
+                  fontSize: '0.66rem',
+                  padding: '1px 5px',
+                  borderRadius: '10px',
+                  backgroundColor: showFileExplorer ? '#38bdf8' : 'rgba(148, 163, 184, 0.2)',
+                  color: showFileExplorer ? '#071831' : '#cbd5e1',
+                  fontWeight: 700
+                }}
+              >
+                {projectFiles.length}
+              </span>
             </button>
 
             {projectFiles.map(file => {
@@ -462,80 +477,44 @@ export function CodeEditor({
 
         {/* Editor Main Body */}
         <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
-          
-          {/* File Explorer Sidebar (Collapsible) */}
-          {showFileExplorer && (
-            <div
-              style={{
-                width: '180px',
-                backgroundColor: '#06162d',
-                borderRight: '1px solid rgba(74, 167, 242, 0.15)',
-                display: 'flex',
-                flexDirection: 'column',
-                flexShrink: 0
-              }}
-            >
-              <div style={{ padding: '8px 12px', fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>
-                Project Files
-              </div>
-              <div style={{ flex: 1, overflowY: 'auto' }}>
-                {projectFiles.map(file => (
-                  <div
-                    key={file.path}
-                    onClick={() => setActiveFilePath(file.path)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 12px',
-                      backgroundColor: file.path === activeFilePath ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
-                      color: file.path === activeFilePath ? '#38bdf8' : '#cbd5e1',
-                      fontSize: '0.76rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <FileCode size={12} />
-                      <span>{file.path}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Synchronized Line Numbers */}
           <div
             ref={lineNumbersRef}
             style={{
-              width: '42px',
-              padding: '12px 6px',
+              width: '44px',
+              padding: '12px 6px 56px 6px',
               backgroundColor: '#081e3d',
-              color: '#475569',
-              fontSize: '0.82rem',
+              color: '#64748b',
+              fontSize: '0.84rem',
               lineHeight: '1.6',
+              fontFamily: 'var(--font-code)',
               textAlign: 'right',
               userSelect: 'none',
-              borderRight: '1px solid rgba(74, 167, 242, 0.1)',
+              borderRight: '1px solid rgba(74, 167, 242, 0.12)',
               overflowY: 'hidden',
-              flexShrink: 0
+              flexShrink: 0,
+              boxSizing: 'border-box'
             }}
+            aria-hidden="true"
           >
             {[...Array(lineCount)].map((_, i) => (
-              <div key={i}>{i + 1}</div>
+              <div key={i} style={{ height: '1.6em', lineHeight: '1.6' }}>{i + 1}</div>
             ))}
           </div>
 
-          {/* Textarea Code Input */}
+          {/* Textarea Code Input (Full width, unobstructed) */}
           <textarea
             ref={textareaRef}
             value={currentCode}
             onChange={(e) => handleCodeChange(e.target.value)}
             onScroll={handleScroll}
             spellCheck="false"
+            aria-label="Code Editor"
             style={{
               flex: 1,
-              padding: '12px',
+              width: '100%',
+              height: '100%',
+              padding: '12px 14px 56px 14px',
               backgroundColor: 'transparent',
               color: '#f8fafc',
               fontSize: '0.84rem',
@@ -550,9 +529,178 @@ export function CodeEditor({
               overflowY: 'auto',
               WebkitOverflowScrolling: 'touch',
               touchAction: 'pan-y pan-x',
-              tabSize: 2
+              tabSize: 2,
+              boxSizing: 'border-box'
             }}
           />
+
+          {/* File Explorer Overlay Drawer (Slides in from the right over the editor) */}
+          {showFileExplorer && (
+            <>
+              {/* Overlay Backdrop */}
+              <div
+                onClick={() => setShowFileExplorer(false)}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundColor: 'rgba(7, 24, 49, 0.4)',
+                  backdropFilter: 'blur(1.5px)',
+                  zIndex: 25,
+                  cursor: 'pointer'
+                }}
+                title="Click to close files drawer"
+              />
+
+              {/* Slide-over Drawer Panel */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '240px',
+                  maxWidth: '85%',
+                  backgroundColor: '#06162d',
+                  borderLeft: '1px solid rgba(74, 167, 242, 0.25)',
+                  boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  zIndex: 30,
+                  animation: 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Drawer Header */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    backgroundColor: '#081e3d',
+                    borderBottom: '1px solid rgba(74, 167, 242, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexShrink: 0
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FolderOpen size={15} color="#38bdf8" />
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff', letterSpacing: '0.04em' }}>
+                      PROJECT FILES
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        color: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                        padding: '1px 6px',
+                        borderRadius: '10px'
+                      }}
+                    >
+                      {projectFiles.length}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowFileExplorer(false)}
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '6px',
+                      color: '#cbd5e1',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Close Files Drawer"
+                    aria-label="Close Files Drawer"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+
+                {/* Independent Scrollable File List */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '8px 10px' }}>
+                  {projectFiles.map(file => {
+                    const isActive = file.path === activeFilePath;
+                    return (
+                      <div
+                        key={file.path}
+                        onClick={() => setActiveFilePath(file.path)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          marginBottom: '6px',
+                          borderRadius: '8px',
+                          backgroundColor: isActive ? 'rgba(56, 189, 248, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                          border: isActive ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid transparent',
+                          color: isActive ? '#38bdf8' : '#cbd5e1',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <FileCode size={14} color={file.path.endsWith('.py') ? '#eab308' : '#38bdf8'} />
+                          <span style={{ fontWeight: isActive ? 700 : 400 }}>{file.path}</span>
+                        </div>
+                        {projectFiles.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteFile(file.path, e)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#64748b',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                            title="Delete File"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Drawer Footer Actions */}
+                <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(74, 167, 242, 0.15)', display: 'flex', gap: '8px', flexShrink: 0, backgroundColor: '#071831' }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewFileModalOpen(true)}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(56, 189, 248, 0.14)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      color: '#38bdf8',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Plus size={13} />
+                    <span>New File</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer Bar: Detected Hardware Pins & Validation Action */}

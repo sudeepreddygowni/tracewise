@@ -20,13 +20,16 @@ export function extractProjectContext(project, userBrief = {}) {
 }
 
 /**
- * Adapter 1: Simulated Circuit Context
+ * Adapter 1: Simulated Circuit & Contextual Project Adapter
+ * Supports both full circuits and concept/early-stage projects without circuits.
+ * Never fabricates Arduino Uno / ATmega328P claims when no circuit exists.
  */
 export function buildCircuitPitchContext(project, userBrief = {}) {
-  const components = project.components || [];
-  const connections = project.connections || [];
+  const components = Array.isArray(project.components) ? project.components : [];
+  const connections = Array.isArray(project.connections) ? project.connections : [];
   const code = project.code || '';
   const validation = project.validation || {};
+  const hasCircuit = components.length > 0;
 
   // Component breakdown
   const componentTypes = components.map(c => c.type || c.name);
@@ -48,27 +51,119 @@ export function buildCircuitPitchContext(project, userBrief = {}) {
   // Detect project archetype
   let archetype = 'General Electronics Prototype';
   const titleLower = (project.title || '').toLowerCase();
-  if (titleLower.includes('traffic')) {
+  const descLower = (project.description || '').toLowerCase();
+  const combined = `${titleLower} ${descLower}`;
+  if (combined.includes('traffic')) {
     archetype = 'Autonomous Traffic Signal Controller';
-  } else if (titleLower.includes('pedestrian')) {
+  } else if (combined.includes('pedestrian')) {
     archetype = 'Pedestrian Crossing Safety System';
-  } else if (titleLower.includes('light') || titleLower.includes('ldr') || titleLower.includes('night')) {
+  } else if (combined.includes('light') || combined.includes('ldr') || combined.includes('night')) {
     archetype = 'Ambient Light Responsive Automation';
-  } else if (titleLower.includes('sweep') || titleLower.includes('servo') || titleLower.includes('robot')) {
+  } else if (combined.includes('sweep') || combined.includes('servo') || combined.includes('robot')) {
     archetype = 'Micro-Robotic Actuator & Sensor Unit';
+  } else if (combined.includes('plant') || combined.includes('soil') || combined.includes('moisture')) {
+    archetype = 'Automated Environmental Agriculture System';
+  } else if (!hasCircuit) {
+    archetype = 'Digital Engineering & Hardware Architecture';
   }
 
   const versionStr = typeof project.version === 'object' && project.version !== null
     ? (project.version.id || project.version.label || 'v1.0')
     : (project.version || 'v1.0');
 
+  // Extract project information from root, documentation, identity, and brief
+  const problem = (
+    userBrief.problem ||
+    project.problemSolved ||
+    project.problemStatement ||
+    project.problem ||
+    project.documentation?.problemSolved ||
+    ''
+  ).trim();
+
+  const audience = (
+    userBrief.audience ||
+    project.targetAudience ||
+    project.audience ||
+    project.documentation?.targetAudience ||
+    ''
+  ).trim();
+
+  const solution = (
+    userBrief.solution ||
+    project.proposedSolution ||
+    project.workingPrinciple ||
+    project.solution ||
+    project.documentation?.workingPrinciple ||
+    project.description ||
+    ''
+  ).trim();
+
+  const importance = (
+    userBrief.importance ||
+    project.importance ||
+    project.whyItMatters ||
+    ''
+  ).trim();
+
+  const testingEvidence = (
+    userBrief.testingEvidence ||
+    project.testingEvidence ||
+    project.testing ||
+    project.documentation?.testingEvidence ||
+    ''
+  ).trim();
+
+  const limitations = (
+    userBrief.limitations ||
+    project.challengesFaced ||
+    project.limitations ||
+    project.documentation?.challengesFaced ||
+    ''
+  ).trim();
+
+  const nextSteps = (
+    userBrief.nextSteps ||
+    project.futureImprovements ||
+    project.nextSteps ||
+    project.documentation?.futureImprovements ||
+    ''
+  ).trim();
+
+  const userFeedback = (userBrief.userFeedback || project.userFeedback || '').trim();
+
+  // Goals, notes, and design decisions
+  const goals = Array.isArray(project.goals)
+    ? project.goals
+    : (typeof project.goals === 'string' ? [project.goals] : (Array.isArray(project.projectGoals) ? project.projectGoals : []));
+  const notes = project.notes || project.documentationText || (typeof project.documentation === 'string' ? project.documentation : (project.documentation?.notes || ''));
+  const designDecisions = Array.isArray(project.designDecisions)
+    ? project.designDecisions
+    : (typeof project.designDecisions === 'string' ? [project.designDecisions] : []);
+  const mediaAttachments = Array.isArray(project.mediaAttachments)
+    ? project.mediaAttachments
+    : (project.documentation?.mediaAttachments || []);
+
+  // Determine hardware platform honestly
+  let hardwarePlatform = project.hardwarePlatform || '';
+  if (!hardwarePlatform) {
+    if (hasArduino) {
+      hardwarePlatform = 'Arduino Uno';
+    } else if (hasCircuit) {
+      hardwarePlatform = 'Custom Circuit';
+    } else {
+      hardwarePlatform = 'Conceptual Hardware Architecture';
+    }
+  }
+
   return {
     projectId: project.id,
     projectType: 'simulated_circuit',
     isPhysicalProject: false,
-    hardwarePlatform: 'Arduino Uno',
-    title: project.title || 'Electronics Project',
-    description: project.description || 'Interactive Arduino microcontroller circuit.',
+    hasCircuit,
+    hardwarePlatform,
+    title: project.title || project.name || 'Electronics Project',
+    description: project.description || (hasCircuit ? 'Interactive Arduino microcontroller circuit.' : 'Hardware engineering design and documentation.'),
     version: versionStr,
     archetype,
     componentsCount: components.length,
@@ -87,15 +182,23 @@ export function buildCircuitPitchContext(project, userBrief = {}) {
     connectionsCount: connections.length,
     isValid: validation.status === 'clean' || validation.status === 'valid',
     validationIssues: validation.issues || [],
+    workingPrinciple: project.workingPrinciple || project.documentation?.workingPrinciple || '',
+    challengesFaced: project.challengesFaced || project.documentation?.challengesFaced || '',
+    demonstrationPlan: project.demonstrationPlan || project.documentation?.demonstrationPlan || '',
+    futureImprovements: project.futureImprovements || project.documentation?.futureImprovements || '',
+    goals,
+    notes,
+    designDecisions,
+    mediaAttachments,
     userBrief: {
-      problem: userBrief.problem || '',
-      audience: userBrief.audience || '',
-      importance: userBrief.importance || '',
-      solution: userBrief.solution || '',
-      testingEvidence: userBrief.testingEvidence || '',
-      userFeedback: userBrief.userFeedback || '',
-      limitations: userBrief.limitations || '',
-      nextSteps: userBrief.nextSteps || ''
+      problem,
+      audience,
+      importance,
+      solution,
+      testingEvidence,
+      userFeedback,
+      limitations,
+      nextSteps
     }
   };
 }
@@ -173,26 +276,38 @@ export function generatePitchDrafts(ctx) {
 }
 
 /**
- * Generates pitch drafts for simulated circuits
+ * Generates pitch drafts for simulated circuits & context-only projects
  */
 function generateCircuitPitchDrafts(ctx) {
   const b = ctx.userBrief;
+  const hasCircuit = Boolean(ctx.hasCircuit && ctx.componentsCount > 0);
   const problem = b.problem.trim() || `handling practical signaling and automation challenges reliably with accessible microcontroller hardware`;
   const audience = b.audience.trim() || `students, urban engineers, and robotics teams`;
-  const solution = b.solution.trim() || `a synchronized ${ctx.archetype} built around an Arduino Uno, dedicated current-limited outputs, and responsive state logic`;
-  const testing = b.testingEvidence.trim() || `verified through static rule checking, AST pin collision validation, and circuit simulation`;
-  const limitations = b.limitations.trim() || `currently runs as an educational prototype without high-voltage isolation or cellular telemetry`;
+  const solution = b.solution.trim() || (hasCircuit
+    ? `a synchronized ${ctx.archetype} built around an Arduino Uno, dedicated current-limited outputs, and responsive state logic`
+    : `a structured ${ctx.archetype} engineered to solve this challenge through verified specifications and modular design`);
+  const testing = b.testingEvidence.trim() || (hasCircuit
+    ? `verified through static rule checking, AST pin collision validation, and circuit simulation`
+    : (ctx.notes ? `structured through engineering documentation and architectural design review` : `undergoing specification review and schematic planning`));
+  const limitations = b.limitations.trim() || (hasCircuit
+    ? `currently runs as an educational prototype without high-voltage isolation or cellular telemetry`
+    : `currently in architectural design stage awaiting component assembly and hardware bench trials`);
   const nextSteps = b.nextSteps.trim() || `adding hardware fail-safes and physical enclosure prototyping`;
+
+  const compPhrase = hasCircuit
+    ? `Using ${ctx.componentsCount} integrated circuit elements on an Arduino Uno platform, it has been ${testing}. `
+    : `Grounding the system in verified engineering requirements, it is ${testing}. `;
 
   const pitch30 = `We built the ${ctx.title} to address ${problem}. ` +
     `Designed for ${audience}, our system delivers ${solution}. ` +
-    `Using ${ctx.componentsCount} integrated circuit elements on an Arduino Uno platform, it has been ${testing}. ` +
+    compPhrase +
     `It transforms how beginners verify their hardware before physical construction.`;
 
   const pitch60 = `Hello judges. When ${audience} work on electronics, they often struggle with ${problem}. ` +
     `To solve this, we created ${ctx.title}—${solution}. ` +
-    `\n\nOur circuit incorporates ${ctx.componentNames.slice(0, 4).join(', ')}${ctx.componentNames.length > 4 ? ' and additional sensors' : ''}. ` +
-    `Every connection has been checked for pin conflicts, and our firmware implements deterministic state transitions. ` +
+    `\n\n${hasCircuit
+      ? `Our circuit incorporates ${ctx.componentNames.slice(0, 4).join(', ')}${ctx.componentNames.length > 4 ? ' and additional sensors' : ''}. Every connection has been checked for pin conflicts, and our firmware implements deterministic state transitions.`
+      : `Our engineering plan details the operational requirements, interface signals, and boundary conditions to ensure predictable hardware assembly.`} ` +
     `\n\nIn our tests, the design was ${testing}. ` +
     `While it is currently a prototype with limitations like ${limitations}, ` +
     `our next step is ${nextSteps}. ${ctx.title} proves that smart hardware engineering starts with clear, verifiable thinking.`;
@@ -201,11 +316,13 @@ function generateCircuitPitchDrafts(ctx) {
     `\n\n1. THE PROBLEM & AUDIENCE:\n` +
     `${audience} face a critical challenge: ${problem}. Without transparent tooling, wiring mistakes easily damage components or cause erratic runtime bugs.` +
     `\n\n2. TECHNICAL ARCHITECTURE & IMPLEMENTATION:\n` +
-    `Our hardware architecture relies on an Arduino Uno microcontroller managing ${ctx.inputsCount} inputs and ${ctx.outputsCount} outputs. ` +
-    (ctx.pinDeclarations.length > 0
-      ? `Pins are strictly allocated in firmware—including ${ctx.pinDeclarations.slice(0, 3).map(p => `${p.variable} on Digital Pin ${p.pin}`).join(', ')}—preventing resource collisions. `
-      : `Pin mappings are deterministically mapped to protect outputs with current-limiting resistors. `) +
-    `The firmware runs non-blocking timing routines, ensuring the circuit responds predictably under load.` +
+    (hasCircuit
+      ? `Our hardware architecture relies on an Arduino Uno microcontroller managing ${ctx.inputsCount} inputs and ${ctx.outputsCount} outputs. ` +
+        (ctx.pinDeclarations.length > 0
+          ? `Pins are strictly allocated in firmware—including ${ctx.pinDeclarations.slice(0, 3).map(p => `${p.variable} on Digital Pin ${p.pin}`).join(', ')}—preventing resource collisions. `
+          : `Pin mappings are deterministically mapped to protect outputs with current-limiting resistors. `) +
+        `The firmware runs non-blocking timing routines, ensuring the circuit responds predictably under load.`
+      : `Our architecture is planned around the ${ctx.hardwarePlatform}, specifying input sensing stages, signal conditioning, and deterministic state transitions before physical hardware commit.`) +
     `\n\n3. VALIDATION & TESTING:\n` +
     `We tested and verified this project: ${testing}. Every change from our baseline was tracked and compared to catch regressions before deployment.` +
     `\n\n4. HONEST LIMITATIONS & FUTURE ROADMAP:\n` +
@@ -225,19 +342,25 @@ function generateCircuitPitchDrafts(ctx) {
     {
       time: '0:45 - 2:00',
       section: 'Hardware Architecture & Live Demo',
-      talkingPoints: [
-        `Walk through the circuit layout: ${ctx.componentNames.join(', ')}.`,
-        `Explain why the Arduino Uno and specific pins were selected.`,
-        `Demonstrate how the firmware logic handles inputs and drives outputs.`
-      ]
+      talkingPoints: hasCircuit
+        ? [
+            `Walk through the circuit layout: ${ctx.componentNames.join(', ')}.`,
+            `Explain why the Arduino Uno and specific pins were selected.`,
+            `Demonstrate how the firmware logic handles inputs and drives outputs.`
+          ]
+        : [
+            `Walk through the planned hardware architecture: ${ctx.hardwarePlatform}.`,
+            `Explain the operational requirements and interface specifications.`,
+            `Demonstrate the documented system logic and state workflow.`
+          ]
     },
     {
       time: '2:00 - 3:00',
       section: 'Testing, Diagnostics & Iteration',
       talkingPoints: [
         `Show testing evidence: ${testing}.`,
-        `Highlight a specific bug or pin conflict encountered during development and how you solved it.`,
-        `Discuss power management and component protection (e.g., resistor values).`
+        `Highlight a specific bug or design challenge encountered during development and how you solved it.`,
+        `Discuss power management and component protection.`
       ]
     },
     {
@@ -829,4 +952,258 @@ export function evaluateInterviewAnswer(questionObj, userAnswer, ctx) {
       structure: Math.min(10, structure)
     }
   };
+}
+
+// -----------------------------------------------------------------------------
+// STRUCTURED PRESENTATION SLIDE DECK GENERATOR
+// Adapts dynamically to projects with or without completed circuits.
+// Strictly grounds confirmed facts vs suggested content.
+// -----------------------------------------------------------------------------
+
+export function generatePresentationSlides(ctx) {
+  if (!ctx) return [];
+
+  const b = ctx.userBrief || {};
+  const hasUserProblem = Boolean((b.problem || '').trim());
+  const hasUserAudience = Boolean((b.audience || '').trim());
+  const hasUserSolution = Boolean((b.solution || '').trim());
+  const hasUserImportance = Boolean((b.importance || '').trim());
+  const hasUserTesting = Boolean((b.testingEvidence || '').trim());
+  const hasUserLimitations = Boolean((b.limitations || '').trim());
+  const hasUserNextSteps = Boolean((b.nextSteps || '').trim());
+  const hasCircuit = Boolean(ctx.hasCircuit && ctx.componentsCount > 0);
+  const isPhys = Boolean(ctx.isPhysicalProject);
+
+  const problemText = b.problem?.trim() || (isPhys
+    ? `A tangible engineering problem in need of practical hardware automation.`
+    : `Signaling, monitoring, and embedded control challenges requiring verifiable circuit design.`);
+  const audienceText = b.audience?.trim() || `Students, engineering teams, and community practitioners`;
+  const solutionText = b.solution?.trim() || (isPhys
+    ? `A physical ${ctx.hardwarePlatform} prototype designed for reliable real-world automation.`
+    : (hasCircuit
+        ? `A synchronized ${ctx.archetype} with deterministic hardware states and fault protections.`
+        : `An engineered modular design addressing practical hardware requirements.`));
+  const importanceText = b.importance?.trim() || `Preventing undetected hardware failures, improving operational safety, and making engineering reproducible.`;
+  const testingText = b.testingEvidence?.trim() || (hasCircuit
+    ? `Verified through static rule checking, AST pin collision detection, and MCU simulation.`
+    : `Detailed engineering specifications and planned bench validation protocols.`);
+  const limitationsText = b.limitations?.trim() || (isPhys
+    ? `Operates as an educational prototype under controlled bench conditions.`
+    : (hasCircuit
+        ? `Prototype configuration without industrial galvanic isolation or telemetry.`
+        : `Early-stage architectural design preparing for hardware assembly.`));
+  const nextStepsText = b.nextSteps?.trim() || `Refining physical enclosures, power efficiency, and long-term durability trials.`;
+
+  const slides = [];
+
+  // Slide 1: Title & Introduction
+  slides.push({
+    id: 'slide-1-title',
+    slideNumber: 1,
+    type: 'title',
+    title: 'Project Title & Introduction',
+    headline: ctx.title || 'Tracewise Electronics Project',
+    bullets: [
+      `System: ${ctx.title || 'Engineering Project'}`,
+      `Hardware Platform: ${ctx.hardwarePlatform || 'Modular Architecture'}`,
+      `Classification: ${ctx.archetype || 'Engineering Project'} • ${ctx.version || 'v1.0'}`
+    ],
+    speakerNotes: `Welcome judges and panel. Today I am excited to present ${ctx.title}, a project engineered to address real challenges with clear, verifiable hardware thinking.`,
+    status: 'confirmed',
+    category: 'Introduction'
+  });
+
+  // Slide 2: Problem Statement
+  slides.push({
+    id: 'slide-2-problem',
+    slideNumber: 2,
+    type: 'problem',
+    title: 'Problem Statement',
+    headline: `The Core Challenge: ${problemText.length > 80 ? problemText.slice(0, 80) + '...' : problemText}`,
+    bullets: [
+      `Target Users: ${audienceText}`,
+      `Observed Challenge: ${problemText}`,
+      `Current Shortcoming: Conventional solutions are either closed black-boxes or prone to undetected wiring errors.`
+    ],
+    speakerNotes: `To understand why this project was created, consider the challenge faced by ${audienceText}: ${problemText}. Without clear feedback, mistakes are difficult to diagnose.`,
+    status: hasUserProblem ? 'confirmed' : 'suggested',
+    category: 'Problem'
+  });
+
+  // Slide 3: Why It Matters
+  slides.push({
+    id: 'slide-3-importance',
+    slideNumber: 3,
+    type: 'importance',
+    title: 'Why the Problem Matters',
+    headline: 'Real-World Impact & Motivation',
+    bullets: [
+      `Significance: ${importanceText}`,
+      `Operational Safety: Mitigating damage, short circuits, and intermittent operational bugs.`,
+      `Accessibility: Providing a repeatable, low-cost engineering model that anyone can verify.`
+    ],
+    speakerNotes: `Why does solving this matter? Beyond just a technical exercise, ${importanceText}. It impacts real users and makes engineering more trustworthy.`,
+    status: hasUserImportance ? 'confirmed' : 'suggested',
+    category: 'Motivation'
+  });
+
+  // Slide 4: Proposed Solution
+  slides.push({
+    id: 'slide-4-solution',
+    slideNumber: 4,
+    type: 'solution',
+    title: 'Proposed Solution',
+    headline: `${solutionText.length > 80 ? solutionText.slice(0, 80) + '...' : solutionText}`,
+    bullets: [
+      `Solution Concept: ${solutionText}`,
+      `Core Philosophy: Transparent design where every wire, pin, and logic state is intentional.`,
+      `User Experience: Intuitive operation designed specifically for ${audienceText}.`
+    ],
+    speakerNotes: `Our solution is ${ctx.title}—${solutionText}. Rather than an unexplainable assembly, our design prioritizes clarity and predictability.`,
+    status: hasUserSolution ? 'confirmed' : 'suggested',
+    category: 'Solution'
+  });
+
+  // Slide 5: How It Works
+  const principleText = ctx.workingPrinciple || (hasCircuit
+    ? `The microcontroller reads incoming signals, executes non-blocking state evaluation, and triggers current-limited outputs.`
+    : `The architecture routes input sensor data through defined processing thresholds to command responsive output actuators.`);
+  slides.push({
+    id: 'slide-5-working',
+    slideNumber: 5,
+    type: 'working_principle',
+    title: 'How the Solution Works',
+    headline: 'Operational Workflow & System Flow',
+    bullets: [
+      `Operational Logic: ${principleText}`,
+      `Input Handling: Continuous monitoring of input lines with debounce and threshold filtering.`,
+      `Output Control: Deterministic state updates driving connected hardware safely.`
+    ],
+    speakerNotes: `Here is how the system operates in real time: ${principleText}. Every state change happens predictably.`,
+    status: ctx.workingPrinciple ? 'confirmed' : 'suggested',
+    category: 'Operation'
+  });
+
+  // Slide 6: Important Features
+  const featureList = [];
+  if (ctx.componentsCount > 0) {
+    featureList.push(`Modular Hardware: ${ctx.componentsCount} integrated components with documented pin interfaces.`);
+  } else {
+    featureList.push(`Specification-First Design: Structured architecture ready for physical prototyping.`);
+  }
+  featureList.push(`Fail-Safe Operation: Protected electrical paths and clean boundary checks.`);
+  featureList.push(`Reproducible Build: Open schematic documentation allowing easy replication.`);
+
+  slides.push({
+    id: 'slide-6-features',
+    slideNumber: 6,
+    type: 'features',
+    title: 'Important Features',
+    headline: 'Engineered for Reliability and Usability',
+    bullets: featureList,
+    speakerNotes: `The primary features of ${ctx.title} emphasize reliability and practical deployment. We focused on features that directly address user needs.`,
+    status: 'confirmed',
+    category: 'Features'
+  });
+
+  // Slide 7: Technical Architecture
+  const archBullets = [];
+  archBullets.push(`Platform: ${ctx.hardwarePlatform}`);
+  if (ctx.componentNames && ctx.componentNames.length > 0) {
+    archBullets.push(`Key Elements: ${ctx.componentNames.slice(0, 4).join(', ')}${ctx.componentNames.length > 4 ? ` and ${ctx.componentNames.length - 4} others` : ''}`);
+  } else if (ctx.designDecisions && ctx.designDecisions.length > 0) {
+    archBullets.push(`Design Decisions: ${ctx.designDecisions.slice(0, 2).join('; ')}`);
+  } else {
+    archBullets.push(`Controller: Architecture planned around accessible microcontroller logic.`);
+  }
+  archBullets.push(`Circuit Protection: Current-limiting design protecting logic pins from overcurrent.`);
+
+  slides.push({
+    id: 'slide-7-architecture',
+    slideNumber: 7,
+    type: 'architecture',
+    title: 'Technical Approach & Architecture',
+    headline: `Hardware & Firmware Architecture (${ctx.hardwarePlatform})`,
+    bullets: archBullets,
+    speakerNotes: `Taking a deeper look at the technical architecture: we selected the ${ctx.hardwarePlatform} to strike the right balance of I/O capability, power requirements, and reliability.`,
+    status: hasCircuit || isPhys ? 'confirmed' : 'suggested',
+    category: 'Architecture'
+  });
+
+  // Slide 8: Implementation Progress
+  const progressBullets = [];
+  if (hasCircuit || isPhys) {
+    progressBullets.push(`Hardware Build: ${ctx.componentsCount} components placed and connected.`);
+    progressBullets.push(`Firmware / Logic: Code written and validated for pin consistency.`);
+  } else {
+    progressBullets.push(`Project Concept & Brief: Complete problem framing and audience definition.`);
+    progressBullets.push(`Hardware Architecture: Core specifications and component list established.`);
+  }
+  progressBullets.push(`Documentation: Comprehensive project facts and presentation notes prepared in Pitch Lab.`);
+
+  slides.push({
+    id: 'slide-8-progress',
+    slideNumber: 8,
+    type: 'progress',
+    title: 'Implementation Progress',
+    headline: hasCircuit || isPhys ? 'Working Prototype Built & Verified' : 'Architecture & Specifications Defined',
+    bullets: progressBullets,
+    speakerNotes: `Where does the project currently stand? We have established the core engineering foundations, verified our design parameters, and documented our findings.`,
+    status: 'confirmed',
+    category: 'Progress'
+  });
+
+  // Slide 9: Demonstration & Testing Details (Adapts if circuit exists or plans if not)
+  if (hasCircuit || isPhys) {
+    slides.push({
+      id: 'slide-9-demo-testing',
+      slideNumber: 9,
+      type: 'demo_testing',
+      title: 'Demonstration & Circuit Details',
+      headline: 'Empirical Verification & Demonstration',
+      bullets: [
+        `Verification Method: ${testingText}`,
+        `Observed Stability: Deterministic execution across continuous operational cycles.`,
+        `Demonstration: Live hardware/simulation state transitions responding to stimulus.`
+      ],
+      speakerNotes: `During our testing phases, we confirmed that: ${testingText}. The system responds smoothly without erratic states.`,
+      status: hasUserTesting ? 'confirmed' : 'suggested',
+      category: 'Validation'
+    });
+  } else {
+    slides.push({
+      id: 'slide-9-demo-testing',
+      slideNumber: 9,
+      type: 'validation_plan',
+      title: 'Validation Plan & Test Objectives',
+      headline: 'Testing Objectives & Validation Protocol',
+      bullets: [
+        `Planned Verification: ${testingText}`,
+        `Test Criteria: Measurement of voltage rails, signal response latency, and threshold accuracy.`,
+        `Edge Case Protocol: Testing intentional disconnects to verify safe fallback states.`
+      ],
+      speakerNotes: `Before moving to full physical deployment, our validation plan focuses on: ${testingText}. This rigorous protocol ensures no unexpected faults occur.`,
+      status: 'suggested',
+      category: 'Validation'
+    });
+  }
+
+  // Slide 10: Future Improvements & Conclusion
+  slides.push({
+    id: 'slide-10-conclusion',
+    slideNumber: 10,
+    type: 'conclusion',
+    title: 'Future Improvements & Conclusion',
+    headline: 'Engineering Lessons & Future Horizons',
+    bullets: [
+      `Authentic Limitations: ${limitationsText}`,
+      `Next Engineering Steps: ${nextStepsText}`,
+      `Takeaway: ${ctx.title} proves that smart hardware engineering starts with clear, verifiable thinking.`
+    ],
+    speakerNotes: `In conclusion, every real engineering build has trade-offs. Right now, ${limitationsText}. With further time, our roadmap focuses on ${nextStepsText}. Thank you, and I look forward to your questions.`,
+    status: hasUserLimitations ? 'confirmed' : 'suggested',
+    category: 'Roadmap'
+  });
+
+  return slides;
 }

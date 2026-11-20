@@ -23,7 +23,8 @@ import {
   generatePitchDrafts,
   generateJudgeQuestions,
   generateQuizQuestions,
-  generateScienceFairChecklist
+  generateScienceFairChecklist,
+  generatePresentationSlides
 } from '../domain/pitch/pitchEngine.js';
 
 let passed = 0;
@@ -212,6 +213,66 @@ assert(circuitCtx.componentsCount >= 3, 'Fixture 7.4: Includes breadboard, Uno, 
 
 const circuitDrafts = generatePitchDrafts(circuitCtx);
 assert(circuitDrafts.pitch120.toLowerCase().includes('arduino uno'), 'Fixture 7.5: Circuit pitch retains Arduino Uno architecture');
+
+// -----------------------------------------------------------------------------
+// FIXTURE 8: PRESENTATION SLIDES GENERATION FROM PROJECT CONTEXT (NO CIRCUIT REQUIRED)
+// -----------------------------------------------------------------------------
+console.log('\n--- Testing Fixture 8: Presentation Slides from Context Without Circuit ---');
+
+const earlyStageProject = {
+  id: 'proj-flood-warn-001',
+  title: 'Smart Urban Flood Warning System',
+  description: 'Early-warning IoT sensor network detecting rising water levels at river crossings',
+  problemSolved: 'Flash floods cause rapid road inundation endangering drivers and residents before emergency alerts trigger',
+  targetAudience: 'City emergency response coordinators and motorists',
+  proposedSolution: 'Solar-powered ultrasonic telemetry nodes communicating with central dashboard',
+  importance: 'Provides 15 minutes of advance warning to prevent casualties and route traffic safely',
+  notes: 'Sensors mounted at 3 critical bridge underpasses with low-power sleep cycles and LTE-M backup',
+  designDecisions: ['Ultrasonic over optical due to storm turbidity', 'Low-power sleep cycles for battery life'],
+  components: [], // NO CIRCUIT CREATED
+  connections: [],
+  componentsList: []
+};
+
+const floodCtx = extractProjectContext(earlyStageProject);
+assert(floodCtx !== null, 'Fixture 8.1: Context extracted for circuit-less project');
+assert(floodCtx.hasCircuit === false, 'Fixture 8.2: Correctly flags hasCircuit as false');
+assert(floodCtx.componentsCount === 0, 'Fixture 8.3: Components count is 0 without crashing');
+assert(!floodCtx.hardwarePlatform.toLowerCase().includes('arduino uno'), 'Fixture 8.4: Does not falsely claim Arduino Uno when no board selected');
+
+const floodDrafts = generatePitchDrafts(floodCtx);
+assert(Boolean(floodDrafts.pitch30), 'Fixture 8.5: 30s pitch generated without circuit');
+assert(!floodDrafts.pitch30.toLowerCase().includes('0 integrated circuit elements on an arduino uno'), 'Fixture 8.6: Does not fabricate 0 elements on Arduino Uno in 30s pitch');
+
+const presentationSlides = generatePresentationSlides(floodCtx);
+assert(Array.isArray(presentationSlides), 'Fixture 8.7: Presentation slides array returned');
+assert(presentationSlides.length === 10, 'Fixture 8.8: Exactly 10 structured presentation slides generated');
+
+// Slide 1: Title
+assert(presentationSlides[0].type === 'title', 'Fixture 8.9: Slide 1 is Title slide');
+assert(presentationSlides[0].headline === earlyStageProject.title, 'Fixture 8.10: Slide 1 headline matches project title');
+
+// Slide 2: Problem Statement
+assert(presentationSlides[1].type === 'problem', 'Fixture 8.11: Slide 2 is Problem Statement');
+assert(presentationSlides[1].status === 'confirmed', 'Fixture 8.12: Slide 2 marked confirmed since problem was documented');
+assert(presentationSlides[1].bullets[1].includes(earlyStageProject.problemSolved), 'Fixture 8.13: Slide 2 contains exact documented problem statement');
+
+// Slide 3: Why It Matters
+assert(presentationSlides[2].type === 'importance', 'Fixture 8.14: Slide 3 is Why It Matters');
+assert(presentationSlides[2].status === 'confirmed', 'Fixture 8.15: Slide 3 marked confirmed since importance was documented');
+
+// Slide 4: Proposed Solution
+assert(presentationSlides[3].type === 'solution', 'Fixture 8.16: Slide 4 is Proposed Solution');
+assert(presentationSlides[3].bullets[0].includes('Solar-powered ultrasonic telemetry nodes'), 'Fixture 8.17: Slide 4 reflects documented proposed solution');
+
+// Slide 9: Validation Plan (Adapts gracefully because no circuit exists)
+assert(presentationSlides[8].type === 'validation_plan', 'Fixture 8.18: Slide 9 adapts to validation_plan when no circuit exists');
+assert(presentationSlides[8].status === 'suggested', 'Fixture 8.19: Validation plan transparently marked as suggested');
+assert(!presentationSlides[8].bullets[0].includes('ATmega328P'), 'Fixture 8.20: No fabricated ATmega328P execution claims in validation plan');
+
+// Slide 10: Conclusion
+assert(presentationSlides[9].type === 'conclusion', 'Fixture 8.21: Slide 10 is Conclusion');
+assert(Boolean(presentationSlides[9].speakerNotes), 'Fixture 8.22: Speaker notes generated for all slides');
 
 // -----------------------------------------------------------------------------
 // TEST SUMMARY

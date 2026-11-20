@@ -22,7 +22,10 @@ import {
   Play,
   Pause,
   CheckCircle2,
-  ListChecks
+  ListChecks,
+  Plus,
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { useProject } from '../store/useProjectStore';
 import { useAuth } from '../store/useAuthStore';
@@ -32,7 +35,8 @@ import {
   generateJudgeQuestions,
   generateQuizQuestions,
   generateScienceFairChecklist,
-  evaluateInterviewAnswer
+  evaluateInterviewAnswer,
+  generatePresentationSlides
 } from '../domain/pitch/pitchEngine';
 import {
   getPitchPreparation,
@@ -93,6 +97,11 @@ export function PitchLabPage() {
   const [pitchCritique, setPitchCritique] = useState(null);
   const [isCritiquing, setIsCritiquing] = useState(false);
 
+  // Presentation Slides State (10 Grounded Slides)
+  const [slides, setSlides] = useState([]);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [slideCopied, setSlideCopied] = useState(false);
+
   // Rehearsal Mode State
   const [rehearsalCardIndex, setRehearsalCardIndex] = useState(0);
   const [rehearsalTimer, setRehearsalTimer] = useState(0);
@@ -112,6 +121,7 @@ export function PitchLabPage() {
   // Project context calculation
   const ctx = currentProj ? extractProjectContext(currentProj, brief) : null;
   const generatedDrafts = ctx ? generatePitchDrafts(ctx) : null;
+  const generatedSlides = ctx ? generatePresentationSlides(ctx) : [];
   const judgeQuestions = ctx ? generateJudgeQuestions(ctx) : [];
   const quizQuestions = ctx ? generateQuizQuestions(ctx) : [];
   const checklist = ctx ? generateScienceFairChecklist(ctx) : [];
@@ -121,28 +131,31 @@ export function PitchLabPage() {
     q => interviewDifficulty === 'All' || q.difficulty === interviewDifficulty
   );
 
-  // Load saved preparation on mount and prefill from physical project
+  // Load saved preparation on mount and prefill from ALL available project facts
   useEffect(() => {
     async function loadSavedData() {
       if (!currentProj) return;
 
-      // Initialize with physical project facts if available
-      if (currentProj.project_type === 'documented_physical_project') {
-        setBrief(prev => ({
-          ...prev,
-          problem: prev.problem || currentProj.problemSolved || '',
-          solution: prev.solution || currentProj.description || '',
-          audience: prev.audience || currentProj.targetAudience || '',
-          testingEvidence: prev.testingEvidence || currentProj.testingEvidence || '',
-          limitations: prev.limitations || currentProj.challengesFaced || '',
-          nextSteps: prev.nextSteps || currentProj.futureImprovements || ''
-        }));
-      }
+      // Ingest all stored project facts directly into the brief (no circuit required)
+      setBrief(prev => ({
+        ...prev,
+        problem: prev.problem || currentProj.problemSolved || currentProj.problemStatement || currentProj.problem || currentProj.documentation?.problemSolved || '',
+        solution: prev.solution || currentProj.proposedSolution || currentProj.workingPrinciple || currentProj.solution || currentProj.description || currentProj.documentation?.workingPrinciple || '',
+        audience: prev.audience || currentProj.targetAudience || currentProj.audience || currentProj.documentation?.targetAudience || '',
+        importance: prev.importance || currentProj.importance || currentProj.whyItMatters || '',
+        testingEvidence: prev.testingEvidence || currentProj.testingEvidence || currentProj.testing || currentProj.documentation?.testingEvidence || '',
+        limitations: prev.limitations || currentProj.challengesFaced || currentProj.limitations || currentProj.documentation?.challengesFaced || '',
+        nextSteps: prev.nextSteps || currentProj.futureImprovements || currentProj.nextSteps || currentProj.documentation?.futureImprovements || '',
+        userFeedback: prev.userFeedback || currentProj.userFeedback || ''
+      }));
 
       const saved = await getPitchPreparation(currentProj.id, user);
       if (saved) {
         if (saved.brief) setBrief(prev => ({ ...prev, ...saved.brief }));
         if (saved.pitches) setPitches(prev => ({ ...prev, ...saved.pitches }));
+        if (saved.slides && Array.isArray(saved.slides) && saved.slides.length > 0) {
+          setSlides(saved.slides);
+        }
       }
     }
     loadSavedData();
@@ -158,6 +171,13 @@ export function PitchLabPage() {
       }));
     }
   }, [currentProj?.id, generatedDrafts?.pitch30]);
+
+  // Sync default generated slides if not customized
+  useEffect(() => {
+    if (generatedSlides && generatedSlides.length > 0) {
+      setSlides(prev => (prev && prev.length > 0 ? prev : generatedSlides));
+    }
+  }, [currentProj?.id, generatedSlides?.length]);
 
   // Rehearsal timer tick
   useEffect(() => {
@@ -196,13 +216,17 @@ export function PitchLabPage() {
     }
   };
 
-  // Auto-save handler
-  const handleSave = async (updatedBrief = brief, updatedPitches = pitches) => {
+  // Auto-save handler supporting brief, pitches, and slides
+  const handleSave = async (updatedBrief = brief, updatedPitches = pitches, updatedSlides = slides) => {
     if (!currentProj) return;
     setIsSaving(true);
     setSaveStatus('Saving...');
     try {
-      const res = await savePitchPreparation(currentProj.id, { brief: updatedBrief, pitches: updatedPitches }, user);
+      const res = await savePitchPreparation(
+        currentProj.id,
+        { brief: updatedBrief, pitches: updatedPitches, slides: updatedSlides },
+        user
+      );
       if (res && res.message) {
         setSaveStatus(res.message);
       } else {
@@ -218,13 +242,72 @@ export function PitchLabPage() {
   const handleBriefChange = (field, value) => {
     const updated = { ...brief, [field]: value };
     setBrief(updated);
-    handleSave(updated, pitches);
+    handleSave(updated, pitches, slides);
   };
 
   const handlePitchChange = (key, value) => {
     const updated = { ...pitches, [key]: value };
     setPitches(updated);
-    handleSave(brief, updated);
+    handleSave(brief, updated, slides);
+  };
+
+  // Slide Deck in-place editing handlers
+  const handleUpdateCurrentSlide = (field, value) => {
+    const updated = slides.map((s, idx) => idx === currentSlideIndex ? { ...s, [field]: value } : s);
+    setSlides(updated);
+    handleSave(brief, pitches, updated);
+  };
+
+  const handleUpdateSlideBullet = (bulletIndex, text) => {
+    const updated = slides.map((s, idx) => {
+      if (idx !== currentSlideIndex) return s;
+      const bullets = [...(s.bullets || [])];
+      bullets[bulletIndex] = text;
+      return { ...s, bullets };
+    });
+    setSlides(updated);
+    handleSave(brief, pitches, updated);
+  };
+
+  const handleAddSlideBullet = () => {
+    const updated = slides.map((s, idx) => {
+      if (idx !== currentSlideIndex) return s;
+      const bullets = [...(s.bullets || []), 'New key point or evidence...'];
+      return { ...s, bullets };
+    });
+    setSlides(updated);
+    handleSave(brief, pitches, updated);
+  };
+
+  const handleRemoveSlideBullet = (bulletIndex) => {
+    const updated = slides.map((s, idx) => {
+      if (idx !== currentSlideIndex) return s;
+      const bullets = (s.bullets || []).filter((_, bIdx) => bIdx !== bulletIndex);
+      return { ...s, bullets };
+    });
+    setSlides(updated);
+    handleSave(brief, pitches, updated);
+  };
+
+  const handleCopyDeckMarkdown = () => {
+    const md = slides.map(s => (
+      `# Slide ${s.slideNumber}: ${s.title}\n` +
+      `**${s.headline}**\n\n` +
+      (s.bullets || []).map(b => `- ${b}`).join('\n') + '\n\n' +
+      `> **Speaker Notes:** ${s.speakerNotes}\n` +
+      `*(Status: ${s.status === 'confirmed' ? 'Confirmed Fact' : 'Suggested / Incomplete'})*\n`
+    )).join('\n---\n\n');
+
+    navigator.clipboard.writeText(md);
+    setSlideCopied(true);
+    setTimeout(() => setSlideCopied(false), 2400);
+  };
+
+  const handleRegenerateSlides = () => {
+    if (generatedSlides && generatedSlides.length > 0) {
+      setSlides(generatedSlides);
+      handleSave(brief, pitches, generatedSlides);
+    }
   };
 
   const handleCopy = (text, key) => {
@@ -456,7 +539,7 @@ export function PitchLabPage() {
               <div style={{ textAlign: 'right', padding: '12px 18px', backgroundColor: 'var(--tw-bg)', borderRadius: '16px' }}>
                 <div style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>COMPONENTS LISTED</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--tw-brand)', fontFamily: 'var(--font-heading)' }}>
-                  {ctx.componentsCount} Parts
+                  {ctx.componentsCount > 0 ? `${ctx.componentsCount} Parts` : 'Context Ready (0)'}
                 </div>
               </div>
               <div style={{ textAlign: 'right', padding: '12px 18px', backgroundColor: 'var(--tw-bg)', borderRadius: '16px' }}>
@@ -473,12 +556,13 @@ export function PitchLabPage() {
             {[
               { id: 'brief', label: '1. Project Brief', icon: FileText },
               { id: 'pitches', label: '2. Pitch Builder', icon: Mic },
-              { id: 'rehearsal', label: '3. Practice Rehearsal', icon: Clock },
-              { id: 'questions', label: '4. Judge Questions', icon: HelpCircle },
-              { id: 'quiz', label: '5. Knowledge Quiz', icon: Award },
-              { id: 'interview', label: '6. Mock Interview', icon: Sparkles },
-              { id: 'checklist', label: '7. Science Fair Checklist', icon: ListChecks },
-              { id: 'summary', label: '8. Executive Summary', icon: Printer }
+              { id: 'presentation', label: '3. Slide Presentation', icon: Layers },
+              { id: 'rehearsal', label: '4. Practice Rehearsal', icon: Clock },
+              { id: 'questions', label: '5. Judge Questions', icon: HelpCircle },
+              { id: 'quiz', label: '6. Knowledge Quiz', icon: Award },
+              { id: 'interview', label: '7. Mock Interview', icon: Sparkles },
+              { id: 'checklist', label: '8. Science Fair Checklist', icon: ListChecks },
+              { id: 'summary', label: '9. Executive Summary', icon: Printer }
             ].map(tabItem => {
               const Icon = tabItem.icon;
               const isActive = activeTab === tabItem.id;
@@ -781,7 +865,365 @@ export function PitchLabPage() {
             </div>
           )}
 
-          {/* TAB 3: PRACTICE REHEARSAL (CUE CARDS & TIMER) */}
+          {/* TAB 3: PRESENTATION SLIDES (Generated directly from project context) */}
+          {activeTab === 'presentation' && (
+            <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Header with Title and Actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <Layers size={18} color="var(--tw-brand)" />
+                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--tw-text)', margin: 0, fontFamily: 'var(--font-heading)' }}>
+                      10-Slide Project Presentation Deck
+                    </h2>
+                  </div>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--tw-text-secondary)', margin: 0 }}>
+                    Structured keynote presentation generated directly from your project facts. Edit slides in place or export to Markdown and Print.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <TracewiseBubbleButton
+                    onClick={handleRegenerateSlides}
+                    variant="secondary"
+                    size="sm"
+                    title="Regenerate slides from current project brief and context"
+                    style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    <RotateCcw size={14} />
+                    <span>Reset from Context</span>
+                  </TracewiseBubbleButton>
+
+                  <TracewiseBubbleButton
+                    onClick={handleCopyDeckMarkdown}
+                    variant="secondary"
+                    size="sm"
+                    title="Copy full deck formatted in Markdown"
+                    style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    {slideCopied ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    <span>{slideCopied ? 'Deck Copied!' : 'Copy Markdown'}</span>
+                  </TracewiseBubbleButton>
+
+                  <TracewiseBubbleButton
+                    onClick={() => window.print()}
+                    variant="primary"
+                    size="sm"
+                    title="Print presentation slides"
+                    style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                  >
+                    <Printer size={14} />
+                    <span>Print Deck</span>
+                  </TracewiseBubbleButton>
+                </div>
+              </div>
+
+              {/* Informative Context Banner */}
+              <div
+                style={{
+                  padding: '14px 18px',
+                  borderRadius: '14px',
+                  backgroundColor: ctx.hasCircuit ? 'rgba(56, 189, 248, 0.08)' : 'rgba(99, 102, 241, 0.08)',
+                  border: `1px solid ${ctx.hasCircuit ? 'rgba(56, 189, 248, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <Sparkles size={18} color="var(--tw-brand)" style={{ flexShrink: 0 }} />
+                <div style={{ fontSize: '0.85rem', color: 'var(--tw-text)', lineHeight: 1.5 }}>
+                  {ctx.hasCircuit ? (
+                    <span>
+                      <b>Hardware Circuit Integrated:</b> This 10-slide deck incorporates your {ctx.componentsCount} circuit parts and simulation parameters alongside your project framing.
+                    </span>
+                  ) : (
+                    <span>
+                      <b>Generated Directly from Project Context:</b> A completed circuit or simulation is <b>not required</b>. This presentation is synthesized from your project description, problem statement, goals, and engineering notes.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Slides Thumbnail / Carousel Strip */}
+              {slides.length > 0 && (
+                <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
+                  {slides.map((s, idx) => {
+                    const isSelected = idx === currentSlideIndex;
+                    const isConfirmed = s.status === 'confirmed';
+                    return (
+                      <button
+                        key={s.id || idx}
+                        type="button"
+                        onClick={() => setCurrentSlideIndex(idx)}
+                        style={{
+                          flex: '0 0 160px',
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          border: isSelected ? '2px solid var(--tw-brand)' : '1px solid var(--tw-border)',
+                          backgroundColor: isSelected ? '#ffffff' : 'var(--tw-bg)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 4px 12px rgba(30, 63, 216, 0.12)' : 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isSelected ? 'var(--tw-brand)' : 'var(--tw-text-muted)' }}>
+                            SLIDE {idx + 1}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              backgroundColor: isConfirmed ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                              color: isConfirmed ? '#059669' : '#d97706'
+                            }}
+                          >
+                            {isConfirmed ? 'Fact' : 'Suggested'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--tw-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.title}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Active Slide Canvas / Editor */}
+              {slides[currentSlideIndex] && (() => {
+                const curSlide = slides[currentSlideIndex];
+                const isConfirmed = curSlide.status === 'confirmed';
+                return (
+                  <div
+                    style={{
+                      border: '1.5px solid var(--tw-border)',
+                      borderRadius: '20px',
+                      backgroundColor: '#f8fafc',
+                      padding: '28px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '20px',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.04)'
+                    }}
+                  >
+                    {/* Slide Top Bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--tw-border)', paddingBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Slide {curSlide.slideNumber || (currentSlideIndex + 1)} of {slides.length} • {curSlide.category || 'Deck'}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            backgroundColor: isConfirmed ? 'rgba(16, 185, 129, 0.14)' : 'rgba(245, 158, 11, 0.14)',
+                            color: isConfirmed ? '#059669' : '#d97706'
+                          }}
+                        >
+                          {isConfirmed ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                          <span>{isConfirmed ? 'Confirmed Project Fact' : 'Suggested Content (Needs Review)'}</span>
+                        </span>
+                      </div>
+
+                      {/* Slide Stepper Controls */}
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSlideIndex(prev => Math.max(0, prev - 1))}
+                          disabled={currentSlideIndex === 0}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--tw-border)',
+                            backgroundColor: '#ffffff',
+                            color: currentSlideIndex === 0 ? 'var(--tw-text-muted)' : 'var(--tw-text)',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: currentSlideIndex === 0 ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <ChevronLeft size={14} />
+                          <span>Prev</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentSlideIndex(prev => Math.min(slides.length - 1, prev + 1))}
+                          disabled={currentSlideIndex === slides.length - 1}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--tw-border)',
+                            backgroundColor: '#ffffff',
+                            color: currentSlideIndex === slides.length - 1 ? 'var(--tw-text-muted)' : 'var(--tw-text)',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: currentSlideIndex === slides.length - 1 ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span>Next</span>
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Editable Slide Title & Headline */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--tw-text-muted)', marginBottom: '4px' }}>
+                          Slide Title
+                        </label>
+                        <input
+                          type="text"
+                          value={curSlide.title || ''}
+                          onChange={(e) => handleUpdateCurrentSlide('title', e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--tw-border)',
+                            fontSize: '1.05rem',
+                            fontWeight: 700,
+                            color: 'var(--tw-text)',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--tw-text-muted)', marginBottom: '4px' }}>
+                          Headline / Primary Takeaway
+                        </label>
+                        <input
+                          type="text"
+                          value={curSlide.headline || ''}
+                          onChange={(e) => handleUpdateCurrentSlide('headline', e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '10px',
+                            border: '1px solid var(--tw-border)',
+                            fontSize: '0.92rem',
+                            fontWeight: 600,
+                            color: 'var(--tw-brand)',
+                            backgroundColor: '#ffffff'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Key Talking Points (Editable List) */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <label style={{ fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--tw-text-muted)' }}>
+                          Slide Talking Points & Evidence
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddSlideBullet}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--tw-brand)',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Plus size={13} />
+                          <span>Add Point</span>
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {(curSlide.bullets || []).map((bullet, bIdx) => (
+                          <div key={bIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: 'var(--tw-brand)', fontWeight: 800, fontSize: '1rem', paddingLeft: '4px' }}>•</span>
+                            <input
+                              type="text"
+                              value={bullet}
+                              onChange={(e) => handleUpdateSlideBullet(bIdx, e.target.value)}
+                              style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--tw-border)',
+                                fontSize: '0.86rem',
+                                color: 'var(--tw-text)',
+                                backgroundColor: '#ffffff'
+                              }}
+                            />
+                            {curSlide.bullets.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSlideBullet(bIdx)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#94a3b8',
+                                  cursor: 'pointer',
+                                  padding: '4px'
+                                }}
+                                title="Remove bullet"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Speaker Script / Presentation Notes */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--tw-text-muted)', marginBottom: '4px' }}>
+                        Speaker Script & Delivery Notes
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={curSlide.speakerNotes || ''}
+                        onChange={(e) => handleUpdateCurrentSlide('speakerNotes', e.target.value)}
+                        placeholder="What you should say to judges during this slide..."
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: '1px solid var(--tw-border)',
+                          fontSize: '0.86rem',
+                          lineHeight: 1.6,
+                          color: 'var(--tw-text)',
+                          backgroundColor: '#ffffff',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* TAB 4: PRACTICE REHEARSAL (CUE CARDS & TIMER) */}
           {activeTab === 'rehearsal' && (
             <div className="glass-card" style={{ padding: '32px', backgroundColor: '#ffffff', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>

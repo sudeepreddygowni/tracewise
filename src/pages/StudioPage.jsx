@@ -67,6 +67,7 @@ export function StudioPage() {
     location.state?.initialQuery || location.state?.openAssistant ? 'assistant' : 'code'
   ); // 'code' | 'inspector' | 'assistant'
   const [isValidationOpen, setIsValidationOpen] = useState(false);
+  const [isComponentLibraryOpen, setIsComponentLibraryOpen] = useState(true);
 
   // Responsive device breakpoint state
   const [windowWidth, setWindowWidth] = useState(
@@ -233,6 +234,16 @@ export function StudioPage() {
     addComponent(compDef, placeX, placeY);
   };
 
+  const handleToggleComponentLibrary = () => {
+    if (isDesktop) {
+      setIsComponentLibraryOpen(prev => !prev);
+    } else if (isTablet) {
+      setTabletLeftOpen(prev => !prev);
+    } else {
+      setMobileActiveTab(prev => (prev === 'components' ? 'canvas' : 'components'));
+    }
+  };
+
   if (!activeProject) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--tw-bg)' }}>
@@ -271,27 +282,36 @@ export function StudioPage() {
         onRedo={redo}
         onUpdateTitle={(title) => updateActiveProject({ title })}
         validation={validation}
+        isComponentLibraryOpen={isDesktop ? isComponentLibraryOpen : isTablet ? tabletLeftOpen : mobileActiveTab === 'components'}
+        onToggleComponentLibrary={handleToggleComponentLibrary}
       />
 
       {/* Main Studio Middle Area */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-        {/* DESKTOP LEFT: Component Library (Fixed 280px) */}
+        {/* DESKTOP LEFT: Component Library (Collapsible) */}
         {isDesktop && (
           <div
             className="studio-col-left"
             style={{
-              width: '280px',
+              width: isComponentLibraryOpen ? '280px' : '0px',
+              minWidth: isComponentLibraryOpen ? '280px' : '0px',
               height: '100%',
               minHeight: 0,
               backgroundColor: '#ffffff',
-              borderRight: '1px solid var(--tw-border)',
+              borderRight: isComponentLibraryOpen ? '1px solid var(--tw-border)' : 'none',
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-right 0.22s ease'
             }}
           >
-            <ComponentLibrary onAddComponent={handleAddComponentAtCenter} />
+            <div style={{ width: '280px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <ComponentLibrary
+                onAddComponent={handleAddComponentAtCenter}
+                onClose={() => setIsComponentLibraryOpen(false)}
+              />
+            </div>
           </div>
         )}
 
@@ -415,6 +435,40 @@ export function StudioPage() {
 
             {/* Serial Monitor Collapsible Drawer */}
             <SerialMonitor isOpen={isSerialOpen} onClose={toggleSerial} />
+
+          {/* DESKTOP FLOATING REOPEN BUTTON (When Component Library is Collapsed) */}
+          {isDesktop && !isComponentLibraryOpen && (
+            <TracewiseBubbleArea theme="light">
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 18,
+                  left: 14,
+                  zIndex: 42,
+                  animation: 'fadeIn 0.2s ease-out'
+                }}
+              >
+                <TracewiseBubbleButton
+                  onClick={() => setIsComponentLibraryOpen(true)}
+                  variant="primary"
+                  size="sm"
+                  title="Open Component Library (33 parts)"
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 'var(--tw-radius-pill)',
+                    boxShadow: '0 4px 18px rgba(30, 63, 216, 0.28)',
+                    gap: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700
+                  }}
+                >
+                  <Layers size={15} />
+                  <span>Components</span>
+                  <ChevronRight size={14} style={{ marginLeft: 2 }} />
+                </TracewiseBubbleButton>
+              </div>
+            </TracewiseBubbleArea>
+          )}
 
           {/* TABLET FLOATING TOGGLE BUTTONS (Canvas Edges) */}
           {isTablet && (

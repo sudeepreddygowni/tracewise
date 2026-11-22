@@ -1,0 +1,561 @@
+/* =============================================================================
+   TRACEWISE PREMIUM LIQUID GLASS NAVIGATION
+   Inspired by optical caustic refraction, liquid glass lenses & smooth pill geometry
+   ============================================================================= */
+
+:root {
+  --lq-nav-height: 56px;
+  --lq-pill-radius: 9999px;
+  --lq-caustic-purple: rgba(168, 85, 247, 0.32);
+  --lq-caustic-violet: rgba(139, 92, 246, 0.22);
+  --lq-caustic-cyan: rgba(56, 189, 248, 0.22);
+}
+
+/* Floating header wrapper */
+.tracewise-liquid-header {
+  position: fixed;
+  top: 14px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+/* Core liquid glass navbar */
+.tracewise-liquid-navbar {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--lq-nav-height);
+  width: 100%;
+  max-width: 820px;
+  padding: 0 14px 0 18px;
+  border-radius: var(--lq-pill-radius);
+  box-sizing: border-box;
+  isolation: isolate;
+
+  /* Optical Glass Backing */
+  backdrop-filter: blur(24px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%) contrast(105%);
+
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* -----------------------------------------------------------------------------
+   THEME ADAPTATION: Dark Page (Landing / Dark Mode) vs Light Page
+   ----------------------------------------------------------------------------- */
+
+/* Dark Mode / Solid Navy Background (e.g. Landing Page #071831) */
+.tracewise-liquid-navbar.theme-dark {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(147, 51, 234, 0.14) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow:
+    0 20px 40px -10px rgba(0, 0, 0, 0.5),
+    0 8px 20px -4px rgba(139, 92, 246, 0.25),
+    0 1px 2px 0 rgba(0, 0, 0, 0.15),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 2px 0 rgba(168, 85, 247, 0.4),
+    inset 0 0 18px 0 rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+/* Light Page / Workspace Background (e.g. /projects, /community) */
+.tracewise-liquid-navbar.theme-light {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(255, 255, 255, 0.72) 45%,
+    rgba(243, 232, 255, 0.82) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 16px 36px -8px rgba(15, 23, 42, 0.1),
+    0 6px 18px -2px rgba(139, 92, 246, 0.12),
+    0 1px 2px 0 rgba(0, 0, 0, 0.04),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px 0 rgba(168, 85, 247, 0.22),
+    inset 0 0 16px 0 rgba(255, 255, 255, 0.35);
+  color: #0f172a;
+}
+
+/* -----------------------------------------------------------------------------
+   LIQUID CAUSTICS (Optical Lens Refraction)
+   ----------------------------------------------------------------------------- */
+.liquid-glass-caustics {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: -1;
+}
+
+/* Left Caustic Pool (Beneath & Around Logo) */
+.liquid-glass-caustics::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -8%;
+  width: 42%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 45% 50%,
+    var(--lq-caustic-purple) 0%,
+    var(--lq-caustic-violet) 36%,
+    transparent 72%
+  );
+  filter: blur(10px);
+  transform: rotate(-8deg);
+  opacity: 0.9;
+}
+
+/* Right Edge Caustic Reflection */
+.liquid-glass-caustics::after {
+  content: '';
+  position: absolute;
+  bottom: -50%;
+  right: -6%;
+  width: 38%;
+  height: 200%;
+  background: radial-gradient(
+    circle at 55% 50%,
+    var(--lq-caustic-violet) 0%,
+    var(--lq-caustic-cyan) 34%,
+    transparent 72%
+  );
+  filter: blur(12px);
+  opacity: 0.75;
+}
+
+/* -----------------------------------------------------------------------------
+   LEFT GROUP: BRAND LOGO
+   ----------------------------------------------------------------------------- */
+.liquid-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  z-index: 1;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.liquid-nav-brand:hover {
+  transform: scale(1.02);
+}
+
+.liquid-nav-brand img {
+  height: 28px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+/* -----------------------------------------------------------------------------
+   CENTER GROUP: NAVIGATION LINKS
+   ----------------------------------------------------------------------------- */
+.liquid-nav-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+}
+
+.liquid-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 14px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border-radius: var(--lq-pill-radius);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  background: transparent;
+  font-family: inherit;
+}
+
+/* Dark mode nav link text */
+.theme-dark .liquid-nav-link {
+  color: #cbd5e1;
+}
+
+.theme-dark .liquid-nav-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.15);
+}
+
+/* Light mode nav link text */
+.theme-light .liquid-nav-link {
+  color: #475569;
+}
+
+.theme-light .liquid-nav-link:hover {
+  color: #0f172a;
+  background: rgba(147, 51, 234, 0.08);
+  border-color: rgba(168, 85, 247, 0.22);
+}
+
+/* Active Nav Link Pill (Matches "Features" in reference screenshot) */
+.theme-dark .liquid-nav-link.active {
+  color: #ffffff;
+  font-weight: 700;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(168, 85, 247, 0.25) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
+    0 2px 12px 0 rgba(139, 92, 246, 0.3);
+}
+
+.theme-light .liquid-nav-link.active {
+  color: #1e3fd8;
+  font-weight: 700;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(238, 242, 255, 0.9) 100%
+  );
+  border: 1px solid rgba(30, 63, 216, 0.25);
+  box-shadow:
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.9),
+    0 2px 10px 0 rgba(30, 63, 216, 0.12);
+}
+
+/* -----------------------------------------------------------------------------
+   RIGHT GROUP: ACTIONS (DM, USER MENU, CTA)
+   ----------------------------------------------------------------------------- */
+.liquid-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+/* Direct Messages Circular Glass Button */
+.liquid-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  text-decoration: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.theme-dark .liquid-icon-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #cbd5e1;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.theme-dark .liquid-icon-btn:hover,
+.theme-dark .liquid-icon-btn.active {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: rgba(168, 85, 247, 0.5);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 10px rgba(139, 92, 246, 0.35);
+  transform: translateY(-1px);
+}
+
+.theme-light .liquid-icon-btn {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  color: #475569;
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.06),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.theme-light .liquid-icon-btn:hover,
+.theme-light .liquid-icon-btn.active {
+  background: rgba(238, 242, 255, 0.95);
+  border-color: rgba(30, 63, 216, 0.3);
+  color: #1e3fd8;
+  box-shadow:
+    0 4px 12px rgba(30, 63, 216, 0.12),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+/* User Account Profile Pill */
+.liquid-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px 3px 3px;
+  border-radius: var(--lq-pill-radius);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+
+.theme-dark .liquid-profile-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #f1f5f9;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.theme-dark .liquid-profile-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 10px rgba(139, 92, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+.theme-light .liquid-profile-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.06),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.theme-light .liquid-profile-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
+  transform: translateY(-1px);
+}
+
+/* Sign In Glass Pill Button */
+.liquid-signin-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: var(--lq-pill-radius);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  border: 1px solid transparent;
+}
+
+.theme-dark .liquid-signin-btn {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.4) 0%,
+    rgba(30, 63, 216, 0.4) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 12px rgba(139, 92, 246, 0.35);
+}
+
+.theme-dark .liquid-signin-btn:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(168, 85, 247, 0.55) 0%,
+    rgba(30, 63, 216, 0.55) 100%
+  );
+  box-shadow:
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.8),
+    0 4px 16px rgba(139, 92, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.theme-light .liquid-signin-btn {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 63, 216, 0.9) 0%,
+    rgba(124, 58, 237, 0.9) 100%
+  );
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(30, 63, 216, 0.25);
+}
+
+.theme-light .liquid-signin-btn:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 63, 216, 1) 0%,
+    rgba(124, 58, 237, 1) 100%
+  );
+  box-shadow: 0 6px 18px rgba(30, 63, 216, 0.35);
+  transform: translateY(-1px);
+}
+
+/* -----------------------------------------------------------------------------
+   LIQUID GLASS DROPDOWN MENUS (Explore & User Profile)
+   ----------------------------------------------------------------------------- */
+.liquid-glass-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  width: 236px;
+  border-radius: 18px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 120;
+  backdrop-filter: blur(28px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(105%);
+  animation: liquidDropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+}
+
+@keyframes liquidDropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.theme-dark .liquid-glass-dropdown {
+  background: rgba(7, 24, 49, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 24px 48px -12px rgba(0, 0, 0, 0.6),
+    0 8px 24px -4px rgba(139, 92, 246, 0.25),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
+  color: #f1f5f9;
+}
+
+.theme-light .liquid-glass-dropdown {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 20px 42px -10px rgba(15, 23, 42, 0.16),
+    0 6px 18px -2px rgba(139, 92, 246, 0.14),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+}
+
+/* -----------------------------------------------------------------------------
+   MOBILE NAVIGATION (Reference-Inspired Compact Pill)
+   ----------------------------------------------------------------------------- */
+.liquid-mobile-toggle {
+  display: none;
+}
+
+.liquid-mobile-drawer {
+  pointer-events: auto;
+  position: absolute;
+  top: calc(var(--lq-nav-height) + 24px);
+  left: 16px;
+  right: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 101;
+  border-radius: 24px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  animation: liquidDrawerSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes liquidDrawerSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.theme-dark .liquid-mobile-drawer {
+  background: rgba(7, 24, 49, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 24px 50px rgba(0, 0, 0, 0.65),
+    0 8px 24px rgba(139, 92, 246, 0.25),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  color: #f1f5f9;
+}
+
+.theme-light .liquid-mobile-drawer {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 24px 50px rgba(15, 23, 42, 0.16),
+    0 8px 24px rgba(139, 92, 246, 0.12),
+    inset 0 1px 1.5px rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+}
+
+/* -----------------------------------------------------------------------------
+   RESPONSIVE BREAKPOINTS
+   ----------------------------------------------------------------------------- */
+@media (max-width: 860px) {
+  .tracewise-liquid-navbar {
+    max-width: 460px;
+    padding: 0 12px 0 16px;
+  }
+  .liquid-nav-center {
+    display: none !important;
+  }
+  .liquid-mobile-toggle {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .tracewise-liquid-navbar {
+    max-width: calc(100vw - 24px);
+    padding: 0 10px 0 14px;
+    height: 52px;
+  }
+  .liquid-nav-brand img {
+    height: 24px;
+  }
+  .liquid-mobile-drawer {
+    left: 12px;
+    right: 12px;
+    padding: 16px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .tracewise-liquid-navbar,
+  .liquid-nav-link,
+  .liquid-icon-btn,
+  .liquid-profile-btn,
+  .liquid-signin-btn,
+  .liquid-glass-dropdown,
+  .liquid-mobile-drawer {
+    transition: none !important;
+    animation: none !important;
+  }
+}

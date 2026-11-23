@@ -532,7 +532,7 @@ export function Navbar() {
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       role="menuitem"
                     >
-                      <Users size={15} color="#a855f7" />
+                      <Users size={15} color="#2563eb" />
                       <span>My Groups</span>
                     </Link>
 
@@ -1010,7 +1010,7 @@ export function Navbar() {
                 gap: '6px',
                 padding: '10px 16px',
                 borderRadius: '9999px',
-                background: 'linear-gradient(135deg, #1e3fd8 0%, #7c3aed 100%)',
+                background: 'linear-gradient(135deg, #1e3fd8 0%, #0284c7 100%)',
                 color: '#ffffff',
                 fontWeight: 700,
                 fontSize: '0.88rem',

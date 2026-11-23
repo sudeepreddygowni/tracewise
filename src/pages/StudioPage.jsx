@@ -24,7 +24,11 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  Maximize2
+  Maximize2,
+  FolderOpen,
+  FileCode,
+  Trash2,
+  Plus
 } from 'lucide-react';
 import {
   TracewiseBubbleButton,
@@ -538,7 +542,7 @@ export function StudioPage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: 16,
+                bottom: 74,
                 left: '50%',
                 transform: 'translateX(-50%)',
                 zIndex: 43,
@@ -560,7 +564,8 @@ export function StudioPage() {
                   gap: '8px',
                   cursor: 'pointer',
                   fontSize: '0.84rem',
-                  fontWeight: 600
+                  fontWeight: 600,
+                  minHeight: '44px'
                 }}
               >
                 <Sliders size={14} color="#2dc5e9" />
@@ -809,7 +814,7 @@ export function StudioPage() {
         )}
       </div>
 
-      {/* MOBILE SLIDING BOTTOM SHEET (Components, Code, Inspector, Assistant) */}
+      {/* MOBILE SLIDING BOTTOM SHEET (Components, Code, Assistant, Files, Inspector) */}
       {isMobile && mobileActiveTab !== 'canvas' && (
         <div
           style={{
@@ -827,9 +832,10 @@ export function StudioPage() {
             style={{
               position: 'absolute',
               inset: 0,
-              backgroundColor: 'rgba(7, 24, 49, 0.55)',
+              backgroundColor: 'rgba(7, 24, 49, 0.60)',
               backdropFilter: 'blur(3px)'
             }}
+            aria-label="Close sheet backdrop"
           />
 
           {/* Bottom Sheet Box */}
@@ -837,64 +843,73 @@ export function StudioPage() {
             style={{
               position: 'relative',
               width: '100%',
-              height: '82vh',
-              backgroundColor: mobileActiveTab === 'code' ? '#071831' : '#ffffff',
+              height: mobileActiveTab === 'code' ? '92dvh' : mobileActiveTab === 'assistant' ? '86dvh' : '82dvh',
+              maxHeight: 'calc(100dvh - 36px)',
+              backgroundColor: mobileActiveTab === 'code' || mobileActiveTab === 'files' ? '#071831' : '#ffffff',
               borderRadius: '24px 24px 0 0',
-              boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.4)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              animation: 'slideUp 0.25s ease-out'
+              animation: 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
-            {/* Sheet Drag Pill & Header */}
+            {/* Sheet Header */}
             <div
               style={{
                 padding: '12px 16px',
-                borderBottom: mobileActiveTab === 'code' ? '1px solid rgba(74, 167, 242, 0.2)' : '1px solid var(--tw-border)',
+                borderBottom: (mobileActiveTab === 'code' || mobileActiveTab === 'files')
+                  ? '1px solid rgba(74, 167, 242, 0.25)'
+                  : '1px solid var(--tw-border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: mobileActiveTab === 'code' ? '#0b2348' : '#ffffff',
+                backgroundColor: (mobileActiveTab === 'code' || mobileActiveTab === 'files') ? '#0b2348' : '#ffffff',
                 flexShrink: 0
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {mobileActiveTab === 'components' && <Layers size={18} color="var(--tw-brand)" />}
-                {mobileActiveTab === 'code' && <Code size={18} color="#2dc5e9" />}
-                {mobileActiveTab === 'inspector' && <Sliders size={18} color="var(--tw-brand)" />}
+                {mobileActiveTab === 'code' && <Code size={18} color="#38bdf8" />}
                 {mobileActiveTab === 'assistant' && <Sparkles size={18} color="var(--tw-brand)" />}
+                {mobileActiveTab === 'files' && <FolderOpen size={18} color="#38bdf8" />}
+                {mobileActiveTab === 'inspector' && <Sliders size={18} color="var(--tw-brand)" />}
 
                 <span
                   style={{
                     fontSize: '0.96rem',
                     fontWeight: 700,
                     fontFamily: 'var(--font-heading)',
-                    color: mobileActiveTab === 'code' ? '#f8fafc' : 'var(--tw-text)'
+                    color: (mobileActiveTab === 'code' || mobileActiveTab === 'files') ? '#f8fafc' : 'var(--tw-text)'
                   }}
                 >
                   {mobileActiveTab === 'components' && 'Component Library'}
                   {mobileActiveTab === 'code' && 'Firmware & Code'}
-                  {mobileActiveTab === 'inspector' && 'Component Inspector'}
                   {mobileActiveTab === 'assistant' && 'Engineering Assistant'}
+                  {mobileActiveTab === 'files' && 'Project Files'}
+                  {mobileActiveTab === 'inspector' && 'Component Inspector'}
                 </span>
               </div>
 
               <button
+                type="button"
                 onClick={() => setMobileActiveTab('canvas')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
-                  padding: '6px 12px',
+                  padding: '6px 14px',
                   borderRadius: '20px',
                   border: 'none',
-                  backgroundColor: mobileActiveTab === 'code' ? 'rgba(255,255,255,0.12)' : 'var(--tw-bg)',
-                  color: mobileActiveTab === 'code' ? '#f8fafc' : 'var(--tw-text)',
-                  fontSize: '0.8rem',
+                  backgroundColor: (mobileActiveTab === 'code' || mobileActiveTab === 'files')
+                    ? 'rgba(255,255,255,0.14)'
+                    : 'var(--tw-bg)',
+                  color: (mobileActiveTab === 'code' || mobileActiveTab === 'files') ? '#f8fafc' : 'var(--tw-text)',
+                  fontSize: '0.82rem',
                   fontWeight: 600,
                   cursor: 'pointer'
                 }}
+                aria-label="Return to Canvas"
               >
                 <X size={15} />
                 <span>Canvas</span>
@@ -903,16 +918,17 @@ export function StudioPage() {
 
             {/* Sheet Body */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {/* 1. Component Library */}
               {mobileActiveTab === 'components' && (
                 <ComponentLibrary
                   onAddComponent={(def) => {
                     handleAddComponentAtCenter(def);
-                    // Stay or return to canvas based on user preference
                   }}
                   onClose={() => setMobileActiveTab('canvas')}
                 />
               )}
 
+              {/* 2. Code Editor */}
               {mobileActiveTab === 'code' && (
                 <CodeEditor
                   code={activeProject.firmware?.files?.[0]?.content || ''}
@@ -921,9 +937,163 @@ export function StudioPage() {
                   validationResults={validation.checks}
                   project={activeProject}
                   onUpdateProject={updateActiveProject}
+                  onClose={() => setMobileActiveTab('canvas')}
                 />
               )}
 
+              {/* 3. AI Engineering Assistant */}
+              {mobileActiveTab === 'assistant' && (
+                <DemoAssistant
+                  project={activeProject}
+                  validation={validation}
+                  onApplyFix={handleApplyAssistantFix}
+                  initialQuery={location.state?.initialQuery}
+                  buildCompleted={location.state?.buildCompleted}
+                  buildMessage={location.state?.buildMessage}
+                />
+              )}
+
+              {/* 4. Dedicated Project Files Drawer */}
+              {mobileActiveTab === 'files' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#071831', overflow: 'hidden' }}>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Source Files ({(activeProject.firmware?.files || [{ path: 'sketch.ino' }]).length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fileName = prompt('Enter new file name (e.g. helper.h, state.py, pins.h):');
+                          if (fileName && fileName.trim()) {
+                            const clean = fileName.trim();
+                            const isPy = clean.endsWith('.py');
+                            const newFile = {
+                              path: clean,
+                              content: isPy
+                                ? `# ${clean}\nimport time\n\nprint("Loaded ${clean}")\n`
+                                : `// ${clean}\n\nvoid setup() {\n}\n\nvoid loop() {\n}\n`,
+                              language: isPy ? 'python' : 'arduino-cpp'
+                            };
+                            updateActiveProject(prev => {
+                              const existing = prev.firmware?.files || [
+                                { path: prev.firmware?.mainFile || 'sketch.ino', content: prev.firmware?.code || '', language: prev.firmware?.language || 'arduino-cpp' }
+                              ];
+                              if (existing.some(f => f.path === clean)) return prev;
+                              return {
+                                ...prev,
+                                firmware: {
+                                  ...(prev.firmware || {}),
+                                  files: [...existing, newFile]
+                                }
+                              };
+                            });
+                            setMobileActiveTab('code');
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '5px 12px',
+                          borderRadius: '16px',
+                          backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          color: '#38bdf8',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Plus size={13} />
+                        <span>New File</span>
+                      </button>
+                    </div>
+
+                    {(activeProject.firmware?.files && activeProject.firmware.files.length > 0
+                      ? activeProject.firmware.files
+                      : [{ path: activeProject.firmware?.mainFile || 'sketch.ino', content: activeProject.firmware?.code || '', language: activeProject.firmware?.language || 'arduino-cpp' }]
+                    ).map((file, idx) => {
+                      const isMain = file.path === (activeProject.firmware?.mainFile || 'sketch.ino') || idx === 0;
+                      const isPy = file.path.endsWith('.py');
+                      return (
+                        <div
+                          key={file.path}
+                          onClick={() => setMobileActiveTab('code')}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: '12px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(74, 167, 242, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FileCode size={20} color={isPy ? '#eab308' : '#38bdf8'} />
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc' }}>
+                                  {file.path}
+                                </span>
+                                {isMain && (
+                                  <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'rgba(56, 189, 248, 0.18)', color: '#38bdf8', fontWeight: 700 }}>
+                                    Main
+                                  </span>
+                                )}
+                                {isPy && (
+                                  <span style={{ fontSize: '0.64rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'rgba(234, 179, 8, 0.18)', color: '#eab308', fontWeight: 700 }}>
+                                    MicroPython
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                {(file.content || '').split('\n').length} lines • Tap to edit in Code
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {!isMain && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Delete file "${file.path}"?`)) {
+                                    updateActiveProject(prev => ({
+                                      ...prev,
+                                      firmware: {
+                                        ...(prev.firmware || {}),
+                                        files: (prev.firmware?.files || []).filter(f => f.path !== file.path)
+                                      }
+                                    }));
+                                  }
+                                }}
+                                style={{
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  color: '#94a3b8',
+                                  cursor: 'pointer',
+                                  padding: '6px'
+                                }}
+                                title="Delete file"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                            <ChevronRight size={16} color="#64748b" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Component Inspector */}
               {mobileActiveTab === 'inspector' && (
                 <ComponentInspector
                   selectedComponent={selectedComp}
@@ -945,41 +1115,34 @@ export function StudioPage() {
                   }}
                 />
               )}
-
-              {mobileActiveTab === 'assistant' && (
-                <DemoAssistant
-                  project={activeProject}
-                  validation={validation}
-                  onApplyFix={handleApplyAssistantFix}
-                  initialQuery={location.state?.initialQuery}
-                  buildCompleted={location.state?.buildCompleted}
-                  buildMessage={location.state?.buildMessage}
-                />
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* MOBILE BOTTOM WORKSPACE NAVIGATION BAR */}
+      {/* MOBILE BOTTOM WORKSPACE TOOLBAR: Components | Code | Assistant | Files */}
       {isMobile && (
         <nav
+          className="studio-mobile-toolbar"
           style={{
-            height: '62px',
+            height: '58px',
             backgroundColor: '#ffffff',
             borderTop: '1px solid var(--tw-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-around',
-            padding: '4px 8px',
-            zIndex: 50,
+            padding: '2px 8px',
+            paddingBottom: 'env(safe-area-inset-bottom, 2px)',
+            zIndex: 45,
             flexShrink: 0,
-            boxShadow: '0 -2px 10px rgba(0,0,0,0.04)'
+            boxShadow: '0 -2px 10px rgba(0,0,0,0.05)'
           }}
+          aria-label="Studio Tools"
         >
-          {/* 1. Canvas */}
+          {/* 1. Components */}
           <button
-            onClick={() => setMobileActiveTab('canvas')}
+            type="button"
+            onClick={() => setMobileActiveTab(prev => prev === 'components' ? 'canvas' : 'components')}
             style={{
               flex: 1,
               display: 'flex',
@@ -988,46 +1151,26 @@ export function StudioPage() {
               justifyContent: 'center',
               gap: '3px',
               border: 'none',
-              backgroundColor: 'transparent',
-              color: mobileActiveTab === 'canvas' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
-              cursor: 'pointer',
-              minHeight: '48px',
-              padding: '4px 0'
-            }}
-          >
-            <Layout size={18} strokeWidth={mobileActiveTab === 'canvas' ? 2.5 : 2} />
-            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'canvas' ? 700 : 500 }}>
-              Canvas
-            </span>
-          </button>
-
-          {/* 2. Components */}
-          <button
-            onClick={() => setMobileActiveTab('components')}
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '3px',
-              border: 'none',
-              backgroundColor: 'transparent',
+              backgroundColor: mobileActiveTab === 'components' ? 'rgba(30, 63, 216, 0.08)' : 'transparent',
+              borderRadius: '8px',
               color: mobileActiveTab === 'components' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
               cursor: 'pointer',
               minHeight: '48px',
-              padding: '4px 0'
+              padding: '4px 0',
+              transition: 'all 0.15s ease'
             }}
+            aria-label="Component Library"
           >
             <Layers size={18} strokeWidth={mobileActiveTab === 'components' ? 2.5 : 2} />
-            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'components' ? 700 : 500 }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: mobileActiveTab === 'components' ? 700 : 600 }}>
               Components
             </span>
           </button>
 
-          {/* 3. Code */}
+          {/* 2. Code */}
           <button
-            onClick={() => setMobileActiveTab('code')}
+            type="button"
+            onClick={() => setMobileActiveTab(prev => prev === 'code' ? 'canvas' : 'code')}
             style={{
               flex: 1,
               display: 'flex',
@@ -1036,22 +1179,26 @@ export function StudioPage() {
               justifyContent: 'center',
               gap: '3px',
               border: 'none',
-              backgroundColor: 'transparent',
+              backgroundColor: mobileActiveTab === 'code' ? 'rgba(30, 63, 216, 0.08)' : 'transparent',
+              borderRadius: '8px',
               color: mobileActiveTab === 'code' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
               cursor: 'pointer',
               minHeight: '48px',
-              padding: '4px 0'
+              padding: '4px 0',
+              transition: 'all 0.15s ease'
             }}
+            aria-label="Code Editor"
           >
             <Code size={18} strokeWidth={mobileActiveTab === 'code' ? 2.5 : 2} />
-            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'code' ? 700 : 500 }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: mobileActiveTab === 'code' ? 700 : 600 }}>
               Code
             </span>
           </button>
 
-          {/* 4. Inspector */}
+          {/* 3. Assistant */}
           <button
-            onClick={() => setMobileActiveTab('inspector')}
+            type="button"
+            onClick={() => setMobileActiveTab(prev => prev === 'assistant' ? 'canvas' : 'assistant')}
             style={{
               flex: 1,
               display: 'flex',
@@ -1060,54 +1207,47 @@ export function StudioPage() {
               justifyContent: 'center',
               gap: '3px',
               border: 'none',
-              backgroundColor: 'transparent',
-              color: mobileActiveTab === 'inspector' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
-              cursor: 'pointer',
-              minHeight: '48px',
-              padding: '4px 0',
-              position: 'relative'
-            }}
-          >
-            <Sliders size={18} strokeWidth={mobileActiveTab === 'inspector' ? 2.5 : 2} />
-            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'inspector' ? 700 : 500 }}>
-              Inspector
-            </span>
-            {selectedComp && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 6,
-                  right: '25%',
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--tw-brand)'
-                }}
-              />
-            )}
-          </button>
-
-          {/* 5. Assistant */}
-          <button
-            onClick={() => setMobileActiveTab('assistant')}
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '3px',
-              border: 'none',
-              backgroundColor: 'transparent',
+              backgroundColor: mobileActiveTab === 'assistant' ? 'rgba(30, 63, 216, 0.08)' : 'transparent',
+              borderRadius: '8px',
               color: mobileActiveTab === 'assistant' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
               cursor: 'pointer',
               minHeight: '48px',
-              padding: '4px 0'
+              padding: '4px 0',
+              transition: 'all 0.15s ease'
             }}
+            aria-label="Engineering Assistant"
           >
             <Sparkles size={18} strokeWidth={mobileActiveTab === 'assistant' ? 2.5 : 2} />
-            <span style={{ fontSize: '0.7rem', fontWeight: mobileActiveTab === 'assistant' ? 700 : 500 }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: mobileActiveTab === 'assistant' ? 700 : 600 }}>
               Assistant
+            </span>
+          </button>
+
+          {/* 4. Files */}
+          <button
+            type="button"
+            onClick={() => setMobileActiveTab(prev => prev === 'files' ? 'canvas' : 'files')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '3px',
+              border: 'none',
+              backgroundColor: mobileActiveTab === 'files' ? 'rgba(30, 63, 216, 0.08)' : 'transparent',
+              borderRadius: '8px',
+              color: mobileActiveTab === 'files' ? 'var(--tw-brand)' : 'var(--tw-text-muted)',
+              cursor: 'pointer',
+              minHeight: '48px',
+              padding: '4px 0',
+              transition: 'all 0.15s ease'
+            }}
+            aria-label="Project Files"
+          >
+            <FolderOpen size={18} strokeWidth={mobileActiveTab === 'files' ? 2.5 : 2} />
+            <span style={{ fontSize: '0.72rem', fontWeight: mobileActiveTab === 'files' ? 700 : 600 }}>
+              Files
             </span>
           </button>
         </nav>

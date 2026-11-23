@@ -35,11 +35,15 @@ export function CodeEditor({
   onRunCheck,
   validationResults = [],
   project = null,
-  onUpdateProject = null
+  onUpdateProject = null,
+  activeFilePath: externalActiveFilePath = null,
+  onSelectFile = null,
+  initialShowFileExplorer = false,
+  onClose = null
 }) {
   const [copied, setCopied] = useState(false);
   const [detectedPins, setDetectedPins] = useState([]);
-  const [showFileExplorer, setShowFileExplorer] = useState(false);
+  const [showFileExplorer, setShowFileExplorer] = useState(initialShowFileExplorer);
   const [newFileModalOpen, setNewFileModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [syntaxNotice, setSyntaxNotice] = useState(null);
@@ -61,7 +65,12 @@ export function CodeEditor({
     ];
   }, [project?.firmware?.files, project?.firmware?.mainFile, project?.firmware?.language, code]);
 
-  const [activeFilePath, setActiveFilePath] = useState(projectFiles[0]?.path || 'sketch.ino');
+  const [internalActiveFilePath, setInternalActiveFilePath] = useState(projectFiles[0]?.path || 'sketch.ino');
+  const activeFilePath = externalActiveFilePath || internalActiveFilePath;
+  const setActiveFilePath = (path) => {
+    setInternalActiveFilePath(path);
+    if (onSelectFile) onSelectFile(path);
+  };
 
   // Keep activeFilePath valid
   useEffect(() => {
@@ -472,17 +481,42 @@ export function CodeEditor({
               {copied ? <Check size={12} color="#22c55e" /> : <Copy size={12} />}
               <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.14)',
+                  border: '1px solid rgba(255, 255, 255, 0.22)',
+                  color: '#ffffff',
+                  fontSize: '0.74rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                title="Close Editor (Return to Canvas)"
+                aria-label="Close Editor"
+              >
+                <X size={13} />
+                <span>Canvas</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Editor Main Body */}
-        <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', maxWidth: '100%' }}>
           {/* Synchronized Line Numbers */}
           <div
             ref={lineNumbersRef}
             style={{
               width: '44px',
-              padding: '12px 6px 56px 6px',
+              padding: '12px 6px 140px 6px',
               backgroundColor: '#081e3d',
               color: '#64748b',
               fontSize: '0.84rem',
@@ -513,8 +547,9 @@ export function CodeEditor({
             style={{
               flex: 1,
               width: '100%',
+              maxWidth: 'calc(100% - 44px)',
               height: '100%',
-              padding: '12px 14px 56px 14px',
+              padding: '12px 14px 140px 14px',
               backgroundColor: 'transparent',
               color: '#f8fafc',
               fontSize: '0.84rem',

@@ -307,6 +307,7 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
               return (
               <div
                 key={comp.type}
+                onClick={() => handleAdd(comp)}
                 style={{
                   padding: '12px 14px',
                   borderRadius: '12px',
@@ -315,7 +316,9 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px',
-                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease'
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease',
+                  WebkitTapHighlightColor: 'transparent'
                 }}
                 className="component-catalog-item"
               >

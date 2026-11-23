@@ -1,14 +1,15 @@
 /* =============================================================================
    TRACEWISE PREMIUM LIQUID GLASS NAVIGATION
    Inspired by optical caustic refraction, liquid glass lenses & smooth pill geometry
+   Optimized for WCAG AAA text contrast, high visibility & touch ergonomics
    ============================================================================= */
 
 :root {
   --lq-nav-height: 56px;
   --lq-pill-radius: 9999px;
-  --lq-caustic-purple: rgba(168, 85, 247, 0.32);
-  --lq-caustic-violet: rgba(139, 92, 246, 0.22);
-  --lq-caustic-cyan: rgba(56, 189, 248, 0.22);
+  --lq-caustic-purple: rgba(168, 85, 247, 0.42);
+  --lq-caustic-violet: rgba(139, 92, 246, 0.32);
+  --lq-caustic-cyan: rgba(56, 189, 248, 0.30);
 }
 
 /* Floating header wrapper */
@@ -39,9 +40,9 @@
   box-sizing: border-box;
   isolation: isolate;
 
-  /* Optical Glass Backing */
-  backdrop-filter: blur(24px) saturate(190%) contrast(105%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%) contrast(105%);
+  /* Optical Glass Backing - High Density Diffusion */
+  backdrop-filter: blur(28px) saturate(200%) contrast(110%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) contrast(110%);
 
   transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -50,46 +51,49 @@
    THEME ADAPTATION: Dark Page (Landing / Dark Mode) vs Light Page
    ----------------------------------------------------------------------------- */
 
-/* Dark Mode / Solid Navy Background (e.g. Landing Page #071831) */
+/* Dark Mode / Solid Navy Background (e.g. Landing Page #071831)
+   Rich smoky obsidian glass matrix for maximum text contrast */
 .tracewise-liquid-navbar.theme-dark {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.05) 45%,
-    rgba(147, 51, 234, 0.14) 100%
+    rgba(15, 23, 42, 0.88) 0%,
+    rgba(7, 24, 49, 0.82) 48%,
+    rgba(26, 16, 51, 0.86) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 20px 40px -10px rgba(0, 0, 0, 0.5),
-    0 8px 20px -4px rgba(139, 92, 246, 0.25),
-    0 1px 2px 0 rgba(0, 0, 0, 0.15),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -1px 2px 0 rgba(168, 85, 247, 0.4),
-    inset 0 0 18px 0 rgba(255, 255, 255, 0.06);
+    0 20px 40px -10px rgba(0, 0, 0, 0.65),
+    0 8px 24px -4px rgba(139, 92, 246, 0.30),
+    0 1px 2px 0 rgba(0, 0, 0, 0.25),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 2px 0 rgba(168, 85, 247, 0.50),
+    inset 0 0 18px 0 rgba(255, 255, 255, 0.05);
   color: #f8fafc;
 }
 
-/* Light Page / Workspace Background (e.g. /projects, /community) */
+/* Light Page / Workspace Background (e.g. /projects, /community)
+   Crisp luminous frosted glass with high-contrast text backing */
 .tracewise-liquid-navbar.theme-light {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.88) 0%,
-    rgba(255, 255, 255, 0.72) 45%,
-    rgba(243, 232, 255, 0.82) 100%
+    rgba(255, 255, 255, 0.94) 0%,
+    rgba(248, 250, 252, 0.90) 48%,
+    rgba(243, 232, 255, 0.92) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow:
-    0 16px 36px -8px rgba(15, 23, 42, 0.1),
-    0 6px 18px -2px rgba(139, 92, 246, 0.12),
+    0 16px 36px -8px rgba(15, 23, 42, 0.12),
+    0 6px 18px -2px rgba(139, 92, 246, 0.14),
     0 1px 2px 0 rgba(0, 0, 0, 0.04),
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 2px 0 rgba(168, 85, 247, 0.22),
-    inset 0 0 16px 0 rgba(255, 255, 255, 0.35);
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 2px 0 rgba(168, 85, 247, 0.28),
+    inset 0 0 16px 0 rgba(255, 255, 255, 0.40);
   color: #0f172a;
 }
 
 /* -----------------------------------------------------------------------------
-   LIQUID CAUSTICS (Optical Lens Refraction)
+   LIQUID CAUSTICS (Optical Lens Refraction Perimeter)
+   Positioned strictly along outer rims to avoid obscuring center text
    ----------------------------------------------------------------------------- */
 .liquid-glass-caustics {
   position: absolute;
@@ -100,41 +104,41 @@
   z-index: -1;
 }
 
-/* Left Caustic Pool (Beneath & Around Logo) */
+/* Left Caustic Pool (Beneath & Around Logo Edge) */
 .liquid-glass-caustics::before {
   content: '';
   position: absolute;
-  top: -50%;
-  left: -8%;
-  width: 42%;
-  height: 200%;
+  top: -30%;
+  left: -6%;
+  width: 32%;
+  height: 160%;
   background: radial-gradient(
-    circle at 45% 50%,
+    circle at 40% 50%,
     var(--lq-caustic-purple) 0%,
-    var(--lq-caustic-violet) 36%,
-    transparent 72%
+    var(--lq-caustic-violet) 40%,
+    transparent 75%
   );
-  filter: blur(10px);
-  transform: rotate(-8deg);
-  opacity: 0.9;
+  filter: blur(14px);
+  transform: rotate(-6deg);
+  opacity: 0.55;
 }
 
 /* Right Edge Caustic Reflection */
 .liquid-glass-caustics::after {
   content: '';
   position: absolute;
-  bottom: -50%;
-  right: -6%;
-  width: 38%;
-  height: 200%;
+  bottom: -40%;
+  right: -5%;
+  width: 30%;
+  height: 160%;
   background: radial-gradient(
-    circle at 55% 50%,
+    circle at 60% 50%,
     var(--lq-caustic-violet) 0%,
-    var(--lq-caustic-cyan) 34%,
-    transparent 72%
+    var(--lq-caustic-cyan) 38%,
+    transparent 75%
   );
-  filter: blur(12px);
-  opacity: 0.75;
+  filter: blur(14px);
+  opacity: 0.45;
 }
 
 /* -----------------------------------------------------------------------------
@@ -148,6 +152,7 @@
   z-index: 1;
   flex-shrink: 0;
   transition: transform 0.18s ease;
+  min-height: 44px;
 }
 
 .liquid-nav-brand:hover {
@@ -155,14 +160,14 @@
 }
 
 .liquid-nav-brand img {
-  height: 28px;
+  height: 30px;
   width: auto;
   display: block;
   object-fit: contain;
 }
 
 /* -----------------------------------------------------------------------------
-   CENTER GROUP: NAVIGATION LINKS
+   CENTER GROUP: NAVIGATION LINKS (WCAG AAA Contrast)
    ----------------------------------------------------------------------------- */
 .liquid-nav-center {
   display: flex;
@@ -175,10 +180,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 6px 14px;
+  gap: 5px;
+  padding: 7px 15px;
   font-size: 0.88rem;
-  font-weight: 500;
+  font-weight: 600;
   border-radius: var(--lq-pill-radius);
   text-decoration: none;
   border: 1px solid transparent;
@@ -186,29 +191,31 @@
   cursor: pointer;
   background: transparent;
   font-family: inherit;
+  letter-spacing: -0.01em;
+  min-height: 38px;
 }
 
-/* Dark mode nav link text */
+/* Dark mode nav link text - Crisp near-white for high legibility */
 .theme-dark .liquid-nav-link {
-  color: #cbd5e1;
+  color: #f1f5f9;
 }
 
 .theme-dark .liquid-nav-link:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.15);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 2px 10px rgba(139, 92, 246, 0.25);
 }
 
-/* Light mode nav link text */
+/* Light mode nav link text - Slate 900 for razor-sharp legibility */
 .theme-light .liquid-nav-link {
-  color: #475569;
+  color: #0f172a;
 }
 
 .theme-light .liquid-nav-link:hover {
-  color: #0f172a;
-  background: rgba(147, 51, 234, 0.08);
-  border-color: rgba(168, 85, 247, 0.22);
+  color: #1e3fd8;
+  background: rgba(30, 63, 216, 0.08);
+  border-color: rgba(30, 63, 216, 0.22);
 }
 
 /* Active Nav Link Pill (Matches "Features" in reference screenshot) */
@@ -217,13 +224,13 @@
   font-weight: 700;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.28) 0%,
-    rgba(168, 85, 247, 0.25) 100%
+    rgba(255, 255, 255, 0.26) 0%,
+    rgba(168, 85, 247, 0.32) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.50);
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 12px 0 rgba(139, 92, 246, 0.3);
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.75),
+    0 2px 12px 0 rgba(139, 92, 246, 0.38);
 }
 
 .theme-light .liquid-nav-link.active {
@@ -231,13 +238,13 @@
   font-weight: 700;
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(238, 242, 255, 0.9) 100%
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(238, 242, 255, 0.95) 100%
   );
-  border: 1px solid rgba(30, 63, 216, 0.25);
+  border: 1px solid rgba(30, 63, 216, 0.30);
   box-shadow:
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.9),
-    0 2px 10px 0 rgba(30, 63, 216, 0.12);
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1),
+    0 2px 10px 0 rgba(30, 63, 216, 0.16);
 }
 
 /* -----------------------------------------------------------------------------
@@ -256,8 +263,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
   border-radius: 50%;
   text-decoration: none;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -265,40 +274,40 @@
 }
 
 .theme-dark .liquid-icon-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  color: #cbd5e1;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #f8fafc;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .theme-dark .liquid-icon-btn:hover,
 .theme-dark .liquid-icon-btn.active {
-  background: rgba(168, 85, 247, 0.25);
-  border-color: rgba(168, 85, 247, 0.5);
+  background: rgba(168, 85, 247, 0.35);
+  border-color: rgba(168, 85, 247, 0.60);
   color: #ffffff;
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
-    0 2px 10px rgba(139, 92, 246, 0.35);
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.70),
+    0 2px 12px rgba(139, 92, 246, 0.40);
   transform: translateY(-1px);
 }
 
 .theme-light .liquid-icon-btn {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.95);
-  color: #475569;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  color: #0f172a;
   box-shadow:
-    0 2px 6px rgba(15, 23, 42, 0.06),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+    0 2px 6px rgba(15, 23, 42, 0.08),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
 }
 
 .theme-light .liquid-icon-btn:hover,
 .theme-light .liquid-icon-btn.active {
-  background: rgba(238, 242, 255, 0.95);
-  border-color: rgba(30, 63, 216, 0.3);
+  background: rgba(238, 242, 255, 0.98);
+  border-color: rgba(30, 63, 216, 0.35);
   color: #1e3fd8;
   box-shadow:
-    0 4px 12px rgba(30, 63, 216, 0.12),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+    0 4px 12px rgba(30, 63, 216, 0.15),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
   transform: translateY(-1px);
 }
 
@@ -307,43 +316,44 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 3px 10px 3px 3px;
+  padding: 3px 12px 3px 3px;
   border-radius: var(--lq-pill-radius);
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   border: 1px solid transparent;
   font-family: inherit;
+  min-height: 38px;
 }
 
 .theme-dark .liquid-profile-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #f1f5f9;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.30);
+  color: #f8fafc;
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .theme-dark .liquid-profile-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(168, 85, 247, 0.5);
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(168, 85, 247, 0.55);
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
-    0 2px 10px rgba(139, 92, 246, 0.25);
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
+    0 2px 10px rgba(139, 92, 246, 0.30);
   transform: translateY(-1px);
 }
 
 .theme-light .liquid-profile-btn {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(226, 232, 240, 0.95);
   color: #0f172a;
   box-shadow:
-    0 2px 8px rgba(15, 23, 42, 0.06),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+    0 2px 8px rgba(15, 23, 42, 0.08),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
 }
 
 .theme-light .liquid-profile-btn:hover {
   background: rgba(255, 255, 255, 1);
-  border-color: rgba(168, 85, 247, 0.35);
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12);
+  border-color: rgba(168, 85, 247, 0.40);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
   transform: translateY(-1px);
 }
 
@@ -352,49 +362,50 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 16px;
+  padding: 7px 18px;
   border-radius: var(--lq-pill-radius);
-  font-size: 0.84rem;
-  font-weight: 600;
+  font-size: 0.86rem;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
   border: 1px solid transparent;
+  min-height: 38px;
 }
 
 .theme-dark .liquid-signin-btn {
   background: linear-gradient(
     135deg,
-    rgba(168, 85, 247, 0.4) 0%,
-    rgba(30, 63, 216, 0.4) 100%
+    rgba(168, 85, 247, 0.50) 0%,
+    rgba(30, 63, 216, 0.50) 100%
   );
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.45);
   color: #ffffff;
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
-    0 2px 12px rgba(139, 92, 246, 0.35);
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.70),
+    0 2px 12px rgba(139, 92, 246, 0.40);
 }
 
 .theme-dark .liquid-signin-btn:hover {
   background: linear-gradient(
     135deg,
-    rgba(168, 85, 247, 0.55) 0%,
-    rgba(30, 63, 216, 0.55) 100%
+    rgba(168, 85, 247, 0.65) 0%,
+    rgba(30, 63, 216, 0.65) 100%
   );
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.8),
-    0 4px 16px rgba(139, 92, 246, 0.5);
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.85),
+    0 4px 16px rgba(139, 92, 246, 0.55);
   transform: translateY(-1px);
 }
 
 .theme-light .liquid-signin-btn {
   background: linear-gradient(
     135deg,
-    rgba(30, 63, 216, 0.9) 0%,
-    rgba(124, 58, 237, 0.9) 100%
+    rgba(30, 63, 216, 0.95) 0%,
+    rgba(124, 58, 237, 0.95) 100%
   );
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(30, 63, 216, 0.25);
+  box-shadow: 0 4px 14px rgba(30, 63, 216, 0.28);
 }
 
 .theme-light .liquid-signin-btn:hover {
@@ -403,7 +414,7 @@
     rgba(30, 63, 216, 1) 0%,
     rgba(124, 58, 237, 1) 100%
   );
-  box-shadow: 0 6px 18px rgba(30, 63, 216, 0.35);
+  box-shadow: 0 6px 18px rgba(30, 63, 216, 0.38);
   transform: translateY(-1px);
 }
 
@@ -413,15 +424,15 @@
 .liquid-glass-dropdown {
   position: absolute;
   top: calc(100% + 12px);
-  width: 236px;
+  width: 240px;
   border-radius: 18px;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   z-index: 120;
-  backdrop-filter: blur(28px) saturate(190%) contrast(105%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(105%);
+  backdrop-filter: blur(28px) saturate(200%) contrast(105%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) contrast(105%);
   animation: liquidDropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top center;
 }
@@ -438,22 +449,22 @@
 }
 
 .theme-dark .liquid-glass-dropdown {
-  background: rgba(7, 24, 49, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(7, 24, 49, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.24);
   box-shadow:
-    0 24px 48px -12px rgba(0, 0, 0, 0.6),
-    0 8px 24px -4px rgba(139, 92, 246, 0.25),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
-  color: #f1f5f9;
+    0 24px 48px -12px rgba(0, 0, 0, 0.70),
+    0 8px 24px -4px rgba(139, 92, 246, 0.30),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
+  color: #f8fafc;
 }
 
 .theme-light .liquid-glass-dropdown {
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow:
-    0 20px 42px -10px rgba(15, 23, 42, 0.16),
-    0 6px 18px -2px rgba(139, 92, 246, 0.14),
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95);
+    0 20px 42px -10px rgba(15, 23, 42, 0.18),
+    0 6px 18px -2px rgba(139, 92, 246, 0.16),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1);
   color: #0f172a;
 }
 
@@ -495,23 +506,69 @@
 }
 
 .theme-dark .liquid-mobile-drawer {
-  background: rgba(7, 24, 49, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(7, 24, 49, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.24);
   box-shadow:
-    0 24px 50px rgba(0, 0, 0, 0.65),
-    0 8px 24px rgba(139, 92, 246, 0.25),
-    inset 0 1px 1px rgba(255, 255, 255, 0.4);
-  color: #f1f5f9;
+    0 24px 50px rgba(0, 0, 0, 0.70),
+    0 8px 24px rgba(139, 92, 246, 0.30),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  color: #f8fafc;
 }
 
 .theme-light .liquid-mobile-drawer {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow:
-    0 24px 50px rgba(15, 23, 42, 0.16),
-    0 8px 24px rgba(139, 92, 246, 0.12),
-    inset 0 1px 1.5px rgba(255, 255, 255, 0.95);
+    0 24px 50px rgba(15, 23, 42, 0.18),
+    0 8px 24px rgba(139, 92, 246, 0.14),
+    inset 0 1px 1.5px rgba(255, 255, 255, 1);
   color: #0f172a;
+}
+
+/* -----------------------------------------------------------------------------
+   RESPONSIVE BREAKPOINTS
+   ----------------------------------------------------------------------------- */
+@media (max-width: 860px) {
+  .tracewise-liquid-navbar {
+    max-width: 460px;
+    padding: 0 12px 0 16px;
+  }
+  .liquid-nav-center {
+    display: none !important;
+  }
+  .liquid-mobile-toggle {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .tracewise-liquid-navbar {
+    max-width: calc(100vw - 24px);
+    padding: 0 10px 0 14px;
+    height: 52px;
+  }
+  .liquid-nav-brand img {
+    height: 26px;
+  }
+  .liquid-mobile-drawer {
+    left: 12px;
+    right: 12px;
+    padding: 16px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .tracewise-liquid-navbar,
+  .liquid-nav-link,
+  .liquid-icon-btn,
+  .liquid-profile-btn,
+  .liquid-signin-btn,
+  .liquid-glass-dropdown,
+  .liquid-mobile-drawer {
+    transition: none !important;
+    animation: none !important;
+  }
 }
 
 /* -----------------------------------------------------------------------------

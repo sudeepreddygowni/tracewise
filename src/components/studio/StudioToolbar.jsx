@@ -635,7 +635,7 @@ export function StudioToolbar({
             display: none !important;
           }
         }
-        @media (max-width: 520px) {
+        @media (max-width: 1024px) {
           .hide-on-compact-mobile {
             display: none !important;
           }

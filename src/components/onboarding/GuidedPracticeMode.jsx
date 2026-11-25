@@ -195,10 +195,11 @@ export function GuidedPracticeMode({
         position: 'fixed',
         bottom: '24px',
         left: '24px',
-        zIndex: 900,
-        width: collapsed ? 'auto' : '360px',
+        zIndex: 60,
+        width: collapsed ? 'auto' : '340px',
         maxWidth: 'calc(100vw - 32px)',
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        maxHeight: 'calc(100vh - 120px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         border: '1px solid rgba(56, 189, 248, 0.35)',
@@ -206,6 +207,8 @@ export function GuidedPracticeMode({
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(56, 189, 248, 0.15)',
         color: '#f8fafc',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
         transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
     >

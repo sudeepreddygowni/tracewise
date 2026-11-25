@@ -239,12 +239,26 @@ export function CodeEditor({
   const lineCount = (currentCode.match(/\n/g) || []).length + 1;
 
   return (
-    <TracewiseBubbleArea theme="dark">
+    <TracewiseBubbleArea
+      theme="dark"
+      style={{
+        width: '100%',
+        height: '100%',
+        minHeight: 0,
+        flex: '1 1 0%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}
+    >
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
+          width: '100%',
           height: '100%',
+          minHeight: 0,
+          flex: '1 1 0%',
           backgroundColor: '#071831',
           color: '#f8fafc',
           fontFamily: 'var(--font-code)',
@@ -510,12 +524,14 @@ export function CodeEditor({
         </div>
 
         {/* Editor Main Body */}
-        <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', maxWidth: '100%' }}>
+        <div style={{ flex: '1 1 0%', minHeight: 0, height: '100%', display: 'flex', position: 'relative', overflow: 'hidden', maxWidth: '100%' }}>
           {/* Synchronized Line Numbers */}
           <div
             ref={lineNumbersRef}
             style={{
               width: '44px',
+              minHeight: 0,
+              height: '100%',
               padding: '12px 6px 140px 6px',
               backgroundColor: '#081e3d',
               color: '#64748b',
@@ -545,7 +561,8 @@ export function CodeEditor({
             spellCheck="false"
             aria-label="Code Editor"
             style={{
-              flex: 1,
+              flex: '1 1 0%',
+              minHeight: 0,
               width: '100%',
               maxWidth: 'calc(100% - 44px)',
               height: '100%',

@@ -90,49 +90,72 @@ export function ComponentLibrary({ onAddComponent, onClose }) {
       >
         {/* Header (fixed at top, never shrinks) */}
         <div style={{ padding: '16px', borderBottom: '1px solid var(--tw-border)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} color="var(--tw-brand)" />
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)', margin: 0 }}>
+          {/* Row 1: Title, Count Badge & Optional Close */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+              <Layers size={18} color="var(--tw-brand)" style={{ flexShrink: 0 }} />
+              <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--tw-text)', fontFamily: 'var(--font-heading)', margin: 0, whiteSpace: 'nowrap' }}>
                 Component Library
               </h3>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.74rem', color: 'var(--tw-text-muted)', fontWeight: 600 }}>
-                {filteredComponents.length} parts
+              <span style={{ fontSize: '0.72rem', color: 'var(--tw-text-muted)', fontWeight: 600, backgroundColor: 'var(--tw-bg)', padding: '2px 7px', borderRadius: '12px', border: '1px solid var(--tw-border)', flexShrink: 0 }}>
+                {filteredComponents.length}
               </span>
-              <TracewiseBubbleButton
-                onClick={() => setIsWizardOpen(true)}
-                variant="primary"
-                size="sm"
-                title="Create a Custom Component visually"
-                style={{ fontSize: '0.74rem', padding: '4px 10px', minHeight: '32px' }}
-              >
-                <Plus size={13} />
-                <span>+ Custom Part</span>
-              </TracewiseBubbleButton>
-              <TracewiseBubbleButton
-                onClick={() => setIsRequestModalOpen(true)}
+            </div>
+            {onClose && (
+              <TracewiseBubbleIconButton
+                onClick={onClose}
                 variant="ghost"
                 size="sm"
-                title="Request or Import Hardware"
-                style={{ fontSize: '0.74rem', padding: '4px 10px', minHeight: '32px' }}
+                title="Close Library"
+                style={{ width: 30, height: 30, minWidth: 30, minHeight: 30, flexShrink: 0 }}
               >
-                <Sparkles size={13} color="var(--tw-brand)" />
-                <span>Import JSON</span>
-              </TracewiseBubbleButton>
-              {onClose && (
-                <TracewiseBubbleIconButton
-                  onClick={onClose}
-                  variant="ghost"
-                  size="sm"
-                  title="Close Library"
-                  style={{ width: 34, height: 34, minWidth: 34, minHeight: 34 }}
-                >
-                  <X size={16} />
-                </TracewiseBubbleIconButton>
-              )}
-            </div>
+                <X size={15} />
+              </TracewiseBubbleIconButton>
+            )}
+          </div>
+
+          {/* Row 2: Action Buttons (+ Custom Part & Import JSON) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <TracewiseBubbleButton
+              onClick={() => setIsWizardOpen(true)}
+              variant="primary"
+              size="sm"
+              title="Create a Custom Component visually"
+              style={{
+                flex: 1,
+                fontSize: '0.76rem',
+                padding: '6px 10px',
+                minHeight: '32px',
+                fontWeight: 600,
+                justifyContent: 'center',
+                gap: '5px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Plus size={13} />
+              <span>+ Custom Part</span>
+            </TracewiseBubbleButton>
+            <TracewiseBubbleButton
+              onClick={() => setIsRequestModalOpen(true)}
+              variant="ghost"
+              size="sm"
+              title="Request or Import Hardware"
+              style={{
+                flex: 1,
+                fontSize: '0.76rem',
+                padding: '6px 10px',
+                minHeight: '32px',
+                fontWeight: 600,
+                justifyContent: 'center',
+                gap: '5px',
+                whiteSpace: 'nowrap',
+                backgroundColor: 'var(--tw-bg)',
+                border: '1px solid var(--tw-border)'
+              }}
+            >
+              <Sparkles size={13} color="var(--tw-brand)" />
+              <span>Import JSON</span>
+            </TracewiseBubbleButton>
           </div>
           
           {/* Search input with alias support */}

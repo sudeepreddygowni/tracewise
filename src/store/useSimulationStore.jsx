@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { AvrSimulationRunner, ARDUINO_UNO_PINS } from '../services/simulation/avrRunner';
 import { compileArduinoSketch } from '../services/compilerService';
 import { buildNetlist, validateElectricalRules, traceLedBranch } from '../domain/netlistEngine';
+import { Analytics } from '../services/analyticsService';
 
 const SimulationContext = createContext(null);
 
@@ -89,6 +90,7 @@ export function SimulationProvider({ children }) {
       return;
     }
 
+    Analytics.simulationStarted(firmwareCode.length);
     setStatus('COMPILING');
     setCompileError(null);
     setCompileDiagnostics([]);
@@ -100,6 +102,7 @@ export function SimulationProvider({ children }) {
         setStatus('ERROR');
         setCompileError(compileRes.error || 'Compilation failed');
         setCompileDiagnostics(compileRes.diagnostics || []);
+        Analytics.simulationFailed(compileRes.error || 'Compilation failed');
         return;
       }
 
@@ -139,9 +142,11 @@ export function SimulationProvider({ children }) {
       runner.start();
       setStatus('RUNNING');
       setSimTime(0);
+      Analytics.simulationSucceeded(100);
     } catch (err) {
       setStatus('ERROR');
       setCompileError(err.message || 'Simulation initialization failed');
+      Analytics.simulationFailed(err.message);
     }
   }, []);
 

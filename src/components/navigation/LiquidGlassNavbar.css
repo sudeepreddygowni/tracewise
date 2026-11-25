@@ -1,15 +1,15 @@
 /* =============================================================================
    TRACEWISE PREMIUM LIQUID GLASS NAVIGATION
-   Inspired by optical caustic refraction, liquid glass lenses & smooth pill geometry
-   Pure Electric Blue & Cyan palette - Zero Purple Tints
+   Faithfully inspired by the reference optical liquid-glass capsule
+   Pure Silvery Frosted Glass with Specular Lens Refraction & Dark Pill CTA
+   Pure Electric Blue / Cyan accents - Optical Caustics
    ============================================================================= */
 
 :root {
-  --lq-nav-height: 56px;
+  --lq-nav-height: 48px;
   --lq-pill-radius: 9999px;
-  --lq-caustic-blue: rgba(30, 63, 216, 0.35);
-  --lq-caustic-electric: rgba(37, 99, 235, 0.28);
-  --lq-caustic-cyan: rgba(56, 189, 248, 0.32);
+  --lq-caustic-cyan: rgba(56, 189, 248, 0.25);
+  --lq-caustic-blue: rgba(30, 63, 216, 0.20);
 }
 
 /* Floating header wrapper */
@@ -25,7 +25,7 @@
   pointer-events: none;
 }
 
-/* Core liquid glass navbar */
+/* Core liquid glass navbar - Luminous Translucent Cylinder */
 .tracewise-liquid-navbar {
   pointer-events: auto;
   position: relative;
@@ -35,60 +35,34 @@
   height: var(--lq-nav-height);
   width: 100%;
   max-width: 820px;
-  padding: 0 14px 0 18px;
+  padding: 0 8px 0 18px;
   border-radius: var(--lq-pill-radius);
   box-sizing: border-box;
   isolation: isolate;
 
   /* Optical Glass Backing - High Density Diffusion */
-  backdrop-filter: blur(28px) saturate(200%) contrast(110%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%) contrast(110%);
+  backdrop-filter: blur(28px) saturate(190%) contrast(105%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%) contrast(105%);
 
-  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* -----------------------------------------------------------------------------
-   THEME ADAPTATION: Dark Page (Landing / Dark Mode) vs Light Page
-   ----------------------------------------------------------------------------- */
-
-/* Dark Mode / Solid Navy Background (e.g. Landing Page #071831)
-   Rich smoky obsidian glass matrix with Electric Blue & Cyan caustics */
-.tracewise-liquid-navbar.theme-dark {
+  /* Translucent Liquid Glass Cylinder: Silvery Frosted Glass */
   background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.88) 0%,
-    rgba(7, 24, 49, 0.84) 48%,
-    rgba(11, 35, 72, 0.88) 100%
+    180deg,
+    rgba(255, 255, 255, 0.90) 0%,
+    rgba(246, 249, 255, 0.78) 48%,
+    rgba(238, 244, 255, 0.84) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow:
-    0 20px 40px -10px rgba(0, 0, 0, 0.65),
-    0 8px 24px -4px rgba(30, 63, 216, 0.25),
-    0 1px 2px 0 rgba(0, 0, 0, 0.25),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -1px 2px 0 rgba(56, 189, 248, 0.35),
-    inset 0 0 18px 0 rgba(255, 255, 255, 0.05);
-  color: #f8fafc;
-}
+  border: 1px solid rgba(255, 255, 255, 0.85);
 
-/* Light Page / Workspace Background (e.g. /projects, /community)
-   Crisp luminous frosted glass with pure Electric Blue accents */
-.tracewise-liquid-navbar.theme-light {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.96) 0%,
-    rgba(248, 250, 252, 0.92) 48%,
-    rgba(238, 245, 255, 0.94) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  /* Optical Rim Highlights & Glass Depth Shadow matching reference */
   box-shadow:
-    0 16px 36px -8px rgba(15, 23, 42, 0.10),
-    0 6px 18px -2px rgba(30, 63, 216, 0.10),
-    0 1px 2px 0 rgba(0, 0, 0, 0.04),
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1px 2px 0 rgba(56, 189, 248, 0.25),
-    inset 0 0 16px 0 rgba(255, 255, 255, 0.40);
+    0 18px 40px -10px rgba(0, 0, 0, 0.38),
+    0 4px 14px -2px rgba(0, 0, 0, 0.12),
+    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.08),
+    inset 0 0 14px 0 rgba(255, 255, 255, 0.35);
+
   color: #0f172a;
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* -----------------------------------------------------------------------------
@@ -103,41 +77,40 @@
   z-index: -1;
 }
 
-/* Left Caustic Pool (Beneath & Around Logo Edge) */
+/* Left Caustic Reflection (Subtle lens refraction behind logo cap) */
 .liquid-glass-caustics::before {
   content: '';
   position: absolute;
-  top: -30%;
-  left: -6%;
-  width: 32%;
-  height: 160%;
+  top: -25%;
+  left: -2%;
+  width: 25%;
+  height: 150%;
   background: radial-gradient(
-    circle at 40% 50%,
-    var(--lq-caustic-blue) 0%,
-    var(--lq-caustic-cyan) 40%,
-    transparent 75%
+    circle at 35% 50%,
+    rgba(255, 255, 255, 0.85) 0%,
+    var(--lq-caustic-cyan) 45%,
+    transparent 80%
   );
-  filter: blur(14px);
-  transform: rotate(-6deg);
-  opacity: 0.50;
+  filter: blur(8px);
+  opacity: 0.55;
 }
 
-/* Right Edge Caustic Reflection */
+/* Right Edge Caustic Reflection (Subtle lens sheen behind CTA cap) */
 .liquid-glass-caustics::after {
   content: '';
   position: absolute;
-  bottom: -40%;
-  right: -5%;
-  width: 30%;
-  height: 160%;
+  bottom: -25%;
+  right: -2%;
+  width: 25%;
+  height: 150%;
   background: radial-gradient(
-    circle at 60% 50%,
-    var(--lq-caustic-electric) 0%,
-    var(--lq-caustic-cyan) 38%,
-    transparent 75%
+    circle at 65% 50%,
+    rgba(255, 255, 255, 0.75) 0%,
+    var(--lq-caustic-blue) 40%,
+    transparent 80%
   );
-  filter: blur(14px);
-  opacity: 0.40;
+  filter: blur(8px);
+  opacity: 0.45;
 }
 
 /* -----------------------------------------------------------------------------
@@ -151,7 +124,7 @@
   z-index: 1;
   flex-shrink: 0;
   transition: transform 0.18s ease;
-  min-height: 44px;
+  min-height: 38px;
 }
 
 .liquid-nav-brand:hover {
@@ -159,19 +132,19 @@
 }
 
 .liquid-nav-brand img {
-  height: 30px;
+  height: 24px;
   width: auto;
   display: block;
   object-fit: contain;
 }
 
 /* -----------------------------------------------------------------------------
-   CENTER GROUP: NAVIGATION LINKS (WCAG AAA Contrast)
+   CENTER GROUP: NAVIGATION LINKS (WCAG AAA Contrast on Frosted Glass)
    ----------------------------------------------------------------------------- */
 .liquid-nav-center {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   z-index: 1;
 }
 
@@ -179,80 +152,46 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 15px;
-  font-size: 0.88rem;
-  font-weight: 600;
+  gap: 4px;
+  padding: 5px 13px;
+  font-size: 0.85rem;
+  font-weight: 500;
   border-radius: var(--lq-pill-radius);
   text-decoration: none;
   border: 1px solid transparent;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   background: transparent;
+  color: #1e293b;
   font-family: inherit;
   letter-spacing: -0.01em;
-  min-height: 38px;
+  min-height: 32px;
 }
 
-/* Dark mode nav link text - Crisp near-white for high legibility */
-.theme-dark .liquid-nav-link {
-  color: #f1f5f9;
-}
-
-.theme-dark .liquid-nav-link:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.28);
-  box-shadow: 0 2px 10px rgba(30, 63, 216, 0.25);
-}
-
-/* Light mode nav link text - Slate 900 for razor-sharp legibility */
-.theme-light .liquid-nav-link {
+.liquid-nav-link:hover {
   color: #0f172a;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
-.theme-light .liquid-nav-link:hover {
-  color: #1e3fd8;
-  background: rgba(30, 63, 216, 0.08);
-  border-color: rgba(30, 63, 216, 0.22);
-}
-
-/* Active Nav Link Pill (Electric Blue illuminated capsule) */
-.theme-dark .liquid-nav-link.active {
-  color: #ffffff;
-  font-weight: 700;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.24) 0%,
-    rgba(30, 63, 216, 0.35) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.50);
+/* Active Nav Link Pill (Exactly like "Features" capsule in reference screenshot) */
+.liquid-nav-link.active {
+  color: #0f172a;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.75),
-    0 2px 12px 0 rgba(30, 63, 216, 0.35);
-}
-
-.theme-light .liquid-nav-link.active {
-  color: #1e3fd8;
-  font-weight: 700;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(238, 242, 255, 0.95) 100%
-  );
-  border: 1px solid rgba(30, 63, 216, 0.30);
-  box-shadow:
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1),
-    0 2px 10px 0 rgba(30, 63, 216, 0.16);
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
 }
 
 /* -----------------------------------------------------------------------------
-   RIGHT GROUP: ACTIONS (DM, USER MENU, CTA)
+   RIGHT GROUP: ACTIONS (DM, USER MENU, DARK PILL CTA)
    ----------------------------------------------------------------------------- */
 .liquid-nav-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   z-index: 1;
   flex-shrink: 0;
 }
@@ -262,50 +201,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  min-height: 38px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 50%;
   text-decoration: none;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: #1e293b;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
 }
 
-.theme-dark .liquid-icon-btn {
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #f8fafc;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
-}
-
-.theme-dark .liquid-icon-btn:hover,
-.theme-dark .liquid-icon-btn.active {
-  background: rgba(30, 63, 216, 0.35);
-  border-color: rgba(56, 189, 248, 0.60);
-  color: #ffffff;
-  box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.70),
-    0 2px 12px rgba(30, 63, 216, 0.40);
-  transform: translateY(-1px);
-}
-
-.theme-light .liquid-icon-btn {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  color: #0f172a;
-  box-shadow:
-    0 2px 6px rgba(15, 23, 42, 0.08),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
-}
-
-.theme-light .liquid-icon-btn:hover,
-.theme-light .liquid-icon-btn.active {
-  background: rgba(238, 242, 255, 0.98);
-  border-color: rgba(30, 63, 216, 0.35);
+.liquid-icon-btn:hover,
+.liquid-icon-btn.active {
+  background: #ffffff;
   color: #1e3fd8;
+  border-color: rgba(30, 63, 216, 0.25);
   box-shadow:
-    0 4px 12px rgba(30, 63, 216, 0.15),
+    0 2px 8px rgba(30, 63, 216, 0.15),
     inset 0 1px 1px 0 rgba(255, 255, 255, 1);
   transform: translateY(-1px);
 }
@@ -314,107 +232,58 @@
 .liquid-profile-btn {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 3px 12px 3px 3px;
+  gap: 6px;
+  padding: 2px 10px 2px 3px;
   border-radius: var(--lq-pill-radius);
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid transparent;
-  font-family: inherit;
-  min-height: 38px;
-}
-
-.theme-dark .liquid-profile-btn {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.30);
-  color: #f8fafc;
-  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
-}
-
-.theme-dark .liquid-profile-btn:hover {
-  background: rgba(255, 255, 255, 0.24);
-  border-color: rgba(56, 189, 248, 0.55);
-  box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 10px rgba(30, 63, 216, 0.25);
-  transform: translateY(-1px);
-}
-
-.theme-light .liquid-profile-btn {
-  background: rgba(255, 255, 255, 0.94);
-  border-color: rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   color: #0f172a;
   box-shadow:
-    0 2px 8px rgba(15, 23, 42, 0.08),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 1);
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  min-height: 32px;
 }
 
-.theme-light .liquid-profile-btn:hover {
-  background: rgba(255, 255, 255, 1);
-  border-color: rgba(30, 63, 216, 0.35);
-  box-shadow: 0 4px 12px rgba(30, 63, 216, 0.12);
+.liquid-profile-btn:hover {
+  background: #ffffff;
+  border-color: rgba(30, 63, 216, 0.25);
+  box-shadow: 0 2px 8px rgba(30, 63, 216, 0.12);
   transform: translateY(-1px);
 }
 
-/* Sign In Glass Pill Button */
-.liquid-signin-btn {
+/* Dark Pill CTA Button (Exactly like "Get Started" in reference screenshot) */
+.liquid-signin-btn,
+.liquid-cta-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 18px;
+  padding: 6px 16px;
   border-radius: var(--lq-pill-radius);
-  font-size: 0.86rem;
-  font-weight: 700;
+  font-size: 0.84rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
-  border: 1px solid transparent;
-  min-height: 38px;
-}
-
-.theme-dark .liquid-signin-btn {
-  background: linear-gradient(
-    135deg,
-    rgba(30, 63, 216, 0.60) 0%,
-    rgba(2, 132, 199, 0.60) 100%
-  );
-  border-color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  min-height: 32px;
+  background: #0f172a;
   color: #ffffff;
   box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.70),
-    0 2px 12px rgba(30, 63, 216, 0.40);
+    0 2px 6px rgba(0, 0, 0, 0.25),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+  text-decoration: none;
 }
 
-.theme-dark .liquid-signin-btn:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(30, 63, 216, 0.80) 0%,
-    rgba(2, 132, 199, 0.80) 100%
-  );
-  box-shadow:
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.85),
-    0 4px 16px rgba(30, 63, 216, 0.55);
+.liquid-signin-btn:hover,
+.liquid-cta-btn:hover {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
   transform: translateY(-1px);
-}
-
-.theme-light .liquid-signin-btn {
-  background: linear-gradient(
-    135deg,
-    rgba(30, 63, 216, 0.95) 0%,
-    rgba(2, 132, 199, 0.95) 100%
-  );
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(30, 63, 216, 0.28);
-}
-
-.theme-light .liquid-signin-btn:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(30, 63, 216, 1) 0%,
-    rgba(2, 132, 199, 1) 100%
-  );
-  box-shadow: 0 6px 18px rgba(30, 63, 216, 0.38);
-  transform: translateY(-1px);
 }
 
 /* -----------------------------------------------------------------------------
@@ -422,7 +291,7 @@
    ----------------------------------------------------------------------------- */
 .liquid-glass-dropdown {
   position: absolute;
-  top: calc(100% + 12px);
+  top: calc(100% + 10px);
   width: 240px;
   border-radius: 18px;
   padding: 8px;
@@ -430,6 +299,13 @@
   flex-direction: column;
   gap: 4px;
   z-index: 120;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow:
+    0 20px 42px -10px rgba(15, 23, 42, 0.18),
+    0 6px 18px -2px rgba(30, 63, 216, 0.12),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1);
+  color: #0f172a;
   backdrop-filter: blur(28px) saturate(200%) contrast(105%);
   -webkit-backdrop-filter: blur(28px) saturate(200%) contrast(105%);
   animation: liquidDropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -447,26 +323,6 @@
   }
 }
 
-.theme-dark .liquid-glass-dropdown {
-  background: rgba(7, 24, 49, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow:
-    0 24px 48px -12px rgba(0, 0, 0, 0.70),
-    0 8px 24px -4px rgba(30, 63, 216, 0.25),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.45);
-  color: #f8fafc;
-}
-
-.theme-light .liquid-glass-dropdown {
-  background: rgba(255, 255, 255, 0.97);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  box-shadow:
-    0 20px 42px -10px rgba(15, 23, 42, 0.14),
-    0 6px 18px -2px rgba(30, 63, 216, 0.10),
-    inset 0 1px 1.5px 0 rgba(255, 255, 255, 1);
-  color: #0f172a;
-}
-
 /* -----------------------------------------------------------------------------
    MOBILE NAVIGATION (Reference-Inspired Compact Pill)
    ----------------------------------------------------------------------------- */
@@ -474,10 +330,21 @@
   display: none;
 }
 
+.liquid-mobile-toggle .liquid-icon-btn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #0f172a;
+}
+
+.liquid-mobile-toggle .liquid-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 .liquid-mobile-drawer {
   pointer-events: auto;
   position: absolute;
-  top: calc(var(--lq-nav-height) + 24px);
+  top: calc(var(--lq-nav-height) + 20px);
   left: 16px;
   right: 16px;
   padding: 20px;
@@ -488,6 +355,13 @@
   border-radius: 24px;
   max-height: calc(100vh - 100px);
   overflow-y: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow:
+    0 24px 50px rgba(15, 23, 42, 0.18),
+    0 8px 24px rgba(30, 63, 216, 0.10),
+    inset 0 1px 1.5px rgba(255, 255, 255, 1);
+  color: #0f172a;
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   animation: liquidDrawerSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -504,33 +378,14 @@
   }
 }
 
-.theme-dark .liquid-mobile-drawer {
-  background: rgba(7, 24, 49, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow:
-    0 24px 50px rgba(0, 0, 0, 0.70),
-    0 8px 24px rgba(30, 63, 216, 0.25),
-    inset 0 1px 1px rgba(255, 255, 255, 0.45);
-  color: #f8fafc;
-}
-
-.theme-light .liquid-mobile-drawer {
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  box-shadow:
-    0 24px 50px rgba(15, 23, 42, 0.14),
-    0 8px 24px rgba(30, 63, 216, 0.10),
-    inset 0 1px 1.5px rgba(255, 255, 255, 1);
-  color: #0f172a;
-}
-
 /* -----------------------------------------------------------------------------
    RESPONSIVE BREAKPOINTS
    ----------------------------------------------------------------------------- */
 @media (max-width: 860px) {
   .tracewise-liquid-navbar {
-    max-width: 460px;
-    padding: 0 12px 0 16px;
+    max-width: 480px;
+    height: 46px;
+    padding: 0 8px 0 14px;
   }
   .liquid-nav-center {
     display: none !important;
@@ -543,11 +398,11 @@
 @media (max-width: 480px) {
   .tracewise-liquid-navbar {
     max-width: calc(100vw - 24px);
-    padding: 0 10px 0 14px;
-    height: 52px;
+    padding: 0 8px 0 12px;
+    height: 44px;
   }
   .liquid-nav-brand img {
-    height: 26px;
+    height: 22px;
   }
   .liquid-mobile-drawer {
     left: 12px;
@@ -563,10 +418,12 @@
   .liquid-icon-btn,
   .liquid-profile-btn,
   .liquid-signin-btn,
+  .liquid-cta-btn,
   .liquid-glass-dropdown,
   .liquid-mobile-drawer {
     transition: none !important;
     animation: none !important;
   }
 }
+
 

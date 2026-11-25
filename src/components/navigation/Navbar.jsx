@@ -124,7 +124,7 @@ export function Navbar() {
             aria-label="Tracewise Home"
           >
             <img
-              src={isDarkPage ? '/assets/brand/tracewise-logo-light.png' : '/assets/brand/tracewise-logo.png'}
+              src="/assets/brand/tracewise-logo.png"
               alt="Tracewise Logo"
             />
           </Link>
@@ -602,10 +602,9 @@ export function Navbar() {
                 type="button"
                 onClick={() => setAuthModalOpen(true)}
                 className="liquid-signin-btn"
-                aria-label="Sign in"
+                aria-label="Get Started"
               >
-                <User size={13} />
-                <span>Sign In</span>
+                <span>Get Started</span>
               </button>
             )}
 

@@ -440,39 +440,7 @@ export function StudioPage() {
             {/* Serial Monitor Collapsible Drawer */}
             <SerialMonitor isOpen={isSerialOpen} onClose={toggleSerial} />
 
-          {/* DESKTOP FLOATING REOPEN BUTTON (When Component Library is Collapsed) */}
-          {isDesktop && !isComponentLibraryOpen && (
-            <TracewiseBubbleArea theme="light">
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 18,
-                  left: 14,
-                  zIndex: 42,
-                  animation: 'fadeIn 0.2s ease-out'
-                }}
-              >
-                <TracewiseBubbleButton
-                  onClick={() => setIsComponentLibraryOpen(true)}
-                  variant="primary"
-                  size="sm"
-                  title="Open Component Library (33 parts)"
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 'var(--tw-radius-pill)',
-                    boxShadow: '0 4px 18px rgba(30, 63, 216, 0.28)',
-                    gap: '6px',
-                    fontSize: '0.8rem',
-                    fontWeight: 700
-                  }}
-                >
-                  <Layers size={15} />
-                  <span>Components</span>
-                  <ChevronRight size={14} style={{ marginLeft: 2 }} />
-                </TracewiseBubbleButton>
-              </div>
-            </TracewiseBubbleArea>
-          )}
+
 
           {/* TABLET FLOATING TOGGLE BUTTONS (Canvas Edges) */}
           {isTablet && (
@@ -917,7 +885,7 @@ export function StudioPage() {
             </div>
 
             {/* Sheet Body */}
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {/* 1. Component Library */}
               {mobileActiveTab === 'components' && (
                 <ComponentLibrary

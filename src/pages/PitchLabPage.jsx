@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useProject } from '../store/useProjectStore';
 import { useAuth } from '../store/useAuthStore';
+import { Analytics } from '../services/analyticsService';
 import {
   extractProjectContext,
   generatePitchDrafts,
@@ -133,6 +134,10 @@ export function PitchLabPage() {
 
   // Load saved preparation on mount and prefill from ALL available project facts
   useEffect(() => {
+    if (projectId) {
+      Analytics.pitchLabOpened(projectId);
+    }
+
     async function loadSavedData() {
       if (!currentProj) return;
 

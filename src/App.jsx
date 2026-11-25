@@ -1,10 +1,11 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ProjectProvider } from './store/useProjectStore';
 import { AuthProvider } from './store/useAuthStore';
 import { SimulationProvider } from './store/useSimulationStore';
 import { AppLayout } from './components/layout/AppLayout';
 import { HomePage } from './pages/HomePage';
+import { Analytics } from './services/analyticsService';
 
 // Route-level code splitting for heavy workspaces and secondary application views
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
@@ -59,6 +60,10 @@ function RouteLoadingFallback() {
 }
 
 export default function App() {
+  useEffect(() => {
+    Analytics.appOpened();
+  }, []);
+
   return (
     <ProjectProvider>
       <AuthProvider>

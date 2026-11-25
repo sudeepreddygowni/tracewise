@@ -136,6 +136,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid or truncated image data.' });
   }
 
+  // Reject oversized payloads (> 10MB decoded, approx 14MB base64)
+  if (cleanBase64.length > 14 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Image exceeds maximum 10MB size limit.' });
+  }
+
   const keys = getGeminiApiKeys();
   if (keys.length === 0) {
     return res.status(200).json({

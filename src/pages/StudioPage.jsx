@@ -13,6 +13,7 @@ import { ValidationDrawer } from '../components/studio/ValidationDrawer';
 import { PublishProjectModal } from '../components/studio/PublishProjectModal';
 import { SimulationControlBar } from '../components/studio/SimulationControlBar';
 import { SerialMonitor } from '../components/studio/SerialMonitor';
+import { GuidedPracticeMode } from '../components/onboarding/GuidedPracticeMode';
 import { useSimulation } from '../store/useSimulationStore';
 import { applyProjectModification } from '../domain/projectBuilder/projectModifier';
 import {
@@ -63,9 +64,13 @@ export function StudioPage() {
   } = useProject();
 
   const { user } = useAuth();
-  const { isSerialOpen, toggleSerial } = useSimulation();
+  const { isSerialOpen, toggleSerial, status: simStatus } = useSimulation();
+  const isSimulating = simStatus === 'RUNNING';
   const [selectedCompId, setSelectedCompId] = useState(null);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [practiceModeOpen, setPracticeModeOpen] = useState(
+    Boolean(location.state?.practiceMode || new URLSearchParams(location.search).get('practice') === 'true')
+  );
   const [canvasViewMode, setCanvasViewMode] = useState('circuit'); // 'circuit' | 'physical'
   const [rightTab, setRightTab] = useState(
     location.state?.initialQuery || location.state?.openAssistant ? 'assistant' : 'code'
@@ -109,6 +114,32 @@ export function StudioPage() {
       }
     }
   }, [location.state, isMobile, isTablet]);
+
+  useEffect(() => {
+    if (location.state?.practiceMode || new URLSearchParams(location.search).get('practice') === 'true') {
+      setPracticeModeOpen(true);
+    }
+  }, [location.state, location.search]);
+
+  useEffect(() => {
+    const handleOpenAssistant = () => {
+      setRightTab('assistant');
+      if (isMobile) {
+        setMobileActiveTab('assistant');
+      } else if (isTablet) {
+        setTabletRightOpen(true);
+      }
+    };
+    const handleOpenPractice = () => {
+      setPracticeModeOpen(true);
+    };
+    window.addEventListener('tracewise:open_studio_assistant', handleOpenAssistant);
+    window.addEventListener('tracewise:open_practice_mode', handleOpenPractice);
+    return () => {
+      window.removeEventListener('tracewise:open_studio_assistant', handleOpenAssistant);
+      window.removeEventListener('tracewise:open_practice_mode', handleOpenPractice);
+    };
+  }, [isMobile, isTablet]);
 
   useEffect(() => {
     if (projectId) {
@@ -1245,6 +1276,24 @@ export function StudioPage() {
           user={user}
           onProjectPublished={() => {
             alert('Your circuit was published to the Community Projects showcase!');
+          }}
+        />
+      )}
+
+      {/* Guided First Circuit Practice Mode */}
+      {practiceModeOpen && (
+        <GuidedPracticeMode
+          project={activeProject}
+          currentTab={isMobile ? mobileActiveTab : rightTab}
+          isSimulating={isSimulating}
+          onClose={() => setPracticeModeOpen(false)}
+          onOpenCodeTab={() => {
+            if (isMobile) {
+              setMobileActiveTab('code');
+            } else {
+              setRightTab('code');
+              if (isTablet) setTabletRightOpen(true);
+            }
           }}
         />
       )}

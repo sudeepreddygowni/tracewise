@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useProject } from '../store/useProjectStore';
-import { BookOpen, CheckCircle2, ArrowRight, Play, Sparkles, HelpCircle } from 'lucide-react';
+import { BookOpen, CheckCircle2, ArrowRight, Play, Sparkles, HelpCircle, Layers } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   TracewiseBubbleButton,
   TracewiseBubbleArea
 } from '../components/ui/BubbleActions';
+import { LearningCentre } from '../components/onboarding/LearningCentre';
 
 export function LearnPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'tutorials';
+  const initialLesson = searchParams.get('lesson') || null;
+
   const { loadProject } = useProject();
   const [completed, setCompleted] = useState({});
   const [selectedAnswers, setSelectedAnswers] = useState({});
@@ -81,58 +86,116 @@ export function LearnPage() {
   return (
     <TracewiseBubbleArea theme="light">
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--tw-bg)', display: 'flex', flexDirection: 'column' }}>
-        <main style={{ maxWidth: '960px', margin: '0 auto', width: '100%', padding: '120px 24px 60px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <main style={{ maxWidth: '1000px', margin: '0 auto', width: '100%', padding: '100px 24px 60px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
           <div>
             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--tw-brand)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Interactive Practice Lab
+              Tracewise Learning Centre
             </span>
             <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--tw-text)', marginTop: '4px', fontFamily: 'var(--font-heading)' }}>
-              Learn through modification.
+              Learn circuits by building.
             </h1>
             <p style={{ fontSize: '1rem', color: 'var(--tw-text-secondary)', marginTop: '6px' }}>
-              Solve hands-on electronics challenges, understand circuit behaviors, and jump into real circuits to test your understanding.
+              Master electronics fundamentals through animated tutorials, step-by-step first circuit creation, and interactive hardware challenges.
             </p>
           </div>
 
-        {/* Progress Tracker */}
-        <div
-          className="glass-card"
-          style={{
-            padding: '16px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: '#ffffff'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Sparkles size={18} color="var(--tw-brand)" />
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--tw-text)' }}>
-              Completed Challenges: {Object.keys(completed).length} of {challenges.length}
-            </span>
-          </div>
-
-          <div style={{ width: '200px', height: '8px', backgroundColor: 'var(--tw-border)', borderRadius: '4px', overflow: 'hidden' }}>
-            <div
+          {/* Tab Navigation */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--tw-border)', paddingBottom: '12px' }}>
+            <button
+              type="button"
+              onClick={() => setSearchParams({ tab: 'tutorials' })}
               style={{
-                width: `${(Object.keys(completed).length / challenges.length) * 100}%`,
-                height: '100%',
-                backgroundColor: 'var(--tw-brand)',
-                transition: 'width 0.3s ease'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 18px',
+                borderRadius: '9999px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: activeTab === 'tutorials' ? 'var(--tw-brand)' : 'transparent',
+                color: activeTab === 'tutorials' ? '#ffffff' : 'var(--tw-text-secondary)',
+                boxShadow: activeTab === 'tutorials' ? '0 4px 12px rgba(30, 63, 216, 0.25)' : 'none'
               }}
-            />
+            >
+              <Sparkles size={15} />
+              <span>Interactive Tutorials (8 Lessons)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSearchParams({ tab: 'challenges' })}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 18px',
+                borderRadius: '9999px',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: activeTab === 'challenges' ? 'var(--tw-brand)' : 'transparent',
+                color: activeTab === 'challenges' ? '#ffffff' : 'var(--tw-text-secondary)',
+                boxShadow: activeTab === 'challenges' ? '0 4px 12px rgba(30, 63, 216, 0.25)' : 'none'
+              }}
+            >
+              <BookOpen size={15} />
+              <span>Practice Lab Challenges</span>
+            </button>
           </div>
-        </div>
 
-        {/* Challenges List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {challenges.map((ch, idx) => {
-            const isDone = !!completed[ch.id];
-            const chosen = selectedAnswers[ch.id];
+          {/* TAB 1: INTERACTIVE TUTORIALS */}
+          {activeTab === 'tutorials' && (
+            <LearningCentre
+              initialLessonId={initialLesson}
+              onLaunchPractice={() => navigate('/app/studio?practice=true')}
+            />
+          )}
 
-            return (
+          {/* TAB 2: PRACTICE LAB CHALLENGES */}
+          {activeTab === 'challenges' && (
+            <>
+              {/* Progress Tracker */}
               <div
-                key={ch.id}
+                className="glass-card"
+                style={{
+                  padding: '16px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: '#ffffff'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Sparkles size={18} color="var(--tw-brand)" />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--tw-text)' }}>
+                    Completed Challenges: {Object.keys(completed).length} of {challenges.length}
+                  </span>
+                </div>
+
+                <div style={{ width: '200px', height: '8px', backgroundColor: 'var(--tw-border)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${(Object.keys(completed).length / challenges.length) * 100}%`,
+                      height: '100%',
+                      backgroundColor: 'var(--tw-brand)',
+                      transition: 'width 0.3s ease'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Challenges List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {challenges.map((ch, idx) => {
+                  const isDone = !!completed[ch.id];
+                  const chosen = selectedAnswers[ch.id];
+
+                  return (
+                    <div
+                      key={ch.id}
                 className="glass-card"
                 style={{
                   padding: '24px 28px',
@@ -235,8 +298,10 @@ export function LearnPage() {
             );
           })}
         </div>
-      </main>
-    </div>
-  </TracewiseBubbleArea>
-  );
+      </>
+    )}
+  </main>
+</div>
+</TracewiseBubbleArea>
+);
 }

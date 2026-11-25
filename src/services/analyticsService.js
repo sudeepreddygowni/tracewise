@@ -10,7 +10,7 @@
  * 3. Non-blocking: Silently absorbs any network or database failures without interrupting users.
  */
 
-import { supabase } from './supabase';
+import { supabase } from './supabase.js';
 
 // Ephemeral browser session identifier
 let cachedSessionId = null;
@@ -81,6 +81,7 @@ export async function trackEvent(eventName, metadata = {}) {
 
 // Convenient helper functions
 export const Analytics = {
+  trackEvent,
   appOpened: () => trackEvent('app_opened'),
   projectCreated: (projectId, title) => trackEvent('project_created', { projectId, title }),
   projectSaved: (projectId, componentCount, wireCount) => trackEvent('project_saved', { projectId, componentCount, wireCount }),
@@ -91,5 +92,16 @@ export const Analytics = {
   simulationFailed: (reason) => trackEvent('simulation_failed', { reason: String(reason).slice(0, 80) }),
   assistantQueried: (task) => trackEvent('assistant_queried', { task }),
   pitchLabOpened: (projectId) => trackEvent('pitch_lab_opened', { projectId }),
-  presentationGenerated: (gradeLevel) => trackEvent('presentation_generated', { gradeLevel })
+  presentationGenerated: (gradeLevel) => trackEvent('presentation_generated', { gradeLevel }),
+  onboardingStarted: (level) => trackEvent('onboarding_started', { level }),
+  onboardingDismissed: () => trackEvent('onboarding_dismissed'),
+  tutorialStarted: (lessonId) => trackEvent('tutorial_started', { lessonId }),
+  tutorialCompleted: (lessonId) => trackEvent('tutorial_completed', { lessonId }),
+  tutorialReplayed: (lessonId) => trackEvent('tutorial_replayed', { lessonId }),
+  practiceStarted: (mode) => trackEvent('practice_started', { mode }),
+  practiceStepCompleted: (stepNumber) => trackEvent('practice_step_completed', { stepNumber }),
+  practiceCompleted: () => trackEvent('practice_completed'),
+  miniOpened: (route) => trackEvent('mini_opened', { route }),
+  miniQueried: (question, answeredLocally) => trackEvent('mini_queried', { question: String(question).slice(0, 60), answeredLocally }),
+  tutorialRecommended: (lessonId) => trackEvent('tutorial_recommended', { lessonId })
 };

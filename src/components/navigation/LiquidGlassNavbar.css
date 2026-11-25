@@ -390,6 +390,11 @@
   .liquid-nav-center {
     display: none !important;
   }
+  /* On compact mobile bar, keep only logo and hamburger toggle matching reference */
+  .liquid-nav-right .liquid-signin-btn,
+  .liquid-nav-right .liquid-icon-btn:not(.mobile-toggle-btn) {
+    display: none !important;
+  }
   .liquid-mobile-toggle {
     display: flex !important;
   }

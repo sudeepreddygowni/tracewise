@@ -613,7 +613,7 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="liquid-icon-btn"
+                className="liquid-icon-btn mobile-toggle-btn"
                 aria-label="Toggle navigation menu"
                 aria-expanded={mobileMenuOpen}
               >
@@ -641,7 +641,7 @@ export function Navbar() {
                   alignItems: 'center',
                   gap: '10px',
                   paddingBottom: '12px',
-                  borderBottom: `1px solid ${isDarkPage ? 'rgba(255,255,255,0.12)' : 'var(--tw-border)'}`
+                  borderBottom: '1px solid rgba(226, 232, 240, 0.95)'
                 }}
               >
                 {user?.avatarUrl ? (
@@ -673,7 +673,7 @@ export function Navbar() {
                     style={{
                       fontWeight: 700,
                       fontSize: '0.92rem',
-                      color: isDarkPage ? '#f8fafc' : 'var(--tw-text)',
+                      color: '#0f172a',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
@@ -681,7 +681,7 @@ export function Navbar() {
                   >
                     {user?.displayName}
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: isDarkPage ? '#94a3b8' : 'var(--tw-text-muted)' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
                     @{user?.handle}
                   </div>
                 </div>
@@ -694,7 +694,7 @@ export function Navbar() {
                     }}
                     style={{
                       fontSize: '0.8rem',
-                      color: '#38bdf8',
+                      color: '#0284c7',
                       fontWeight: 700,
                       background: 'none',
                       border: 'none',
@@ -709,7 +709,7 @@ export function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       fontSize: '0.8rem',
-                      color: '#38bdf8',
+                      color: '#0284c7',
                       fontWeight: 600,
                       textDecoration: 'none'
                     }}
@@ -728,8 +728,7 @@ export function Navbar() {
                 className="liquid-signin-btn"
                 style={{ width: '100%', justifyContent: 'center', padding: '10px', marginBottom: '4px' }}
               >
-                <User size={15} />
-                <span>Sign In or Join</span>
+                <span>Get Started or Sign In</span>
               </button>
             )}
 
@@ -741,11 +740,11 @@ export function Navbar() {
                 style={{
                   fontSize: '0.94rem',
                   fontWeight: 600,
-                  color: isDarkPage ? '#f1f5f9' : 'var(--tw-text)',
+                  color: '#0f172a',
                   padding: '8px 10px',
                   borderRadius: '10px',
                   textDecoration: 'none',
-                  backgroundColor: location.pathname.startsWith('/app') ? (isDarkPage ? 'rgba(255,255,255,0.12)' : 'rgba(30,63,216,0.08)') : 'transparent'
+                  backgroundColor: location.pathname.startsWith('/app') ? 'rgba(30,63,216,0.08)' : 'transparent'
                 }}
               >
                 Studio
@@ -757,11 +756,11 @@ export function Navbar() {
                 style={{
                   fontSize: '0.94rem',
                   fontWeight: 600,
-                  color: isDarkPage ? '#f1f5f9' : 'var(--tw-text)',
+                  color: '#0f172a',
                   padding: '8px 10px',
                   borderRadius: '10px',
                   textDecoration: 'none',
-                  backgroundColor: isActive('/projects') ? (isDarkPage ? 'rgba(255,255,255,0.12)' : 'rgba(30,63,216,0.08)') : 'transparent'
+                  backgroundColor: isActive('/projects') ? 'rgba(30,63,216,0.08)' : 'transparent'
                 }}
               >
                 Projects
@@ -773,11 +772,11 @@ export function Navbar() {
                 style={{
                   fontSize: '0.94rem',
                   fontWeight: 600,
-                  color: isDarkPage ? '#f1f5f9' : 'var(--tw-text)',
+                  color: '#0f172a',
                   padding: '8px 10px',
                   borderRadius: '10px',
                   textDecoration: 'none',
-                  backgroundColor: isActive('/community') ? (isDarkPage ? 'rgba(255,255,255,0.12)' : 'rgba(30,63,216,0.08)') : 'transparent'
+                  backgroundColor: isActive('/community') ? 'rgba(30,63,216,0.08)' : 'transparent'
                 }}
               >
                 Community
@@ -789,14 +788,14 @@ export function Navbar() {
                 style={{
                   fontSize: '0.94rem',
                   fontWeight: 600,
-                  color: isDarkPage ? '#f1f5f9' : 'var(--tw-text)',
+                  color: '#0f172a',
                   padding: '8px 10px',
                   borderRadius: '10px',
                   textDecoration: 'none',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  backgroundColor: isActive('/messages') ? (isDarkPage ? 'rgba(255,255,255,0.12)' : 'rgba(30,63,216,0.08)') : 'transparent'
+                  backgroundColor: isActive('/messages') ? 'rgba(30,63,216,0.08)' : 'transparent'
                 }}
               >
                 <MessageSquare size={16} />
@@ -807,7 +806,7 @@ export function Navbar() {
             {/* Explore Section */}
             <div
               style={{
-                borderTop: `1px solid ${isDarkPage ? 'rgba(255,255,255,0.12)' : 'var(--tw-border)'}`,
+                borderTop: '1px solid rgba(226, 232, 240, 0.95)',
                 paddingTop: '10px',
                 marginTop: '4px'
               }}
@@ -816,7 +815,7 @@ export function Navbar() {
                 style={{
                   fontSize: '0.74rem',
                   fontWeight: 700,
-                  color: isDarkPage ? '#94a3b8' : 'var(--tw-text-muted)',
+                  color: '#64748b',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   marginBottom: '6px',
@@ -834,7 +833,7 @@ export function Navbar() {
                   }}
                   style={{
                     fontSize: '0.88rem',
-                    color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-secondary)',
+                    color: '#334155',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -852,7 +851,7 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     fontSize: '0.88rem',
-                    color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-secondary)',
+                    color: '#334155',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -870,7 +869,7 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     fontSize: '0.88rem',
-                    color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-secondary)',
+                    color: '#334155',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -888,7 +887,7 @@ export function Navbar() {
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     fontSize: '0.88rem',
-                    color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-secondary)',
+                    color: '#334155',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
@@ -906,7 +905,7 @@ export function Navbar() {
             {/* Account Settings & Sign Out */}
             <div
               style={{
-                borderTop: `1px solid ${isDarkPage ? 'rgba(255,255,255,0.12)' : 'var(--tw-border)'}`,
+                borderTop: '1px solid rgba(226, 232, 240, 0.95)',
                 paddingTop: '10px',
                 marginTop: '4px'
               }}
@@ -919,7 +918,7 @@ export function Navbar() {
                     style={{
                       fontSize: '0.88rem',
                       fontWeight: 600,
-                      color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-muted)',
+                      color: '#475569',
                       padding: '6px 8px',
                       textDecoration: 'none',
                       display: 'flex',
@@ -937,7 +936,7 @@ export function Navbar() {
                     style={{
                       fontSize: '0.88rem',
                       fontWeight: 600,
-                      color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-muted)',
+                      color: '#475569',
                       padding: '6px 8px',
                       textDecoration: 'none',
                       display: 'flex',
@@ -957,7 +956,7 @@ export function Navbar() {
                 style={{
                   fontSize: '0.88rem',
                   fontWeight: 600,
-                  color: isDarkPage ? '#cbd5e1' : 'var(--tw-text-muted)',
+                  color: '#475569',
                   padding: '6px 8px',
                   textDecoration: 'none',
                   display: 'flex',

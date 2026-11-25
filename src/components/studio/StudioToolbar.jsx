@@ -93,7 +93,7 @@ export function StudioToolbar({
         }}
       >
         {/* Left Section: Back & Project Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '0 1 auto' }}>
           <TracewiseBubbleButton
             onClick={() => handleNav('/app')}
             variant="ghost"
@@ -212,16 +212,16 @@ export function StudioToolbar({
         </div>
 
         {/* Center Section: Undo / Redo & Save status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, margin: '0 4px' }}>
           <TracewiseBubbleIconButton
             onClick={onUndo}
             disabled={!canUndo}
             title="Undo (Ctrl+Z)"
             variant="ghost"
             size="sm"
-            style={{ opacity: canUndo ? 1 : 0.4, width: 38, height: 38, minWidth: 38, minHeight: 38 }}
+            style={{ opacity: canUndo ? 1 : 0.4, width: 34, height: 34, minWidth: 34, minHeight: 34 }}
           >
-            <Undo2 size={16} />
+            <Undo2 size={15} />
           </TracewiseBubbleIconButton>
 
           <TracewiseBubbleIconButton
@@ -230,9 +230,9 @@ export function StudioToolbar({
             title="Redo (Ctrl+Y)"
             variant="ghost"
             size="sm"
-            style={{ opacity: canRedo ? 1 : 0.4, width: 38, height: 38, minWidth: 38, minHeight: 38 }}
+            style={{ opacity: canRedo ? 1 : 0.4, width: 34, height: 34, minWidth: 34, minHeight: 34 }}
           >
-            <Redo2 size={16} />
+            <Redo2 size={15} />
           </TracewiseBubbleIconButton>
 
           {/* Saved Status Indicator */}
